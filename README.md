@@ -1,2 +1,2 @@
 # pub_tools
-<< Reep of bad programs for my pub access >>
+<< bad programs for pub access >>
