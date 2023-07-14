@@ -1,2 +1,2 @@
-# pub_tools
-<< bad programs for pub access >>
+# pub-tools
+<< bad code for pub access >>
