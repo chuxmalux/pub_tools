@@ -1,0 +1,561 @@
+# Matching Methodology - while parsing iptables lines 
+- does rule's src MAC address match our packet?
+	- does MAC destination match?
+	- does it allow the dst/src ports?
+	- does it allow the protocol?
+!!!	- does it MATCH the optional condition 
+		e.g. DROP ALL traffic/interface --- on x. condition (prevent brute forces)
+			e.g. 
+
+# example iptables logging rule 
+iptables -A LOGGING -m limit --limit 2/min -j LOG --log-prefix "IPTables-Dropped: " --log-level 4
+	kern.log by default, can be changed in syslog conf , /var/log/syslog in ubuntu
+	example: look for :msg,contains,"msg" -/var/log/iptables.log 
+		# recommend: grep -R "some kind of logging prefix" /var/log
+	
+# find recent modded logs 
+find /var/log -mmin 1
+
+# only show chains with rules 
+iptables -vnL | grep -B2 "all\|icmp\|tcp\|udp\|esp\|ah\|sctp\|mh" | less
+
+``` IPTABLES/ IP6TABLES REF ``` { 
+
+{ # iptables 
+	
+	# List tables/chains/rules 
+	iptables -nvL | less 
+	iptables -L -t NAT -n -v  
+	# don't forget ipv6
+	ip6tables -L -n -v
+
+	# PERSISTENT rule config file
+	/etc/sysconfig/iptables
+
+	# OPTIONS / syntax {
+	iptables [options] [action] [matching rules] [target]
+	iptables -t [TABLE] -A [CHAIN] [RULES] -j [TARGET]
+		
+		# general 
+		-L // view rules and chains 
+			-v // verbose, statistics with each rule 
+			-n // numeric (no dns res)
+			--line-numbers // rule numbers 
+		-t [table] // FILTER, NAT, MANGLE, etc. 
+		
+		# Common  
+		-A --append – Add a rule to a chain (at the end).
+		-R --replace a rule in the selected chain
+		-I --insert – Add a rule to a chain at a given position.
+		-D --delete – Remove specified rules from a chain.
+		-F --flush – Remove all rules.
+
+		# stateful matching 
+		-m [state] --state [STATE1,STATE2] -j [ACTION]
+			iptabes -A INPUT -p tcp -m state --state ESTABLISHED,RELATED -j ACCEPT
+			
+		# advanced
+		-C --check – Look for a rule that matches the chain’s requirements.
+		-N -new-chain – Create a new chain.
+		-X --delete-chain – Delete the provided chain.
+	}
+	
+	# chains ref. {
+		# filter 
+		INPUT = if received packet dst is iptables host, processes
+		FORWARD = if received packet dst is not host, sent to routing table 
+		OUTPUT = for packets generated from iptables host 
+		# nat 
+		PREROUTING = change the dst IP of traffic coming in (e.g. pub ip -> local ip when communicating FROM internet)
+			-dnat  
+		OUTPUT
+			-snat (for packets from iptables host) 
+		POSTROUTING  = change the src IP of traffic going on (e.g. local ip-> pub ip when communicating TO internet)
+			-snat (for packets transiting iptable host) 
+		}
+		
+	# FILTER targets ref {  
+	-j ACCEPT // packet passes firewall and STOPS going through chain (unless already in other chains)
+		DROP // blocked. (nmap reports closed)
+		REJECT // ^ but also sends back error to host (blocked) aka filtered
+		LOG // bug hunting/error finding. does not affect packet chain, still continues through
+		CHAIN // continue process packet in current user defined chain 
+		RETURN // stop traversing chain, resume @ next rule in previous calling chain 
+	}
+	
+	# NAT targets ref { 
+	-j SNAT // rewrite src IP address in IP header (usually in OUTPUT + POSTROUTING chains) 
+		DNAT // rewrite dst IP in IP header (usually in PREROUTING chain)
+		MASQUERADE // Port address translation - rewrite source IP/Port for outbound packets (usually OUTPUT/POSTROUTE)
+			- source becomes firewall IP 
+			- source port used to track originating host
+	}
+	
+	# Flushing Firewall rules {
+	iptables -t filter -F # flush all filter rules 
+	iptables -t nat -F 
+	iptables -X # remove all user defined chains from filter table 
+	iptables -P INPUT ACCEPT # set default policy for INPUT chain of filter table 
+	iptables -P OUTPUT ACCEPT
+	iptables -P FORWARD ACCEPT
+	}
+	
+	# REVIEW {
+	iptables -t [TABLE] -A [CHAIN] [RULES] -j [TARGET] # using a ! negates the element
+	iptables -t filter -A FORWARD -s 192.168.0.0/24 -d 192.168.1.0/24 -i eth0 -o eth1 -j ACCEPT
+		#^ filter table, 
+		
+	# allow loopback
+	iptables -A INPUT -i lo -j ACCEPT 
+	iptables -A OUTPUT -o lo -j ACCEPT 
+	
+	# RULE - restrict access to firewall's SSH port to hosts on subnet 10.18.80.64/26 // assume default is to drop
+	iptables -t filter -A INPUT -s 10.18.80.64/26 -p tcp --dport 22 -j ACCEPT
+	iptables -t filter -A OUTPUT -d 10.18.80.64/26 -p tcp --sport 22 -j ACCEPT # must be paired IOT return SSH connection
+	
+	# STATEFUL RULE - only accept new or existing conns
+	iptables -t filter -A INPUT -s 10.18.80.64/26 -p tcp --dport 22 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -t filter -A OUTPUT -d 10.18.80.64/26 -p tcp --sport 22 -m state --state ESTABLISHED,RELATED -j ACCEPT
+		# firewall should not be establishing new conns out
+	}
+	
+}
+
+{ # Writing Rules Extended Reference 
+1. rules allow you to maintain or re-establish your SSH connection to the firewall from only your linux.ops.local machine
+	sudo iptables -t filter -A INPUT -s 192.168.11.13 -p tcp --dport 22 -j ACCEPT &&
+	sudo iptables -t filter -A OUTPUT -d 192.168.11.13 -p tcp --sport 22 -j ACCEPT 
+iptables -I INPUT 1 -s 192.168.11.13 -p tcp --dport 22 -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+iptables -I OUTPUT 1 -d 192.168.11.13 -p tcp --sport 22 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+
+	# filter used by default 
+	
+2. rules for firewall to communicate with its loopback 
+sudo iptables -A INPUT -i lo -j ACCEPT &&
+sudo iptables -A OUTPUT -o lo -j ACCEPT 
+
+3. allow incoming Established or Related connections on all interfaces
+sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 
+	// DONT NEED OUTPUT = for outgoing
+
+4. allow the 2 ops nets to communicate to each other freely 
+sudo iptables -A FORWARD -s 192.168.11.0/24 -d 192.168.111.112/29 -j ACCEPT &&
+sudo iptables -A FORWARD -d 192.168.11.0/24 -s 192.168.111.112/29 -j ACCEPT
+	# or 
+	sudo iptables -A FORWARD -i eth0 -o eth1 -j ACCEPT
+	sudo iptables -A FORWARD -i eth1 -o eth0 -j ACCEPT
+
+5. assure firewall can reach external DNS server
+	// previous state rule covers this // sudo iptables -t filter -A INPUT -d 192.168.11.254 -p udp --dport 53 -j ACCEPT &&
+				sudo iptables -A INPUT -s 192.0.2.2 -p udp --dport 53 -j ACCEPT &&
+				sudo iptables -A OUTPUT -d 192.0.2.2 -p tcp --dport 53 -j ACCEPT 
+				sudo iptables -D OUTPUT -d 192.0.2.2 -p tcp --dport 53 -j ACCEPT
+sudo iptables -A OUTPUT -d 192.0.2.2 -p udp --dport 53 -j ACCEPT 
+	confirm with: @192.0.2.2 ras.fatdeer.lab
+
+6. allow hosts inside the OPS network to access port 53 on the firewall (since serves as name server for OPS network)
+	# allow all DNS within network; do NOT allow DNS to/from internet 
+sudo iptables -A INPUT \! -i eth2 -p udp --dport 53 -j ACCEPT &&
+sudo iptables -A OUTPUT \! -o eth2 -p udp --sport 53 -j ACCEPT
+	# or this 
+	sudo iptables -t filter -A INPUT -p udp --dport 53 -s 192.168.11.0/24 -j ACCEPT &&
+	sudo iptables -t filter -A OUTPUT -p udp --sport 53 -d 192.168.11.0/24 -j ACCEPT
+
+
+7. block all other traffic 
+sudo iptables -P INPUT DROP &&
+sudo iptables -P FORWARD DROP &&
+sudo iptables -P OUTPUT DROP 
+	# or
+	sudo iptables -D INPUT -j DROP &&
+	sudo iptables -D FORWARD -j DROP &&
+	sudo iptables -D OUTPUT -j DROP
+
+8. write NAT rules to perform 1-to-1 network address translation for ftp.ops.local (192.168.111.116) to the address 198.51.100.116
+
+# in vs out public-private IP address NAT
+sudo iptables -t nat -A PREROUTING -d 198.51.100.116 -i eth2 -j DNAT --to-destination 192.168.111.116 &&
+	# anything incoming to public IP on eth2, convert to private IP 
+sudo iptables -t nat -A POSTROUTING -s 192.168.111.116 -o eth2 -j SNAT --to-source 198.51.100.116
+	# anything leaving from private IP, convert to public IP
+
+# serious troubles conceptualizing this ^^^ . 198.51 IS MY EXTERNAL IP. Dont think of it as a remote IP. just in/out rules make way more sense e.g. PREROUTE: ping 192.51? so ping .116  // POSTROUTE curl internet website? change src from .116 to public .51 so it gets NATd on the way back
+	
+8.5 allow icmp ping to and from ftp.ops.local 
+sudo iptables -A FORWARD -d 192.168.111.116 -p icmp -j ACCEPT &&
+sudo iptables -A FORWARD -s 192.168.111.116 -p icmp -j ACCEPT
+
+
+9. allow machines on the outside to connect into it via (natd) FTP
+sudo iptables -A FORWARD -i eth2 -p tcp --dport 21 -d 192.168.111.116 -j ACCEPT 
+	# forwarding ftp traffic coming from eth2 (internet) to 192.168.111.116
+	
+10. create most narrow rules to allow external SSH backdoor into linux.ops.local
+sudo iptables -t nat -A POSTROUTING -s 192.168.11.13 -o eth2 -j MASQUERADE
+	# nat so becomes IP of eth2 (public IP)
+	
+sudo iptables -A FORWARD -s 192.168.11.13 -d ras.fatdeer.lab -p tcp --dport 22 -j ACCEPT &&
+sudo iptables -A FORWARD -d 192.168.11.13 -s ras.fatdeer.lab -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+11. allow so remote users can get into FTP (only allowed established/related to come IN, not go out) 
+sudo iptables -A FORWARD -s 192.168.111.116 -p tcp --sport 21 -m state --state ESTABLISHED,RELATED -j ACCEPT  
+
+12. Clean firewall rules 
+sudo iptables -t filter -F &&
+sudo iptables -t nat -F &&
+sudo iptables -X &&
+sudo iptables -P INPUT ACCEPT &&
+sudo iptables -P OUTPUT ACCEPT &&
+sudo iptables -P FORWARD ACCEPT
+ 
+}
+
+{ # Modify via LINE number 
+
+# IOT MODIFY RULES - with line #
+iptables -L --line-numbers 
+
+# modify 
+iptables -R <chain> <rulenum> <new rule def>
+
+# insert  
+sudo iptables -I INPUT <Number> <rule def> 
+
+# delete 
+sudo iptables -D INPUT <Number>
+
+}
+
+{ # redirection 
+
+# local redirection/port forward (so can mess with on local machine) {
+echo "1" > /proc/sys/net/ipv4/ip_forward
+#iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 615 -j REDIRECT --to 6666
+iptables -t nat -A PREROUTING -s 172.18.47.17 -p tcp --dport 615 -j DNAT --to-destination 198.18.30.5:12345
+
+--- dont need OUTPUT, since not expecting to return traffic
+
+#iptables -t nat -D PREROUTING -s 0.0.0.0 -p tcp --dport 615 -j REDIRECT --to 6155 
+iptables -t nat -D PREROUTING -s 172.18.47.17 -p tcp --dport 615 -j DNAT --to-destination 198.18.30.5:12345
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+# traffic redirection {
+
+# syntax 
+iptables -t nat -A PREROUTING -p tcp --dport <receiving port> -j DNAT --to-destination <tgt-IP>:<tgt-port>
+iptables -t nat -A POSTROUTING -p tcp -d <tgt-IP> --dport <tgt-port> -j SNAT --to-source <local-IP> 
+	# prerouting redirects the packet upon reception // postrouting changes exiting traffics IP (so proceeding traffic can return to this host)
+
+
+# example {
+#setup
+echo "1" > /proc/sys/net/ipv4/ip_forward
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+
+#teardown
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+}
+
+}
+
+{ # EXAM
+ 
+	------------------------------------------------------------------
+	if moving across nextworks (routing) MUST use forward!!!
+	AN EXISTING drop all traffic from linux.ops.local to 11.0/24 policy exists. these must be placed above it (with # or something) 
+	------------------------------------------------------------------
+
+# 1. The only host in the 192.168.11.0/24 network that is allowed to connect to ad.ops.local via the telnet service is win7.ops.local. Reply to attempts by other hosts in the 192.168.11.0/24 network to contact this machine via telnet with a TCP reset.
+sudo iptables -I FORWARD 1 -s win7.ops.local -d ad.ops.local -p tcp --dport 23 -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -I FORWARD 2 -s ad.ops.local -d win7.ops.local -p tcp --sport 23 -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -I FORWARD 3 -s 192.168.11.0/24 -d ad.ops.local -p tcp --dport 23 -j REJECT --reject-with tcp-reset
+
+# 2. The only TCP or UDP connections permitted from linux.ops.local to ad.ops.local are UDP-based DNS lookups. Drop all other packets from linux.ops.local to ad.ops.local silently.
+sudo iptables -I FORWARD 4 -s linux.ops.local -d ad.ops.local -p udp --dport 53 -j ACCEPT
+sudo iptables -I FORWARD 5 -s ad.ops.local -d linux.ops.local -p udp --sport 53 -j ACCEPT
+sudo iptables -I FORWARD 6 -s linux.ops.local -d ad.ops.local -j DROP
+
+
+# 3. The only permitted packets to or from the www.ops.local server must be part of a TCP session initiated by a client to the HTTP web service on www.ops.local. All non-conforming packets inbound to the web server should be rejected with an ICMP Host Unreachable packet. All non-conforming packets outbound from the web server should be logged and silently dropped.
+sudo iptables -I FORWARD 7 -d www.ops.local -p tcp --dport 80 -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -I FORWARD 8 -s www.ops.local -p tcp --sport 80 -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -I FORWARD 9 -d www.ops.local -j REJECT --reject-with icmp-host-unreachable
+sudo iptables -I FORWARD 10 -s www.ops.local -j LOG
+sudo iptables -I FORWARD 11 -s www.ops.local -j DROP
+
+# SAVE 
+iptables-save
+
+}
+
+}
+
+``` FIREWALLD (iptables+) REF ``` {
+
+{ # firewalld / firewall-cmd (supports tab completion)
+
+# zone order. If packet matches zone:
+source address -> incoming interface -> default zone 
+
+# display all rules. note PUBLIC zone = default 
+firewall-cmd --list-all-zones 
+
+# remember to display underlying iptables rules!
+iptables -L -n -v 
+ip6tables -L -n -v 
+
+# config files - CHECK EVERYTHING!
+ls -l /usr/lib/firewalld/  # default config 
+ls -l /etc/firewalld/ # user/custom configs rules 
+	- if no .xml files, may be no user defined 
+
+vim /etc/firewalld/firewalld.conf 
+
+ls -l /etc/firewalld/services/ 
+cat /etc/firewalld/services/*.xml # allowed services 
+
+# custom user defined zones 
+ls -l /etc/firewalld/services/ 
+ls -l /etc/firewalld/zones/
+
+# to set a permanent config 
+firewall-cmd [rule] --permanent 
+
+# reload permanent config into running config (0 downtime/interruptions) --- but REPLACE running config with perm. config
+firewall-cmd --reload 
+
+/// EXAMPELS \\\ 
+# set default zone (to dmz)
+firewall-cmd --set-default-zone=dmz 
+# route traffic from /24 network to the internal zone 
+firewall-cmd --permanent --zone=internal --add-source=192.168.1.0/24 
+# allow mySQL traffic to internal zone 
+firewall-cmd --permanent --zone=internal --add-service=mysql 
+
+{ # Common options - reference 
+	1 --get-default-zone
+	2 --set-default-zone=<ZONE>
+	3 --get-zones
+	4 --get-active-zones
+	5 --add-source=<CIDR> [--zone=<ZONE>]
+	6 --remove-source=<CIDR> [--zone=<ZONE>]
+	7 --add-interface=<INTERFACE> [--zone=<ZONE>]
+	8 --change-interface=<INTERFACE> [--zone=<ZONE>]
+	9 --list-all [--zone=<ZONE>]
+	10 --list-all-zones
+	11 --add-service=<SERVICE> [--zone=<ZONE>]
+	12 --add-port=<PORT/PROTOCOL> [--zone=<ZONE>]
+	13 --remove-service=<SERVICE>
+	14 --remove-port=<PORT/PROTOCOL> [--zone=<ZONE>]
+	15 --reload
+
+	1 Query the current default zone.
+	2 Set the default zone (In both runtime and permanent config)
+	3 List all zones.
+	4 List all zones currently in use. (Have an interface or source tied to them)
+	5 Route all incoming traffic from the IP or network to the specified zone. Use default zone if not specified.
+	6 Remove the source rule from a zone.
+	7 Route all traffic from <INTERFACE> to the specified zone.
+	8 Apply the interface to a different zone.
+	9 List all configured interfaces, sources, services, and ports for <ZONE>.
+	10 Retrieve all information for all zones.
+	11 Allow incoming traffic to the port associated with <SERVICE>.
+	12 Allow incoming traffic to the <PORT/PROTOCOL>.
+	13 Remove <SERVICE> from the allowed list in a zone.
+	14 Remove allowed port from a zone
+	15 Reload the permanent config into the runtime config. This will keep state information and will not interrupt established connections.Explanationfirewall-cmd Options--add-masqueradeEnables masquerade or NAT for a zone
+}
+
+
+{ # Rich rule usage 
+	firewall-cmd --add-rich-rule=’rule protocol value=”ah” accept’ # Enable IPv4 connections for the ah protocol
+	firewall-cmd --add-rich-rule=’rule service name=”ftp” log audit accept’ #Allow IPv4 ftp connection and log them using audit
+	firewall-cmd –add-rich-rule=’rule family=”ipv4” source address=”192.168.0.0/24” service name=”tftp” log prefix=”tftp” level=”info” limit value=”1/m” accept’ #Allow connection from 192.168.0.0/24 for the tftp service and log 1 per minute using syslog
+
+}
+
+{ # Direct Rule usage 
+ 
+# syntax 
+[--permanent] --direct --add-rule ipv4 <table> <chain> <priority> <args> …
+
+# List direct rules 
+firewall-cmd --direct --get-all-rules
+
+# blocking outgoing traffic (with direct cmd) example / persistent 
+firewall-cmd --permanent --direct --add-rule ipv4 filter OUTPUT 1 -p tcp -m tcp --dport=80 -j ACCEPT
+firewall-cmd --permanent --direct --add-rule ipv4 filter OUTPUT 1 -j DROP
+
+#  block outgoing tcp traffic from being sent to the host with IP address 192.168.7.125
+firewall-cmd --direct --add-rule ipv4 filter OUTPUT 1 -p tcp -d 192.168.7.125 -j DROP
+firewall-cmd --direct --remove-rule ipv4 filter OUTPUT 1 -p tcp -d 192.168.7.125 -j DROP
+
+}
+
+
+}
+
+}
+
+``` USER PERMS - SETUP ``` { 
+steps to replicate 
+1. modify groups # ensure groups exist 
+	vim /etc/group 
+2. modify users # ensure users are part of the groups  
+	vim /etc/passwd 
+	vim /etc/group 
+3. modify dir/file permissions # -R for recursive
+	chown [user]:[group] [file/dir]
+	chgrp [group] [/path] 
+
+
+# add a user with login name john, home directory /home/john, default shell /bin/csh, and primary group staff.
+	useradd john -d /home/john -s /bin/csh -g staff 
+	
+{ 1. # manually edit users/groups (no useradd)
+	#1. create staff group, GUID 501 + stooges 502 
+	vim /etc/group  
+	echo "staff:x:501:" >> /etc/group
+	echo "stooges:x:502:" >> /etc/group
+
+	#2. add account info for fred 
+	vim /etc/passwd # Modify the appropriate file to add user fred to your system with the smallest available UID for fred. Set the GECOS field to Fred Flintstone, fred's home directory to /home/freddo, and fred's default shell to /bin/bash. What does the line you entered look like?
+		// check /etc/login.defs for minimum UID for new user accounts) 
+	echo "fred:x:501:501:Fred Flinstone:/home/freddo:/bin/bash" >> /etc/passwd
+
+	#3. add fred to stooges group
+	vim /etc/groups 
+	stooges:x:502:fred
+
+	#4. modify /etc/shadow - so fred has no passwd (use default again info)
+	fred:*:16301:0:99999:7:::
+
+	#5. set fred passwd 
+	passwd fred
+
+	#6. copy skeleton home to /home/freddo // (contains bash logout,profile,rc - used by useradd) 
+	cp -r /etc/skel /home/freddo
+
+	#6.7 log into fred 
+	su fred 
+
+	#7. change ownership of /home/freddo to user fred and group staff 
+	chown -R fred:staff /home/freddo
+		chgrp -R staff /home/freddo
+
+	#8. set stooges group to - NO password  - default again info 
+	vim /etc/gshadow
+		stooges:x::
+		
+	#9. set stooges group password 
+	gpasswd stooges 
+
+	#10. make fred an administrator of stooges group 
+	gpasswd -A fred stooges 
+		#bonus. root user/group admin add user to the group 
+			gpasswd -a <user> <groupname> 
+
+}
+
+{ 2. # modify access permission (chmod), default access perms (umask)
+-- remember: owner > group > other permissions 
+	e.g. owner with read supercedes being in a group that cant 
+		 owner without read perms CANT read a file, even if its group/world readable 
+
+# chmod symbolic-mode 
+chmod symbolic-mode-list filename 
+	chmod u=rw,g=r,o=r [file]
+	e.g. 
+		chmod u+rw,g=x,go-wx /tmp/script # add rw to user, group set to execute, remove write/exeute from group and global 
+		chmod u+rw,g=,o=u /tmp/text # add rw perm to user, set no perm for group, other (global) set to user perms 
+			u=user,g=group,o=other 
+			can use full or comma separated strings for each class/perm assignment: e.g. ugo=rwx 
+			a = all groups 
+			can set permissions to same as another class e.g. o=u # other (global) perms set same as user
+		+ // add perms 
+		- // remove perms 
+		= // set perms 
+
+
+# chmod absolute-mode 
+chmod absolute-mode filename 
+	4 (read) 2 (write) 1 (execute) 0 (no-access) 
+	chmod 660 file.sh / -rw-rw---- 
+	chmod 764 file.sh / -rwxrw-r-- 
+		# disadvantages vs symbolic: MUST set all class perms every command use 
+
+# umask - set permission removed from the default permissions on new files/dirs 
+	- default UNIX dir = 777, file = 666
+	umask 022 # remove w perm from group and other 
+		dir = 777
+			 -022 = 755 -rwxr-xr-x 
+	umask u=rwx,go=rx # remove rwx from user created, rx from group/other 
+
+}
+
+{ 2.5 # Special permissions (chmod)
+	------ Symbolic Mode ------
+	# SUID/GUID
+	chmod u+s filename 
+	chmod g+s filename 
+	chmod ug+s filename # enable SUID + GUID 
+
+	#stickybit - deletion restriction flag
+	chmod o+t filename 
+	chmod +t filename 
+
+	------ Absolute Mode ------
+	chmod [#]6640 file 
+		4 - SUID 
+		2 - GUID 
+		1 - Stickybit 
+
+
+}
+
+{ 3. # modify ownership (chown)
+# chown 
+chown [newOwnerName] [FileName]
+chown -R [newOwnerName:newOwnerGroup] [Filename] # recursive 
+
+# chgrp 
+chgrp newOwnerGroup Filename 
+	chgrp -R newOwnerGroup Filename # recursive 
+
+}
+
+{ # REQUIRED PERMS REF. (dir/file access)
+``` validate w/ my reference ``` 
+read 
+	To be able to read a file, a user account will need access to the directory with the execute permission. The user account will also need to have read permission on the file.
+
+modify
+	To be able to modify a file, a user account will need access to the directory with the execute permission. The user account will also need to have write permission on the file.
+
+create
+	To create files, the user account will need write and execute permissions on the directory. Execute will allow the account to perform actions within the directory and write will allow the user to create a new pointer in the data of the directory for the new file. Additionally, if the SGID bit is set the newly created file or directory will inherit the group of the parent directory.
+		(parent as in its new directory)
+	
+list files in dir 
+	To list only the file names in the directory a user account will need read permissions on the directory. However, they will not be able to see any metadata about the files. To list the files and metadata in a directory, a user account will need read and execute permissions on the directory. Execute will allow the account to perform actions within the directory and read allow the user the read the pointers that make up the data of the directory.
+
+delete files
+	To delete files, the user account will need write and execute permissions on the directory. Execute will allow the account to perform actions within the directory and write will allow the user to delete the pointer in the data of the directory for the file regardless of the permissions of the file. If the sticky bit (T) is set, only the user that owns the file will be able to delete file. The user account will still need to have the required permissions to remove the file or directory.
+
+execute script 
+	To execute a script, a user account will need execute on the directory and file as well as read on the file. Execute on the directory will allow the account to perform actions within the directory. Execute on the file will allow the account to execute the file. Since scripts are treated as a text file in Unix, the user account will also need to be able to read the file.
+
+execute binary 
+	Which user accounts can execute the binary teal? In your own words explain why.
+}
+
+
+}
+

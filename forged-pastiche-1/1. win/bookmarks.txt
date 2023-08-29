@@ -1,0 +1,244 @@
+# tcpdump
+<https://github.com/SergK/cheatsheat-tcpdump/blob/master/tcpdump_advanced_filters.txt>
+
+{ ``` NET ARCH & DESIGN```
+
+{ ETHERNET
+
+# frames
+
+<https://docs.google.com/spreadsheets/d/1lfHa6iYlX_MK3uNLng2eKvHZpYTpY9Rl-PcdN182J3E/edit#gid=0>
+
+\- [http://alumni.cs.ucr.edu/\\\~marios/ethereal-tcpdump.pdf](http://alumni.cs.ucr.edu/%5C\~marios/ethereal-tcpdump.pdf)
+
+# BPF
+
+<https://www.ibm.com/docs/en/qsip/7.4?topic=queries-berkeley-packet-filters>
+
+<https://www.gigamon.com/content/dam/resource-library/english/guide---cookbook/gu-bpf-reference-guide-gigamon-insight.pdf>
+
+# EtherTypes
+
+<https://www.networxsecurity.org/members-area/glossary/e/ethertype.html>
+
+# oui
+
+<https://standards-oui.ieee.org/oui/oui.txt>
+
+# hex packet decoder
+
+<https://hpd.gasmi.net/>
+}
+
+{ IP
+
+# networking
+
+<https://subinsb.com/default-device-ttl-values/>
+
+# IP calc (subnetting)
+
+<https://jodies.de/ipcalc>
+
+# IP to binary & bin to IP
+
+[IP to Binary Converter - Convert IP to Bin - Online - Browserling Web Developer Tools](https://www.browserling.com/tools/ip-to-bin#:\~:text=World%27s%20simplest%20online%20IP%20to%20binary%20converter%20for,a%20button%20%E2%80%93%20get%20a%2032-bit%20binary%20IP.)
+
+# packet decoding
+
+[Hex Packet Decoder (gasmi.net)](https://hpd.gasmi.net/)
+
+# hex -> decimal
+
+<https://www.rapidtables.com/convert/number/hex-to-decimal.html?x=A8>
+
+# nix perms
+
+<https://docs.google.com/spreadsheets/d/1LkOYoWtuZebDy3tq9uJEmniKpGIv6PzKukde-Witm-E/edit#gid=0>
+}
+
+{ NET HELPER PROTOS
+
+# ICMP parameters
+
+<https://www.iana.org/assignments/icmp-parameters/icmp-parameters.xhtml>
+
+# Scapy cheats
+
+<https://wiki.sans.blue/Tools/pdfs/ScapyCheatSheet_v0.2.pdf>
+
+# DHCP options
+
+[DHCP Options in Plain English | Incognito Software Systems](https://www.incognito.com/tutorials/dhcp-options-in-plain-english/)
+
+}
+
+{ ROUTERS & PACKET TRAVERSAL
+
+# ip route add ref
+
+<https://linuxhint.com/route-add-command-linux/>
+
+# 7 linux route examples
+
+<https://www.thegeekstuff.com/2012/04/route-examples/>
+
+# linux route flags
+
+<https://web.archive.org/web/20160823180022/http://www.thegeekstuff.com/2012/05/route-flags/> (-U up, -G gateway, -H host)
+
+# redhat ip cheat sheet
+
+<https://access.redhat.com/sites/default/files/attachments/rh>*ip*command*cheatsheet*1214*jcs*print.pdf
+
+# routing rudiments
+
+[https://cs.newpaltz.edu/\\\~easwaran/CN/Module6/Routing.pdf](https://cs.newpaltz.edu/%5C\~easwaran/CN/Module6/Routing.pdf)
+
+# linux routing basics
+
+[Understand the basics of Linux routing - TechRepublic (archive.org)](http://web.archive.org/web/20160824100155/http://www.techrepublic.com/article/understand-the-basics-of-linux-routing/)
+
+# windows routing
+
+[How to Add a Static TCP/IP Route to the Windows Routing Table (archive.org)](https://web.archive.org/web/20181117121513/https://www.howtogeek.com/howto/windows/adding-a-tcpip-route-to-the-windows-routing-table/)
+
+# (solaris) snoop manual
+
+<https://docs.oracle.com/cd/E23823_01/html/816-5166/snoop-1m.html>
+
+# solaris cheatsheet
+
+<https://www.oracle.com/technetwork/server-storage/solaris11/documentation/solaris-11-cheat-sheet-1556378.pdf>
+}
+
+}
+
+{ ``` WINDOWS NET & ARCH ``` 
+
+# PSEXEC
+https://web.archive.org/web/20160825091503/https://technet.microsoft.com/en-us/sysinternals/bb897553.aspx
+
+{ REG / REGEDIT 
+# Regedit switches
+https://www.eolsoft.com/freeware/registry_jumper/regedit_switches.htm
+
+# regedit / reg.exe options
+https://www.techtarget.com/searchwindowsserver/tip/Command-line-options-for-Regeditexe
+file:///N:/A.%20Windows/1.%20Windows%20Architecture%20and%20Design/regedit%20+%20reg.exe%20options.htm
+
+https://web.archive.org/web/20160806024135/https://technet.microsoft.com/en-us/library/cc742162.aspx
+
+}
+
+{ WMIC
+# USEFUL QUERIES 
+https://techcommunity.microsoft.com/t5/ask-the-performance-team/useful-wmic-queries/ba-p/375023
+
+# QUERIES 2 (vuln/pen testing)
+https://andreafortuna.org/2017/08/09/windows-command-line-cheatsheet-part-2-wmic/
+
+# WMIC aliases
+https://ss64.com/nt/wmic.html#:~:text=QUIT%2FEXIT%20Exit%20WMIC%20Aliases,CPU%20%2D%20CPU%20CSPRODUCT%20%2D%20Computer%20system
+
+# WMIC  references
+https://web.archive.org/web/20160824101737/https://msdn.microsoft.com/en-us/library/bb742610.aspx
+https://web.archive.org/web/20160922150210/https://msdn.microsoft.com/en-us/library/aa394531(v=vs.85).aspx
+
+}
+
+# Env. variables - basics
+https://web.archive.org/web/20160824101903/https://msdn.microsoft.com/en-us/library/windows/desktop/ms682653%28v=vs.85%29.aspx
+
+
+# Net Share guide
+https://adamtheautomator.com/net-use/
+
+{ BOOT
+
+#Windows BOOT & LOGON
+https://web.archive.org/web/20160926163436/http://social.technet.microsoft.com/wiki/contents/articles/11341.the-windows-7-boot-process-sbsl.aspx
+
+# NTLDR - kernel load/init
+https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-2000-server/cc976729(v=technet.10)
+
+# Attrib - Displays, sets, or removes the read-only, archive, system, and hidden attributes assigned to files or directories
+https://web.archive.org/web/20160824104107/https://technet.microsoft.com/en-us/library/bb490868.aspx
+
+# bootcfg 
+https://web.archive.org/web/20160414163821/https://support.microsoft.com/en-us/kb/291980/
+https://web.archive.org/web/20160314142318/https://support.microsoft.com/en-us/kb/317521
+
+# bcdedit
+https://web.archive.org/web/20160824111232/https://technet.microsoft.com/en-us/library/cc709667%28v=ws.10%29.aspx
+
+}
+
+{ WINDOWS SERVICES
+
+# net use (drive setup)
+https://adamtheautomator.com/net-use/
+
+# net user
+https://www.lifewire.com/net-user-command-2618097
+
+}
+
+} 
+
+{ ``` WINDOWS ENUM & HARD ```
+
+# Users and SIDs
+file:///N:/resources_personal/FOR101_E030_M010_Well_Known_SIDs.pdf
+
+{ # Active Directory (AD)
+
+# dsquery
+https://web.archive.org/web/20160623225259/https://technet.microsoft.com/en-us/library/cc732952.aspx
+# dsget
+https://web.archive.org/web/20160623023016/https://technet.microsoft.com/en-us/library/cc755162.aspx
+# dsmod
+https://web.archive.org/web/20160623015945/https://technet.microsoft.com/en-us/library/cc732406.aspx
+# dsadd
+https://web.archive.org/web/20160824111604/https://technet.microsoft.com/en-us/library/cc753708.aspx
+}
+
+# CACLs
+https://ss64.com/nt/cacls.html
+
+# ICACLS
+https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls
+
+
+# NETSH
+https://learn.microsoft.com/en-us/windows-server/networking/technologies/netsh/netsh-contexts?source=recommendations
+https://adamtheautomator.com/netsh/
+# enable/disable Group (file/printer share) for specific profile 
+https://web.archive.org/web/20160804161942/https:/social.technet.microsoft.com/Forums/windows/en-US/b1b806be-d655-498d-a587-ed3cb5630d92/file-and-printer-sharing-only-for-domain-profile?%20forum=w7itpronetworking
+
+# wevtutil
+https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wevtutil
+
+# auditpol
+https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-set
+
+}
+
+{ ``` Windows Triage & Interrogation ```
+
+## POWERSHELL 
+# remote commands 
+https://learn.microsoft.com/en-us/powershell/scripting/learn/remoting/running-remote-commands?view=powershell-7.3
+
+
+
+}
+
+
+{ ``` MISC ```
+
+# 10 minute email - to bs sites that need emails
+https://10minutemail.com/
+
+
+}

@@ -1,0 +1,377 @@
+``` Why powershell (VERB-NOUN | STUFF | MORESTUFF) ? 
+- full, unhindered access to COM and WMI 
+- pipe objects between cmdlets (not just strings)
+- command output are OBJECTS, so can return properties (like member vars)
+
+Powershell has 
+	- Modules (package of cmdlets, aliases, funcs, vars, providers, help files, scripts, etc)
+	- Providers (Expose data stores to shell environment similar to mounted file systems) 
+	- Cmdlets // programs that process objects, commands, COM/WMI
+```
+
+{ # 1 - Basics (get alias/providers/modules/cmdlets, verbs/nouns, help)
+# Show Aliases
+Get-Alias
+
+# Show Modules of current session
+// (package of cmdlets/aliases/functions/vars/type or format XML, help files, providers, scripts) to support/manage applications (e.g. Azure, exchange, Active Directory, AWS, vmware)
+Get-Module
+# Show ALL modules available on system (unloaded)
+Get-Module -ListAvailable
+
+
+# Show list of providers 
+// allows external data stores to be exposed like file system/mounted drive e.g. Registry provider! can view reg like a drive!
+Get-PSProvider
+
+# Show all cmdlets, count them
+Get-Command 
+(Get-Command).Count
+
+# File system/ registry commands --- Get all info from cmdlet with Select !!!!!!!!!!!!!!!!
+New-Item
+Set-Item
+Get-ChildItem | Select *
+Remove-Item
+
+# List cmdlets designed to work with variables 
+Get-Help -Name *variable
+Get-Commmand -Name *variable
+
+# Find all standard Verbs (powershell cmdlets are all Verb-Noun) 
+Get-Verb
+
+# Get all info on a cmdlet (yes running gcm on gcm). 2nd way is get info via returned objects def. property
+gcm Get-Command | Format-List *
+(gcm Get-Command).definition
+
+# search for cmdlets by verb or noun
+gcm -verb u*
+gcm -noun p*
+
+# Get help on a command, display examples 
+get-help [cmdlet] -full / -detailed
+get-help [cmdlet] -examples
+
+}
+
+{ ``` PS HandsOn Excs ```
+#1. identify version of powershell on system
+$PSVersionTable 
+
+# List providers, get modules 
+Get-PSProvider 
+Get-Module -ListAvailable
+
+# find get-help core parameters for gaining technical details on a cmdlet 
+get-help [cmdlet] -examples // display examples!
+	-full
+	-detailed
+	-about
+
+# List directory 
+get-childitem, gci, dir, ls
+
+# obtain name, category, details for all cmdles/allias/funcs containing verb 'set'; display in table
+Get-Help set* | select name, category, details | Format-Table -AutoSize
+
+# display current Powershell alias commands and their display names
+get-alias | select DisplayName
+Get-Alias | select * | Format-Table -AutoSize 
+Get-Alias | select * | Format-Table -AutoSize 
+
+get-alias | sort 
+
+# Set an alias (gh) for Get-Help
+set-alias gh Get-Help
+
+}
+
+{ # 2.  execution policy
+
+# View execution policy - restricted/allsigned/remotesigned/unrestricted/bypass/undefined (process, currentuser, localmachine?)
+Get-ExecutionPolicy 
+
+# Set exec policy to allow personal scripts
+Set-ExecutionPolicy Remote-Signed # can run local scripts, not downloaded internet scripts  
+Set-ExecutionPolicy Unrestricted 
+or Set-ExecutionPolicy  Bypass
+
+}
+
+{ ``` Debugging (interpret a PS script) ```
+// Set-PSDebug = visual (conceptual) debugger // Set-Strictmode = active enforce standard 
+
+# turn script debugging features on and off, set the trace level, and toggle strict mod; helps with only uninitialized variables
+
+# set trace level ( 1 = trace each line, 2 += vars, func calls, scripts traced)
+Set-PSDebug -Trace 2
+# stepping (let you pause debug each line before continuing)
+Set-PSDebug -Step
+# Specifies that variables must be assigned a value before being referenced in a script
+Set-PSDebug -Strict
+# Disable debug
+Set-PSDebug -off
+
+# stop script if error occurs 
+$ErrorActionPreference = "stop"
+
+# Establishes and enforces coding rules in expressions, scripts, and script blocks.
+Set-StrictMode -Off
+Set-StrictMode -Version Latest # or [1.0 / 2.0 / 3.0]
+
+}
+
+{ # 3. Powershell Remote Access ( Sessions, remote exec )
+
+# View Remoting Config 
+Get-Command -Noun PSSessionConfiguration | select Name         
+
+# start service 
+start-service winrm # can stop-service, get-service 
+
+# ping targets
+Test-Connection win7,win10
+
+# List hotfixes on remote machine specifying creds (if local creds dont work)
+Get-Hotfix -ComputerName win10 -Credential barney # by default remote auth wouldn't work WITHOUT MODDING THE REGISTRY (popup window)
+
+# create CREDENTIAL var // will not need to reenter creds 
+$c = Get-Credential # again, would require reg mod, otherwise popup
+
+# mulicommand session ( Enter-PSSession/ New-PSSession ) 
+# create sessions (non-interactive) // variables 
+$session7 = (New-PSSession -computername win7);
+$session10 = (New-PSSession -computername win10 -credential $c)
+
+# List hotfixes using cred var 
+Get-Hotfix -ComputerName win10 -Credential $c
+
+# Invoke-Command // get process list on remote session, save as $h (in the $session, not locally)
+invoke-command -Session $session7 {$h = Get-Process}
+
+# Enter session (interactive)
+Enter-PSSession -Session $session10
+
+# End non-interactive session 
+Remove-PSSession -Session $session7
+	or Remove-PSSession -ID [#]
+
+
+# get processes and running services 
+Get-Process; Get-Service | Where {$_.Status -like "Running"}
+
+}
+
+{ ``` Powershell Logging ``` 
+# Auto logs on windows 10+ (PS 5.0), otherwise must manually enable 
+
+# Enable Module Logging // pipeline execution details (var inits, command invocs, portions of scripts, deobf code, some output data)
+•	In the Windows PowerShell GPO settings, set Turn on Module Logging to enabled. 
+•	In the Options pane, click the button to show Module Name. 
+•	In the Module Names window, enter * to record all modules. 
+•	Optional: To log only specific modules, specify them here. (Note: this is not recommended.) 
+•	Click OK in the Module Names window. 
+•	Click OK in the Module Logging window.  
+
+HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging EnableModuleLogging = 1  
+HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames * = *         
+
+
+# Enable Script Block Logging // records blocks of code as they are executed ps engine (code, scripts, commands)
+In the "Windows PowerShell" GPO settings, set "Turn on PowerShell Script Block Logging" to enabled.  
+HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging EnableScriptBlockLogging = 1         
+
+# Transcription Logging // all input/output in the terminal! (but not executed scritps or output written)
+•	In the Windows PowerShell GPO settings, set "Turn on PowerShell Transcription" to enabled. 
+•	Check the "Include invocation headers" box, in order to record a timestamp for each command executed. 
+•	Optionally, set a centralized transcript output directory.  
+
+HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription EnableTranscription = 1
+HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription EnableInvocationHeader = 1
+HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\TranscriptionOutputDirectory ="" (Enter path. Empty = default)         
+
+
+}
+
+{ ``` Windows File Timestamp Local to UTC in PS ``` 
+
+# list filenames and creation, lastwrite, lastaccess<- disabled default since Vista
+Get-ChildItem | Select Name, CreationTime, LastWriteTime, LastAccessTime 
+
+# Creationtime and UTC 
+Get-ChildItem | Select Name, CreationTime, CreationTimeUtc
+
+}
+
+{ ``` Powershell Logging and Audit Settings  ```
+
+# open group policy editor
+gpedit 
+
+# View if Module logging is enabled 
+reg query HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging
+HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames * = *         
+
+# view module settings of each imported module 
+Get-Module | Select Name, LogPipelineExecutionDetails
+
+# Forcefully reimport module (e.g. if changed module policy log setting, prior modules aren't affected)
+Import-Module [Module] -Force 
+
+# Get-Module : manually set logging to true/ false 
+Get-Module | ForEach {$_.LogPipelineExecutionDetails = $False} 
+
+# Display powershell logs after system installation time 
+Get-EventLog -LogName "Windows Powershell" -After '10/20/2016 00:00:00' 
+}
+
+{ ``` Powershell WMI ```
+NOTE: $_ means current variable! so -match works on the property // alternative to findstr 
+
+// GWMI cmdlets 
+# List 'WMI aliases/ classes'
+gwmi -list 
+Get-WmiObject -List | Where {$_.name -match 'User'}
+
+# list all properties of Class Win32_bios
+Get-WmiObject -Class Win32_Bios | Format-List -Property *
+
+# ^ with string "install"
+Get-WmiObject -Class Win32_Bios | Format-List -Property * | findstr -i install
+	or 
+Get-WmiObject Win32_bios | Get-Member -MemberType property | Where {$_.name -match 'install'}
+
+# List service information
+Get-WmiObject -Class Win32_Service | Format-List -Property *
+Get-WmiObject Win32_Service | Get-Member
+
+# list currently running services 
+gwmi Win32_Service -filter "State like 'Running'"
+Get-WmiObject Win32_Service -filter "State like 'Running'" | select name
+
+# get info on an object - list only service names 
+Get-WmiObject -Class Win32_Service | Select-Object -ExpandProperty Name
+
+# create cred 
+$f = (Get-Credential)
+# remotely list 
+Get-WmiObject -computername win7 -Credential $f -Class Win32_Service | Select-Object -ExpandProperty Name
+
+# WQL (wmi SQL query) - list all services WHERE autostart is set?\
+Get-WmiObject -Query "SELECT * FROM Win32_Service WHERE StartMode = 'Auto'"
+
+# retrieve hardware serial num on remote computer 
+Get-WmiObject -computername win7 -Credential $f -Query "Select * from Win32_Bios"
+	or 
+ Get-WmiObject -query "select * from Win32_SystemEnclosure" -ComputerName win7 -Credential $c | select SerialNumber.
+
+# remotely uninstall an application
+$appToRemove = Get-WmiObject Win32_Product -computername win7 -credential $c -Filter "Name like '%Ask'; $appToRemove.Uninstall
+	 or 
+(Get-WmiObject Win32_Product -computername win7 -credential $c -filter "Name like '%Ask'").Uninstall()
+	# can verify by querying the app
+	(Get-WmiObject Win32_Product -computername win7 -credential fred -Filter "Name like 'Google Update Helper'").uninstall()
+
+# Other WMI cmdlets
+ Invoke-WmiMethod
+ Remove-WmiObject
+ Register-WmiEvent
+ Set-WmiInstance
+}
+
+{ ``` Powershell with CMICmdlets // tab completion! ``` 
+
+# Obtain list of processes
+Get-CimInstance -Class Win32_Process
+
+# List all CIM classes (objects)
+Get-CimClass
+Get-CimClass | Where {$_.CimClassName -match 'User'} # trim down with a search string 
+
+# list all properties of win32_bios
+Get-CimInstance -Class Win32_bios | Format-List -Property *
+	or
+Get-CimInstance -ClassName Win32_bios | Get-Member
+
+# show service names currently running 
+Get-CimInstance -Class Win32_Service -filter "State like 'Running'" | select Name
+
+# create CIM session (cannot run remote CIM commands w/o session)
+$f = Get-Credential
+$c = (New-CimSession -computername win10 -credential $f)
+
+# list remote services using new CimSession // or via PIPE
+Get-CimInstance -CimSession $c -Class Win32_Service -filter "State like 'Running'" | select Name
+	OR
+$c | Get-CimInstance -ClassName Win32_Service -filter "State like 'Running'"
+
+# Access a remote computer (running Powershell 2 <= ), must specify DCOM
+$sessionoption = New-CimSessionOption -Protocol DCOM 
+$d = (New-CimSession -computername win7 -credential $f -SessionOption $SessionOption)
+
+# Other CIM cmdlets
+	 Register-CimIndicationEvent
+	 Remove-CimSession
+	 Get-CimClass
+	 Set-CimInstance
+	 Invoke-CimMethod
+}
+
+
+{ // EXAM
+
+# list characteristics of Spooler service using WMI
+Get-WmiObject Win32_Service | Where {$_.Name -like "Spooler"}
+
+# select WQL command to list all services set to disabled
+Get-CimInstance -query "select * from Win32_Service where startmode='disabled'" | select name
+ 
+# uninstall 'Google Update Helper' remotely on win7 
+$c = Get-Credential
+# query first
+Get-WmiObject Win32_Product -computername win7 -credential $c | Where {$_.Name -like "*Google*"}
+# uninstall (3 ways)
+(Get-WmiObject Win32_Product -computername win7 -credential $c | Where {$_.Name -like "*Google*"}).uninstall
+
+$ug = Get-WmiObject Win32_Product -computername win7 -credential $c | Where {$_.Name -like "*Google*"}
+$ug.uninstall 
+
+(Get-WmiObject Win32_Product -computername win7 -credential fred -filter "Name like '%Google%'").Uninstall()
+
+# remotely start Spooler service 
+$b = Get-Credential
+$sessionA = (New-CimSession -computername win10 -credential $b)
+$sessionA | Get-CimInstance -ClassName Win32_Service -Filter "Name='spooler'" | Invoke-CimMethod -MethodName StartService
+
+### PART 4
+# Retrieve list of USB devices that have been attached (friendly & childname) --- most orgs block for users w/sens access
+Get-ItemProperty -ea 0 hklm:\system\currentcontrolset\enum\usbstor\*\* | select FriendlyName,PSChildName
+
+# Extract running procs; name, PID, command line path to execute - fit onto page
+Get-WmiObject win32_process | select processname, ProcessId, CommandLine | ft -auto -wrap
+
+# Convert process creationdate string to regular date format 
+Get-WmiObject win32_process | select processname,@{NAME='CreationDate';EXPRESSION={$_.ConvertToDateTime($_.CreationDate)}},ProcessId,CommandLine |sort CreationDate -desc | format-table -auto -wrap.
+
+}
+
+
+- bypass questions
+	- find number of blocks in each sys partition?
+	- syntax creds for remote command 
+	- retrieve the serial number of system using PS WMI services 
+	- commands that allow to 'send remote' PS commands 
+	- list all services on remote system that beign with 'net'
+	- ! uninstall an application
+	- ! start a service 
+	-  retrieve a list of USB devices that have been attached with the associated properties, to only include the device friendly name and child name.
+	- extract running processes from system
+	- equivalent commands to: ls * -include *.ps1 -recurse | rmdir
+	- collect information related to all Windows Event log instances containing successful and attempted password changes
+	
+	Which logging option became available in PowerShell version 3.0?
+	Which artifacts of powershell exec. were left before logging options implemented in v3?
+	
+	$eCret
+	Rubbl3

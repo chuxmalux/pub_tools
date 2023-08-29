@@ -1,0 +1,564 @@
+# Connection 
+ssh -x -v -p<port> <usr>@<IP> -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+
+ssh -MS /tmp/t1.ssh -x -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null <user>@<IP>
+ssh -MS /tmp/t2.ssh -x -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null <user>@<IP>
+
+# SURVEY { 
+``` --------- USER TRIAGE --------- ``` 
+--------- init checks ---------
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w; id; uname -a; date; date -u; pwd; ps -p $$
+cat /etc/*release*
+ip addr || ifconfig -a
+ip neigh
+
+# change systemtime to UTC 
+ls -al /etc/localtime # check its link 
+ls -al /usr/share/zoneinfo/UTC # confirm UTC file exists
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime # change to UTC 
+	timedatectl set-timezone UTC # systemd method 
+
+sestatus 
+	cat /etc/selinux/semanage.conf
+
+--------- procs / conns --------
+netstat -punta
+	# do NOT use -p unless root --- otherwise may log w/selinux 
+		// is anything off? e.g. if it looks off, investigate. dont assume normal e.g. port 873 listening from rsync with pid 1 
+	netstat -an # Solaris 
+	
+ps -elf || ps aux www
+ps -efT || ps -ef --sort start_time 
+	# closely examine newest ran procs / scripts //
+ps -efH 
+	# any suspicious parents/children/wrong-space proc? 
+	
+netstat -rn 
+arp -v 
+
+--------- secondary checks ---------
+last; lastlog # can lastb as user?
+mount
+df -h 
+	df -i # inode info 
+	
+--------- boot services ---------
+service --status-all
+# rhel/centos/fedora
+chkconfig --list
+# systemd
+systemctl list-unit-files --type=service --state=enabled
+
+--------- scheduled tasks (cron, anacrontab, at) --------- # inspect each 
+# 1. cron system and user jobs 
+ls -al /etc/cron.d/
+cat /etc/crontab
+for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; sudo cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+ls -latrd /etc/cron*
+
+# 2. anacrontab 
+cat /etc/anacrontab 
+
+# 3. at 
+ls -latr /var/spool/at  
+	# look for /var/spool/
+
+--------- user dirs --------- 
+ls -latr /root 
+ls -latr /home
+ls -latr /home/*/*
+ls -latr /export/home # may be mounted user dirs 
+ls -latr /export/home/*
+
+# root/ user accounts 
+
+cat /etc/profile # global login script
+cat ~/.bash_history 
+cat /root/.bash_history 
+	less /root/.history 
+# user histories 
+	
+--------- malware, config, binary checks --------- # (check for system command tampering)
+ls -latr /tmp 
+ls -latr / 
+ls -latr /etc
+	#!!!
+ls -latr /bin/
+ls -latr /sbin/
+ls -latr /usr/bin/
+ls -latr /usr/sbin/
+ls -latr /usr/local/bin/
+ls -latr /usr/local/sbin/
+
+--------- logging ---------
+ls -la /etc/*syslog*
+cat /etc/syslog.conf || cat /etc/rsyslog.conf 
+ls -latr /var/*log*/ /var/*acc* /var/account/* /var/log/audit 
+ls -latr /var/adm # Solaris 
+
+	# for log finds - omit /run /proc /sys
+	
+# last logged on users. use find/ grep to crossref 
+last -i 
+
+# systemd, use journalctl for everything
+journalctl --no-pager 
+journalctl | less 
+	
+/run/log/journal* = in memory/nonpersistent 	
+/var/log/journal* = on disk/ 
+
+# parse messages 
+egrep -v "kernel|dbus" /var/log/messages | tail -n 50 
+
+``` --------- ROOT TRIAGE --------- ``` 
+
+su root 
+unset HISTFILE HISTSIZE HISTFILESIZE PROMPT_COMMAND
+w
+
+# lasts
+last; lastb -20; lastlog
+
+# modules 
+lsmod | grep ipt || cat /proc/modules | grep ipt
+	modinfo –c # Solaris 
+	
+# firewall 
+iptables -nv -L
+	ipfstat -io # Solaris 
+ls -latr /var/spool/cron | tail -n 1000 <files in /var/spool/cron/>
+
+# logs 2
+ls -latr /var/log/*
+	tail -n30 /var/log/[log]
+		# consider syslog for rerunning suspic. procs, kern.log for recurring sus iptables logs 
+ls -latr /root
+cat /etc/rsyslog.conf
+cat /etc/rsyslog.d/*.conf
+
+# scheduled 2 
+ls -al /etc/cron.d/ 
+
+# users 2 
+cat /root/.bash_history
+cat /etc/passwd | grep -v "nologin"
+cat /etc/shadow 
+	getent passwd # LDAP accounts/auth?	
+cat /etc/group
+	getent group 
+	
+# footprint check
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<duration since initial connection> -type f -print0 | xargs -0 sudo ls -latr 
+	# remove sudo if unecessary 
+
+``` --------- PROSECTUTE --------- ``` 
+file <file>   # gives file type and build info
+
+strings <file | less   #print readable chars in a file
+strings <file> | egrep -i "INET|AF|SOCK|BIND|BACKDOOR|ssh"
+man <file> 	# if gook, def malware 
+cat <file> | md5sum # Virustotal check 
+
+#pull a binary from proc mem
+ldd <file>   #lists dynamic libraries loaded by proc
+
+# find log files 
+lsof -Pnp <pid>
+	lsof -Pnp `echo /proc/*` | less
+	pfiles <pid> # Solaris 
+	pfiles `echo /proc/*` | less # list all files per ports // search for port to identify: binary/service path and PID 
+-P: dont resolve port numbers
+-n: dont resolve hostnames
+-p: selects based on PID 
+
+# system-find.prosecute - locate init scripts, crons, configs, hijack binares for /path/to/susp/proc
+find / -type f ! -path "/proc/*" ! -path "/dev/*" ! -path "/boot/*" ! -path "/sys/*" ! -path "/selinux/*" -exec grep -l "/path/to/sus" {} \;
+	// after, may also want to use file name (not full path)
+	# if root, remove sudo or: logs/sometimes no perm
+
+# persistence search using binary/script timestamps 
+find / -newermt "2018-01-18" ! -newermt "2018-01-19"
+
+locate <string> 
+
+{ # /proc reference - shows all processes with associated files
+	-maps: shows shared objects mapped to process memory
+	-exe: a copy or link to binary used to execute process
+	-cmdline: the command w/ args that started the proc
+	-cwd: the current working dir
+	-fd: show file descriptors in use by proc
+}
+
+{ # methodology reference 
+Triage:
+- strange/malformed name? 
+- Filepath. Start from weird location?
+- weird options/arguments? 
+- unexpected ancestors/PPIDs?
+- Start sooner/later than expected? e.g. apache early or crond after user login 
+- ran by funky users?
+
+Persistence:
+- system startup (before basic.target / part of sysinit line of /etc/inittab) 
+- userspace startup (multi/graphic target or SysV /etc/rc.d) 
+- scheduled jobs (cron, anacron, atd)
+- user login (login scripts)
+
+Timestamps:
+- what users are involved (last logins)
+- how proc was put into system (install logs/history files)
+- IP addresses associated w/activity or access vector- refernce log info (iptables logging, misc logs w timestamp)
+
+
+
+}
+
+}
+
+``` Init. Methods / Startup scripts  (+ xinetd)``` {
+
+1. SysV { # /etc/inittab, /etc/rc.d/, Runlevels - System Initialization and Management (who -r/runlevl, service, insserv, chkconfig, update-rc.d) 
+
+# view runlevel 
+who -r 
+runlevel # (linux)
+
+# switch runlevel 
+init [level]
+
+# SysV service management 
+service
+	# check service status 
+	service [name] status
+	service ntp status
+	# GRACEFULLY stop service - will run until service is 
+	service ntp stop 
+		# locate services via 
+			1. netstat -punta 
+			2. startup scripts : find /etc/init | egrep -i "ssh|dovecot|echo|python|ltsrv
+			3. find: find /etc/init | egrep -i "ssh|dovecot|echo|python|ltsrv # look in /usr/bin or /usr/sbin for service binary
+			# or may need to do a full / search of name if not there
+		sudo service ssh stop && sudo service dovecot stop && sudo service crazy8 stop && sudo service echo stop && \
+		sudo service srv stop 
+	OR
+		sudo initctl stop ssh
+		sudo initctl stop dovecot
+		sudo initctl stop echo
+
+chkconfig 
+
+# list number of startup services for runlevel 2 
+ls /etc/rc2.d | egrep "^S.*" | wc -l 
+	insserv -s # The output is in the format of: Start_or_Stop:Start_Order_Number:Enabled_Run_Levels:Service_Name. For instance, ssh service appears as S:17:2 3 4 5:ssh. This means it will start in runlevels 2, 3, 4, and 5.
+
+# determine how many runlevels a service is enabled in?
+ls /etc/rcX.d | egrep "^S.*SERVICE_NAME
+	insserv -s | grep "S.*SERVICE_NAME
+
+# enable a service to start in a different runlevel (e.g. auditd in runlevel 2)
+chkconfig --level 2 auditd on
+	chkconfig --level 2345 telnet on
+update-rc.d auditd enable 2 
+	update-rc.d auditd default 2 
+	
+# disable a service by renaming the runlevel rc to K instead of S 
+cp /etc/rc3.d/S01auditd /etc/rc3.d/K01auditd
+
+# change default runlevel
+vi /etc/inittab 
+-- find id line 
+id [runlevel] initdefault
+
+}
+
+2. Upstart { # (initctl, update-rc.d)
+# find runlevel
+vim /etc/rc-sysinit.conf
+	/etc/inittab # for linux and CentOS Upstarts 
+	who -r 
+	runlevel 
+
+# find startup scripts for runlevel - same structure as SysV 
+ls -l /etc/rc2.d/S*
+
+# switch runlevel 
+telinit 3
+
+# start service 
+initctl start apache2
+	service apache2 start # for SysV service
+
+# show currently running upstart managed services 
+initctl list 
+
+# show stop/start conditions for all services 
+initctl show-config
+
+# examine upstart services more in-depth // what conditions will cron service start?
+initctl show-config cron 
+vim /etc/init/cron.conf  # or view by  
+
+
+}
+
+3. Systemd { # (systemctl )
+
+# list all unit files and statuses
+systemctl list-unit-files 
+systemctl list-units --all 
+
+# list ACTIVE units and SUBACTIVE state units / attempted to load into memory 
+systemctl list-units
+
+# list only enabled units 
+systemctl list-unit-files --type=service --state=enabled
+	systemctl list-unit-files -t service | grep enabled | wc -l # num enabled on boot
+
+# is specifc unit enabled?
+	systemctl status UNIT_NAME
+	systemctl is-enabled UNIT_NAME
+
+# what units have been modified on a system?
+systemd-delta 
+
+# view unit's dependencies 
+systemctl list-dependencies [unit] --no-pager 
+	systemctl list-dependencies sshd --no-pager 
+
+# view units -depedent- on the unit 
+systemctl list-dependencies [unit] --reverse 
+
+# determine the systemd default startup file 
+systemctl get-default
+	ls -l /etc/systemd/system/default.target # what target is symlinked 
+
+# !!! view the CURRENT target 
+journalctl # find current message date and review OR 
+	journalctl --list-units 
+journaltctl --no-pager | grep "Reached target"
+
+# change default target 
+systemctl set-default multi-user.target 
+
+# check if target is ACTIVE 
+systemctl is-active graphical.target
+
+# immediately change target 
+systemctl isolate multi-user.target
+
+{ # Configure systemd unit 
+1. create [unit_name].service in /usr/lib/systemd/system 
+
+2. at minimum, include 
+
+[Service]
+ExecStart=/path/to/file   
+
+[Install]
+WantedBy=multi-user.target   
+	# create symbolic link in /etc/systemd/system/multi-user.target.wants dir 
+	
+3. run
+	systemctl daemon-reload
+	systemctl enable my.service 
+
+} 
+
+}
+
+4. SMF { # - Service Management Facility / SOLARIS 
+
+# view runlevel 
+who -r 
+
+# manage SMF svcs
+svcadm 
+svcs 
+
+# get service status 
+svcs -l <name> 
+
+# list all avail. services
+svcs -a 
+
+# start/stop/restart service  -t == temporary 
+svcadm enable|disable -t <name>
+svcadm restart <name>
+
+# enable/disable service 
+svcadm enable|disable <name>
+	svcadm disable svc:/system/cron # alternate
+
+# get current milestone 
+svcs milestone*
+
+# set default milestone 
+svcadm milestone -d <milestone>
+
+# get default milestone 
+svcpropc svc:/system/svc/restarter:default/:properties/options/milestone
+	#If svcprop returns a message that the argument ‘doesn’t match any entities’, it means that the default milestone has not been set manually. In this case, the default milestone is multi-user-server
+
+# determine services are configured on boot 
+svcs -a | egrep ‘online|legacy_run.*rc[0123S]_d’
+
+# view online services 
+svcs | grep online 
+
+# manage  inet services (anything net related e.g. telnet, ssh, web)
+inetadm  # will view all inetd services 
+
+# examine files/ports inetd has opened 
+pfiles -F <pid_of_inted> | less
+	/etc/services 
+
+}
+
+5. xinetd check { 
+
+1. # check xinetd services - this works on RHEL/CentOS/Fedora 
+	chkconfig --list
+2. # check startup scripts 
+	ls -latr /etc/init.d/ 
+3. # check sus service
+	less /etc/init.d/[service]
+4. # check xinetd service conf. 
+	vim /etc/xinet.d/[service]
+
+}
+
+}
+
+``` MISC (DNS, timezone, tar, +) ``` {
+# confirm DNS servers 
+nslookup <name> <DNS-server>
+
+dig @<DNS-server> name.com 
+	A record should return an IP for it to work!
+
+# change systemtime to UTC 
+ls -al /etc/localtime # check its link 
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime # change to UTC 
+	timedatectl set-timezone UTC # systemd method 
+
+# look for mal user attempts 
+grep "Failed password" /var/log/secure |cut -d ":" -f 4 |grep -v "invalid user" |awk '{print $6}' |sort -n |uniq 
+
+# time converter 
+date -d @<epoch-time>  # convert epoch to human read
+date +%s # get current time in epoch 
+
+# ipv4 forward enabled?
+cat /proc/sys/net/ipv4/ip_forward
+ 
+{ # tar [options] [dest.tar] [target]
+
+# backup /var/run INCLUDING dirs. when extracting, will create /var and /run dir and all files in run 
+tar -cvf /tmp/backup/run.tar /var/run 
+
+# backup /var/run, ONLY files (just need to be in the actual dir). when extracting, will only provide files 
+tar -cvf /tmp/backup/run1.tar -C /var/run .
+	- change dir to /var/run then create tarball
+	
+# extract 17th file from .tar 
+tar -xvf run.tar `tar -tf run1.tar | head -n18 | tail -n1 | sed 's|^./||` # < busted attempt, pretty close + extra
+tar -xf run1.tar `tar -tf run1.tar | head -n 17 | tail -n 1
+
+}
+
+}
+
+``` FINDS ```{	 
+# log search 
+grep -R --exclude-dir=/path/to/dir  "search string" /
+
+# find modified files since -X time // good for writing/logging - sus procs & services 
+sudo find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<since mod> -type f -print0 | xargs -0 sudo ls -latr 
+
+# search for files across multiple paths i.e. $PATH variable 
+find $(echo $PATH | tr ':' ' ') -type f -newerct "2018-10-26 14:44:00" ! -newerct "2018-10-26 14:45:00"
+
+# find hidden files and dirs 
+find / -type f -name ".*"
+find / -type d -name ".*"
+
+# (persistence) search using (malware) timestamps 
+find / -newermt "2018-01-18" ! -newermt "2018-01-19"
+find / -newermt "2018-01-18 05:15:00" ! -newermt "2018-01-18 05:25:59"
+
+{ # EXAMPLES - // show alternate (fb) methods 
+
+#2. find all files w/ extension .png in /root/Corvus and subdirs 
+find /root/Corvus -type f -name "*.png"
+
+#3. how many are .png actually?
+for i in `find /root/Corvus -type f -name "*.png"`; do file $i; done | grep PNG 
+	//find /root/Corvus -name "*.png" -exec file {} \;.
+	
+#5. find files between 2 timestamp of file1 and file 2
+stat [file1] [file2]
+find / -newermt "2016-08-14 22:53:04"  ! -newermt "2016-08-24 22:53:04"
+	- newermt # -newerXY == timestamp reference
+				a = access time
+				B = birth time
+				c = inode status change time 
+				m = moidifcation time 
+				t = reference interpreted directly as time 
+	// find / -type f -newermt "YYYY-MM-DD" ! -newermt "YYYY-MM-DD"
+	// find / -type f -newer /root/file1 ! -newer /root/file2
+
+#6. find by access time
+find / -newerat "2016-08-14 22:53:04"  ! -newerat "2016-08-24 22:53:04"
+
+	// find / -type f -newerat "YYYY-MM-DD" ! -newerat "YYYY-MM-DD"
+	// find / -type f -anewer /root/file1 ! -anewer /root/file2.
+
+#7. find files older than 30 days and delete them 
+for i in $(find /root/metrics -type f -mtime +30); do rm -f $i; done  
+	// find / -type f -newerat "YYYY-MM-DD" ! -newerat "YYYY-MM-DD"
+	// find / -type f -anewer /root/file1 ! -anewer /root/file2.
+
+#8. find files in /root/metrics older than 30 days and delete them
+for i in $(find /root/metrics -type f -mtime +30); do rm -f $i; done  
+	// find /root/metrics -mtime +30 -exec rm {} \;
+	
+#12. Identify the number of unique IP addresses in the HTTP log /var/log/access_log that requested the page /child.
+grep "/child " /var/log/access_log | cut -d " " -f1 | sort -u # added space - some request have childd
+	// grep "/child " /var/log/access_log | awk {'print $1'} | sort | uniq
+
+#16. Using the file /var/log/access_log, identify the IP address that uses multiple useragent strings.
+for i in $(awk {'print $1'} /var/log/access_log | sort | uniq); do echo $i && grep $i /var/log/access_log | awk -F\" {'print $5'}; done
+	
+#20. Using only the file /var/log/iptables.log, identify the IP address that is potentially using MAC address spoofing. What command(s) did you use? How many MAC addresses and which MAC addresses has the IP address used?
+for i in `grep "SSH Port: IN" /var/log/iptables.log | awk '{print $12}' | sort -u`; do grep $i /var/log/iptables.log | awk '{print $11}' | sort -u | wc -l; echo $i; done
+
+// for i in $(awk {'print $12'} /var/log/iptables.log | sort | uniq); do echo $i && grep $i /var/log/iptables.log | cut -d' ' -f11 | sort | uniq; done
+
+#X. Symbolic Link full path finder 
+cask=$(find / -type l 2>/dev/null -exec ls -la {} \; | grep [just file ex. file1] | awk {'print $9'} | sort); for i in $cask; do echo -e "$(readlink -f $i) \t $i"; done
+}
+
+}
+
+``` TRANSFER ``` {
+
+{ # With slaves  
+#file 
+scp -o ControlPath=/tmp/t1.ssh <user>@127.1:/target/file /local/path 
+
+#directory 
+scp -r -o ControlPath=/tmp/t1.ssh -r <user>@127.1:/target/dir /local/path 
+}
+
+{# No slaves 
+#file 
+scp <remote_user>@<remote_IP>:/remote/file /local/path 
+
+#directory 
+scp -r <remote_user>@<remote_IP>:/remote/dir/path /local/path 
+}
+
+}
+

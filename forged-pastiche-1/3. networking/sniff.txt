@@ -1,0 +1,263 @@
+{ # TCPDUMP - packet analysis
+
+# quick reference { 
+
+``` sometimes -i required, otherwise NFLOG error // FILTER ```
+
+# filter by host/port // no timestamps, no host/protocol name res, verbose, quiet output 
+tcpdump -i eth0 host 192.168.11.112 -tnnq
+tcpdump -i eth0 src host 192.168.11.112 -tnnvq
+tcpdump -i ens160 not port 55521
+
+#filter data link 
+tcpdump -tennr <file.pcap> # no timestamps, no host/protocol name res, verbose 
+
+# read pcap dump
+tcpdump -qnnXX -r filename #  headers, data of each packet, including layer 2, in hex and ASCII
+
+# general inspection - no name res, verbos, show full packets (-S) 
+tcpdump -qnnvvS 
+}
+
+# common args {
+-e // display link-level header on dump -n // no host address -> name conversion (dns lookup) -nn // prevent converting TCP/UDP to service names -v,vv,vvv // verbosity tcpdump net [0.0.0.0/0] // specify network`-i interface to sniff through
+-D // list network ints available for pcap
+-r/-w // read or write from/to file
+-XX // print entire frame (+ link-level) in HEX + ASCII
+-s // snaplen (amount of data from each frame to be captured)
+-s0 // catches WHOLE packets (regardless of 68 default)
+-c // receive only -c [x] # of packets }
+
+# advanced cheatsheet {
+https://github.com/SergK/cheatsheat-tcpdump/blob/master/tcpdump_advanced_filters.txt
+
+{ # basic syntax
+Filtering hosts : {
+-----------------
+# Match any traffic involving 192.168.1.1 as destination or source
+tcpdump -i eth1 host 192.168.1.1
+
+# As source only
+tcpdump -i eth1 src host 192.168.1.1
+
+#As destination only
+tcpdump -i eth1 dst host 192.168.1.1
+}
+
+Filtering ports : {
+-----------------
+# Match any traffic involving port 25 as source or destination
+tcpdump -i eth1 port 25
+
+# Source
+tcpdump -i eth1 src port 25
+
+# Destination
+tcpdump -i eth1 dst port 25
+}
+
+Network filtering : {
+-------------------
+tcpdump -i eth1 net 192.168
+tcpdump -i eth1 src net 192.168
+tcpdump -i eth1 dst net 192.168
+}
+
+Protocol filtering : {
+--------------------
+tcpdump -i eth1 arp
+tcpdump -i eth1 ip
+
+tcpdump -i eth1 tcp
+tcpdump -i eth1 udp
+tcpdump -i eth1 icmp
+}
+
+}
+
+{ # advanced header filtering (BPF) guide - IP & TCP Header //  bitmasking
+
+proto[x:y] 			: will start filtering from byte x for y bytes. ip[2:2] would filter bytes 3 and 4 (first byte begins by 0)
+proto[x:y] & z = 0 	: will match bits set to 0 when applying mask z to proto[x:y]
+proto[x:y] & z !=0 	: some bits are set when applying mask z to proto[x:y]
+proto[x:y] & z = z 	: every bits are set to z when applying mask z to proto[x:y]
+proto[x:y] = z 		: p[x:y] has exactly the bits set to z
+
+Operators : >, <, >=, <=, =, !=
+
+IP header
+---------
+
+	0                   1                   2                   3   
+	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|Version|  IHL  |Type of Service|          Total Length         |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|         Identification        |Flags|      Fragment Offset    |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|  Time to Live |    Protocol   |         Header Checksum       |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                       Source Address                          |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                    Destination Address                        |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                    Options                    |    Padding    | <-- optional
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                            DATA ...                           |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+TCP header
+----------
+
+	0                   1                   2                   3   
+	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|          Source Port          |       Destination Port        |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                        Sequence Number                        |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                    Acknowledgment Number                      |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|  Data |       |C|E|U|A|P|R|S|F|                               |
+	| Offset|  Res. |W|C|R|C|S|S|Y|I|            Window             | 
+	|       |       |R|E|G|K|H|T|N|N|                               |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|           Checksum            |         Urgent Pointer        |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                    Options                    |    Padding    |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                             data                              |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+}
+
+{ # advanced IP header filtering examples 
+
+# match ipv6 traffic 
+tcpdump -i eth1 'ip[0] & 15 > 5'
+tcpdump -i eth1 'ip[0] & 0xf > 5'
+
+# DF bit set
+tcpdump -i eth1 'ip[6] = 64'
+
+# match fragmentation
+tcpdump -i eth1 'ip[6] = 32'
+
+# match datagrams with low ttl
+ping -M want -s 3000 -t 256 192.168.1.200
+tcpdump -i eth1 'ip[8] < 5'
+
+# match packets longer than X bytes 
+tcpdump -i eth1 'ip[2:2] > 600'
+
+}
+
+{ # advanced TCP header filtering examples 
+
+# match SYN packets 
+tcpdump -i eth1 'tcp[13] = 2'
+
+# match SYN, ACK packets 
+tcpdump -i eth1 'tcp[13] = 18'
+ 
+# match PSH-ACK packets
+tcpdump -i eth1 'tcp[13] = 24'
+
+# match either SYN only or SYN-ACK datagrams 
+tcpdump -i eth1 'tcp[13] & 2 = 2'
+
+# matching RST flag 
+tcpdump -i eth1 'tcp[13] & 4 = 4'
+
+}
+
+}
+
+# misc. complex filters {
+
+# arp 
+tcpdump -r BPF-sample-2.pcap arp
+tcpdump -r BPF-sample-3.pcap -nS tcp src port 80 or 443
+
+# look for traffic to our expected gateway, and must go to gateway (traff coming from outside traffic)
+tcpdump -c 1 -tennr BPF-sample-1 'src host 192.168.1.2 and not dst net 192.168.1.0/24
+
+# -e (view MAC addr, -c 1 view 1 packet)
+tcpdump -tennr BPF-sample-1 'ether src host 00:16:e3:19:27:15 and ether[12:2]=0x0806'
+
+# 1. find a cisco router's IP, iOS, when compiled, and platform
+tcpdump -tvvvnr BPF-sample-1 'ether[20:2]=0x2000'
+
+# BPF filter for tagged VLAN 20 frames
+tcpdump 'ether[12:2] = 0x8100 && && ether[14] & 0x0f = 0 && ether[15] = 20'
+- The 802.1Q VLAN identifier (VID) is 12 bits long, and is located in the last 4 bits of byte 14 and all 8 bits of byte 15.
+}
+
+}
+
+{ # Wireshark - packet analysis
+
+{ # advanced cheatsheet * TODO
+
+}
+
+{ # common filters
+
+# find MAC only
+eth.addr = [MAC]
+
+
+}
+
+{ # complex filters 
+
+# look for traffic to our expected gateway, and must go to gateway (traff coming from outside traffic)
+ip.src==192.168.1.2 && !(ip.dst==192.168.1.0/24)
+	- MAC dest addr = layer 2 of gateway. Can then find ARP requests mapping MAC to layer 3 addr
+eth.src=[MAC] && eth.type == 0x0806 // ARP
+
+
+
+}
+
+}
+
+{ # SNOOP - packet analysis
+# capture only .1.0/29 network, icmp traffic to and from 192.168.1.4
+sudo snoop -I e1000g1 host 192.168.1.4 && net 192.168.1.0/29 && icmp
+// course cmd
+
+# sniff ethernet broadcat (arp) traffic on network and icmp 
+sudo snoop -r -d e1000g1 host 192.168.1.4 icmp
+
+# sniff ethernet broadcat (arp) traffic on int network
+udo snoop -rd e1000g1
+
+  * snoop arp
+    * `or: snoop -d e1000g0 \arp`.
+	
+^^ idk
+
+sudo snoop -d net0 'net 192.168.1.0/29 and (icmp or (host 192.168.1.4 and not arp))'
+}
+
+{ # Scan analysis - TCP, NC
+
+# testing firewalls 
+tcpdump -n -v dst [myIP] and src [tgtIP] 
+    #ex 1
+		if received CLOSED ports = firewall. tcpdump also shows foreach port scan, tgt respons w/reset packet then 
+		rule is probably: iptables -A INPUT -p tcp -j REJECT --reject-with tcp-reset
+	#ex 2 
+		scanned ports, received one open, five open, 2 closed. if tcpdump response responds w/resets (on filtered ports) - indicates ports are not blocked by firewall - but server isn't listening on those ports so sends reset 
+
+
+# connecting through a tunnel
+netstat -punta SYN_SENT # dst port is either blocked or closed, and not responding. Service for tunnel is not open. 
+
+nc -nvvzw 2 [ip] [port]
+
+
+}
+
+

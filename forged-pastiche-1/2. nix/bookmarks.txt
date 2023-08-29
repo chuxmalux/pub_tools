@@ -1,0 +1,174 @@
+{ ```` 1. Unix Arch and Design ```
+
+# commands 
+https://www.tutorialspoint.com/unix_commands/
+
+{ Kernel Basics & Config Files 
+
+# CentOS / Redhat 
+you can run “yum install kernel-doc” to install the kernel documentation. Then 
+you can review it in /usr/share/doc/kernel-doc-<version>/Documentation
+
+# Centos Wiki
+https://web.archive.org/web/20160805142727/https:/wiki.centos.org/
+
+#Kernel Settings 
+https://web.archive.org/web/20160726163539/https:/www.centos.org/docs/5/html/5.2/Deployment_Guide/s1-proc-sysctl.html
+
+#sysctl documentation
+https://web.archive.org/web/20160726163539/https:/www.centos.org/docs/5/html/5.2/Deployment_Guide/s1-proc-sysctl.html
+
+
+}
+
+{ Shells & Scripting 
+# Linux Documentation Project
+https://web.archive.org/web/20160726214403/http:/www.tldp.org/
+
+# Advanced Bash Scripting Guide 
+https://web.archive.org/web/20160726214449/http:/www.tldp.org/LDP/abs/html/
+
+# Tar tutorial
+https://web.archive.org/web/20160809111628/http:/www.thegeekstuff.com/2010/04/unix-tar-command-examples
+
+# Variable substitution in C shell
+https://www.ibm.com/docs/en/aix/7.2?topic=shell-variable-substitution-in-c
+
+# zsh startup/shutdown files 
+https://www.zerotohero.dev/zshell-startup-files/
+
+# bash parameter expansion
+http://web.archive.org/web/20160618030419/http://wiki.bash-hackers.org/syntax/pe
+
+# bash substring removal // # or % 
+http://web.archive.org/web/20160618030419/http://wiki.bash-hackers.org/syntax/pe#substring_removal
+
+https://explainshell.com/
+
+https://devhints.io/bash
+
+}
+
+{ Filesystems 
+
+# ln command - symlinks 
+https://linuxize.com/post/how-to-create-symbolic-links-in-linux-using-the-ln-command/
+
+
+# Nix file structure overview 
+file:///N:/resources_personal/nix/Linux-File-System-Hierarchy-blackMORE-Ops.pdf
+
+}
+
+{ # Boot and Initialization
+# SysV = Run Levels 
+http://web.archive.org/web/20151012111900/http://docs.oracle.com/cd/E23823_01/html/817-1985/hbrunlevels-13026.html
+
+# Systemd UNITS ****
+https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files
+
+# Solaris Service Management Framework (SMF) ***
+https://web.archive.org/web/20170113181738/http://www.oracle.com/technetwork/articles/servers-storage-admin/intro-smf-basics-s11-1729181.html
+
+}
+
+{ # Procs and Signals 
+# /proc dir and analysis commands
+http://web.archive.org/web/20150215150634/http://docs.oracle.com/cd/E23824_01/html/821-1451/spprocess-1.html
+}
+
+{ # Networking and Name Resolution
+
+
+}
+
+}
+
+{ ``` 2. UNIX Enumeration and Hardening  ```
+
+{ ``` 2.1 Users and Permissions``` 
+
+# File/dir permissions cheat sheet 
+https://docs.google.com/spreadsheets/d/1LkOYoWtuZebDy3tq9uJEmniKpGIv6PzKukde-Witm-E/edit#gid=0
+
+file:///N:/B.%20Unix/6.%20UNIX%20Triage%20and%20Interrogation/timestamps2.png
+
+}
+
+{ ``` 2.2 Logging ``` 
+
+# syslog FACILITY/ SEVERITY levels 
+https://en.wikipedia.org/wiki/Syslog
+
+}
+
+{ ``` 2.3 Security Mechanisms ``` 
+
+}
+
+}
+
+{ ``` 3. UNIX Triage and Interrogation ```
+
+{ ``` 3.1 Survey Methodology ``` 
+
+# Timestamps 
+file:///N:/B.%20Unix/6.%20UNIX%20Triage%20and%20Interrogation/timestamps.png
+}
+
+{ ``` 3.2 Survey ``` 
+
+# full port registry 
+http://web.archive.org/web/20160915230347/http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
+
+}
+
+}
+
+
+
+
+
+``` MISC ``` 
+
+# IP subnet calculator 
+https://www.calculator.net/ip-subnet-calculator.html?cclass=any&csubnet=16&cip=172.16.0.0&ctype=ipv4&printit=0&x=0&y=0
+
+# epoch converter 
+https://www.bing.com/search?pglt=171&q=epoch+time+converter&cvid=3cc50af1e9144cd180b49a24ae5741b2&aqs=edge.0.69i59j69i57j0l7.1206j0j1&FORM=ANNTA1&PC=WSEDDB&ntref=1
+
+# convert picture to text 
+https://www.onlineocr.net/
+
+
+
+{ ``` EXAM ```
+
+# IP subnet calculator 
+https://www.calculator.net/ip-subnet-calculator.html?cclass=any&csubnet=16&cip=172.16.0.0&ctype=ipv4&printit=0&x=0&y=0
+
+# full port registry 
+http://web.archive.org/web/20160915230347/http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
+
+# File/dir permissions cheat sheet 
+file:///N:/B.%20Unix/5.%20UNIX%20Enumeration%20and%20Hardening/Unix%20File%20Permissions%20Cheat%20Sheet%20-%20PDF.pdf
+
+# syslog FACILITY/ SEVERITY levels 
+https://en.wikipedia.org/wiki/Syslog
+
+# epoch converter 
+https://www.bing.com/search?pglt=171&q=epoch+time+converter&cvid=3cc50af1e9144cd180b49a24ae5741b2&aqs=edge.0.69i59j69i57j0l7.1206j0j1&FORM=ANNTA1&PC=WSEDDB&ntref=1
+
+# shell explain 
+https://explainshell.com/
+
+# bash cheatsheet
+https://devhints.io/bash
+
+#sysctl documentation // tunable kernel parameters!
+https://web.archive.org/web/20160726163539/https:/www.centos.org/docs/5/html/5.2/Deployment_Guide/s1-proc-sysctl.html
+
+# Systemd UNITS ****
+https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files
+}
+

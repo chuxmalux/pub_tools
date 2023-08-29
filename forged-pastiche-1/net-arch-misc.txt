@@ -1,0 +1,222 @@
+
+{ # TCPDUMP
+// view file
+tcpdump -qnnXX -r filename
+tcpdump -tennr [filename] // for ethernet reading
+-e // display link-level header on dump -n // no host address -> name conversion (dns lookup) -nn // prevent converting TCP/UDP to service names -v,vv,vvv // verbosity tcpdump net [0.0.0.0/0] // specify network`-i interface to sniff through
+-D // list network ints available for pcap
+-r/-w // read or write from/to file
+-XX // print entire frame (+ link-level) in HEX + ASCII
+-s // snaplen (amount of data from each frame to be captured)
+-s0 // catches WHOLE packets (regardless of 68 default)
+-c // receive only -c [x] # of packets
+
+// find a cisco router's IP, iOS, when compiled, and platform
+tcpdump -tvvvnr BPF-sample-1 'ether[20:2]=0x2000'
+
+// complex filters (examples to resolve MAC address to IP of gateway)
+
+// find MAC only
+eth.addr = [MAC]
+
+// arp 
+tcpdump -r BPF-sample-2.pcap arp
+tcpdump -r BPF-sample-3.pcap -nS tcp src port 80 or 443
+
+// look for traffic to our expected gateway, and must go to gateway (traff coming from outside traffic)
+
+ip.src==192.168.1.2 && !(ip.dst==192.168.1.0/24)
+- MAC dest addr = layer 2 of gateway. Can then find ARP requests mapping MAC to layer 3 addr
+eth.src=[MAC] && eth.type == 0x0806 // ARP
+tcpdump -c 1 -tennr BPF-sample-1 'src host 192.168.1.2 and not dst net 192.168.1.0/24
+
+// -e (view MAC addr, -c 1 view 1 packet)
+tcpdump -tennr BPF-sample-1 'ether src host 00:16:e3:19:27:15 and ether[12:2]=0x0806'
+
+
+
+// BPF filter for tagged VLAN 20 frames
+tcpdump 'ether[12:2] = 0x8100 && && ether[14] & 0x0f = 0 && ether[15] = 20'
+- The 802.1Q VLAN identifier (VID) is 12 bits long, and is located in the last 4 bits of byte 14 and all 8 bits of byte 15.
+}
+
+{ # ping
+-c // count
+-s // packetsize (default is 56, +8 ICMP header == 64)
+
+# examples
+ping 127.0.0.1 -c1 -s100 // ping once via loopback and -packetsize 100 (108 total byte length)
+
+}
+
+{ # WIRESHARK
+
+tshark -i "Local Area Connection" -w c:\temp\out.pcap // sniff on LAC and write to x
+OR from using tshark -D to list interfaces -> tshark -i 1
+// port filter
+wireshark.exe BPF-sample-3.pcap tcp.srcport == 80 or tcp.srcport == 443
+
+
+\# Protocol filtering
+wireshark.exe arp
+
+\# Byte comparisons
+
+wireshark.exe llc.cisco*pid == 0x2000 // check cisco discov protocol, cisco*pids w/0x2000
+
+
+### wireshark proto helpers
+}
+
+{ # POF FORMAT
+
+**sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass**
+
+* ver: ip 4 or 6
+* ttl: ttl
+* olen: options length
+* mss: max segment size
+* wsize: window size
+* scale: window scale
+* olayout: options order e.g.
+  * mss,nop,ws,nop,nop,sok
+}
+
+
+{ # ARP / ARPING
+
+* reduced info arp request
+  * arping -fqc1 -w3 -I eth0 -s 192.168.11.13 solaris.ops.local
+* arping arp cache poison (-s = source IP (to impersonate, e.g. gateway))
+  * create loopback subinterface w/spoof IP and turn on
+    
+    ip addr add 192.168.11.254/24 dev lo:1 
+    ip link set lo:1 up
+
+    * this will bypass the required bind problem. still using eth0 mac!
+* poison (just need the new IP, dont specify interface)
+  * arping -A -c1 -s 192.168.11.254 192.168.11.14
+    * -A =send REPLY
+	
+	
+Arp flush
+
+* arp -d \* // windows
+  * alternate: netsh interface ip delete neighbors
+* ip -s -s neigh flush all // windows
+  * -s = verbose -s = neighbor table (equal both ARP and NDISC cache)
+  * if not supported, just
+    * ip neigh flush all
+
+BEWARE: This syntax may not work on all UNIX versions. For some older versions the ARP cache needed to be flushed using a script
+
+}
+
+{ # SCAPY
+
+* send dhcp discover
+
+mac = "00:50:56:8e:c3:e9" 
+a = Ether(dst="ff:ff:ff:ff:ff:ff", src="ab:cd:ef:ab:cd:ef", type=0x0800)/IP(src="0.0.0.0", dst="255.255.255.255")/UDP(sport=68, dport=67)/BOOTP(chaddr=mac)/DHCP(options=[('message-type','discover'),('end')])
+}
+
+{ # ROUTING
+
+{ # SOLARIS Routing
+
+<https://www.oracle.com/technetwork/server-storage/solaris11/documentation/solaris-11-cheat-sheet-1556378.pdf>
+
+ SOLARIS ---- enable routing (IP forwarding) with svcadm / svcs
+
+
+# course cmd
+sudo svcs ipv4-forwarding
+sudo svcadm enable ipv4-forwarding
+
+
+// check if enabled
+svcs -a | grep svc:/network/routing/ndp
+
+// enable ipv4/ipv6
+sudo svcadm enable routing/ndp
+
+// confirm
+svcs -a | grep svc:/network/routing/ndp
+
+//svcs ipfilter
+//svcs ipforwarding
+
+// svcadm restart network/physical
+
+// add default route
+sudo route -p add default <gateway IP address>
+
+// confirm route
+netstat -rn
+
+
+^^ if have sudo/root and other commands, use routeadm or ndd
+
+<https://stackpointer.io/unix/enable-ip-routing-on-solaris/144/>
+
+// SNOOP
+
+
+# capture only .1.0/29 network, icmp traffic to and from 192.168.1.4
+sudo snoop -I e1000g1 host 192.168.1.4 && net 192.168.1.0/29 && icmp
+// course cmd
+sudo snoop -r -d e1000g1 host 192.168.1.4 icmp
+
+  * snoop arp
+    * `or: snoop -d e1000g0 \arp`.
+	
+^^ idk
+
+sudo snoop -d net0 'net 192.168.1.0/29 and (icmp or (host 192.168.1.4 and not arp))'
+}
+
+
+{ # RHEL/CentOS && Linux Routing
+
+
+// check if enabled
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+// enable 
+sysctl -w net.ipv4.ip_forward=1
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+// add interface
+ip addr add 192.168.1.2/29 dev eth1
+// turn on
+sudo ip link set eth1 up
+
+// static route
+sudo ip route add 192.168.1.0/29 via 172.16.0.3
+
+// route
+# route cmd - add static route to network via ip
+sudo route add -net 192.168.1.0 netmask 255.255.255.248 gw 172.16.0.2
+// course cmd
+sudo route add -net 192.168.1.0/29 gw 172.16.0.2.
+
+# ip route
+sudo ip route add 192.168.1.0/24 via 172.16.0.2
+
+
+}
+
+
+# TELNET 
+telnet -l Administrator 192.168.1.4
+
+
+{ # WINDOWS ROUTING
+
+// add static route
+route ADD destination_network MASK subnet_mask  gateway_ip e (metric cost is optional)
+metric_cost
+route ADD 172.16.0.0 MASK 255.255.255.0 192.168.1.2
+}
+
+}

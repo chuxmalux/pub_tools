@@ -1,0 +1,1389 @@
+``` MISC NOTES ``` {
+- need obscure singular data info? like creation times down to the millisecond? number of logical processors? consult wmic
+- wmic doesn't give enough info e.g. timetstamp hours/seconds? consider if there's a winevt log - wevtutil
+- .cmd is a script type... query things you dont know
+- DONT GIVE UP or assume 'it just doesn't work' --- if run into problems, ESPECIALLY in tech 
+	- dig for solution before help asking. Basic CMDs not working? Set; check env vars!!! 
+
+// privesc 1 
+PSEXEC -s == RUN AS SYSTEM ACCOUNT 
+	e.g.: psexec -s reg query "hklm\security\policy\poladtev"
+
+// privesc 2 - have Admin creds but on user shell?
+runas /user:Administrator "cmd"
+
+--- WORK on data restricted to the local account/even Administrator!!!
+
+# Common windows ports 
+--- general
+135 - RPC
+137-138 - Netbios
+139/445 - SMB 
+143 - IMAP 
+161 - SNMP
+389 - LDAP
+873 - rsync
+3389 - RDAP
+5985 - WinRM 
+
+--- DC/ servers 
+TCP/UDP 53 - DNS
+TCP/UDP 88 & 464 - Kerberos
+TCP/UDP 389 & TCP 636 - LDAP
+TCP 593 - RPC
+TCP 1032/1033/1044 - ISMServ
+TCP 1037 & 1217 - NTFRS
+TCP 3268 & 3269 - Global Catalog Server
+msdtc - MS Distributed Transaction Coordinator
+ntfrs & dfssvc - MS distributed file system (file replication)
+dns - domain naming service
+
+cmd /c 
+	- prevents file process hangs 
+
+}
+
+{ ``` MISC CMD.exe (doskey, runas, attrib, enter-pssession, findstr, dir, takeown, enable winrm) ```
+
+# cmd history
+doskey /history 
+	or f7
+
+# RUNAS 
+	// run shell as Moe 
+	runas /user:moe cmd
+	# impersonate admin to delete an account
+	runas /user:Administrator "net user Moe /delete"
+	
+# shutdown via CLI
+shutdown -r -t 00
+
+# telnet w/client logging
+telnet -l username -f log.txt xp.ops.local
+	or - set logfile C:\telnet.log
+
+# ADD a user / DELETE user
+net user gubs g41bbl3r /add
+net user bubs * /add # enter password on CLI (no echo)
+
+net user gubs /delete
+net user Larry Larry /add && net user Moe Moe /add && net user Curly Curly /add && net user Joe Joe /add
+
+
+# Attrib
+// remove system & hidden attributes from boot.ini
+attrib -s -h C:\boot.ini
+attrib -r C:\boot.ini  // clear the read only attribute
+
+# edit - windows XP / professional?
+windows editing prompt! can click!!!
+
+# POWERSHELL PSRemoting 
+Enter-PSSession -ComputerName 192.168.11.11 -ConfigurationName permgen -Credential (Get-Credential)
+
+# Findstr (use tabbed delimiters to filter matches!)
+COMMAND | findstr /n /i *search*
+	# -s // recorsd listed on one line with delimited fields, better for str search
+	
+	# -t // sets delimetter to tabs (not comma), for string pulls
+	
+	# findstr /n (line number) /i (case insensitive)
+
+# full dir search
+dir /b /s *netcat*
+	/b - bare format, no add. info/summary (no time mod, size, etc.)
+	/s - search dir and subdirectories 
+// OR (slower) 
+dir C:\ /b /s | find /i "notepad.exe" 
+
+# rename a file
+ren C:\path\to\file [newfilename]
+
+# TAKEOWN // remember, ownership != rights. use cacls/icacls after taking ownership to grant access
+takeown [/s <Computer> [/u [<Domain>\]<User name> [/p [<Password>]]]] /f <File name> [/a] [/r [/d {Y|N}]]
+takeown /s win7.ops.local /u win7\administrator /p L33tHax0r /r /f C:\file.txt
+	- remotely give <user> recursive ownership. use /a to give Administrators group ownership
+takeown /f C:\file.txt 
+icacls C:\file.txt /grant User:(F) # for full access
+
+# enable WinRM service 
+winrm quickconfig -q
+}
+
+# System/ Env. Config / Boot & Logon
+
+{ ``` PSEXEC ```
+
+# Example syntax
+psexec \\remote-computer -u username -p password command-to-be-executed
+
+# remote command
+psexec \\xp.ops.local -u xp\administrator -p L33tHax0r ipconfig /all
+
+# remote shell // -s == execute as System on remote machine (requires user w/System privs)
+psexec \\remote.widget.com -u administrator -p LetM3In cmd
+psexec \\xp.ops.local -u xp\administrator -p L33tHax0r -s cmd.exe
+
+-accepteula # This option suppresses the dialog box asking to accept the End User License Agreement. (no popup box)
+}
+
+{ ``` WMIC ```  
+
+# BASIC SYNTAX
+wmic [ALIAS] [verb] [switch]
+	wmic process get * /format:list
+	wmic process get * where ExecutablePath=asdasdasd /format:table
+
+# show aliases. /format:list or /format:table
+/?
+
+# Enable vhalen user account. First show (list or table format), then enable
+wmic useraccount get * /format:list 
+	wmic useraccount list /format:list
+wmic useraccount where name="vhalen" set Disabled=False
+
+# change password expiration
+wmic useraccount where name="tstark" set PasswordExpires=true
+
+# view all running process paths
+wmic process get executablepath
+
+# find driver creation date 
+wmic datafile where name='c:\\windows\\system32\\drivers\\mrxsmb10.sys' get creationdate
+
+# find number of processors
+wmic cpu get numberoflogicalprocessors 
+
+# get file properties 
+wmic datafile where name="C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe" get * /format:list
+
+# get file timestamps 
+wmic datafile where name="C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe" get CreationDate, LastAccessed, LastModified
+
+wmic datafile where name="C:\\Program Files\\VMware\\VMware Tools\\vmtoolsd.exe" get CreationDate, installdate, LastModified
+
+# get directory timestamps 
+wmic fsdir where name="C:\\DirectoryOfInterest" get creationdate,lastmodified,lastaccessed
+
+CreationDate, LastAccessed, LastModified
+
+{ ``` USEFUL QUERIES ```
+	#baseboard
+	get Manufacturer, Model, Name, PartNumber, slotlayout, serialnumber, poweredon
+
+	#bios
+	get name, version, serialnumber
+
+	#bootconfig 
+	get BootDirectory, Caption, TempDirectory, Lastdrive
+
+	#cdrom
+	get Name, Drive, Volumename
+
+	#computersystem
+	get Name, domain, Manufacturer, Model, NumberofProcessors, PrimaryOwnerName,Username, Roles, totalphysicalmemory /format:list
+
+	#cpu
+	get Name, Caption, MaxClockSpeed, DeviceID, status
+
+	#datafile
+	where name='c:\boot.ini' get Archive, FileSize, FileType, InstallDate, Readable, Writeable, System, Version
+
+	#dcomapp
+	get Name, AppID /format:list
+
+	#desktop
+	get Name, ScreenSaverExecutable, ScreenSaverActive, Wallpaper /format:list
+
+	#desktopmonitor
+	get screenheight, screenwidth
+
+	#diskdrive
+	get Name, Manufacturer, Model, InterfaceType, MediaLoaded, MediaType
+
+	#diskquota
+	get User, Warninglimit, DiskSpaceUsed, QuotaVolume
+
+	#environment
+	get Description, VariableValue
+
+	#fsdir
+	where name='c:\windows' get Archive, CreationDate, LastModified, Readable, Writeable, System, Hidden, Status
+
+	#group
+	get Caption, InstallDate, LocalAccount, Domain, SID, Status
+
+	#idecontroller
+	get Name, Manufacturer, DeviceID, Status
+
+	#irq
+	get Name, Status
+
+	#job
+	get Name, Owner, DaysOfMonth, DaysOfWeek, ElapsedTime, JobStatus, StartTime, Status
+
+	#loadorder
+	get Name, DriverEnabled, GroupOrder, Status
+
+	#logicaldisk
+	get Name, Compressed, Description, DriveType, FileSystem, FreeSpace, SupportsDiskQuotas, VolumeDirty, VolumeName
+
+	#memcache
+	get Name, BlockSize, Purpose, MaxCacheSize, Status
+
+	#memlogical
+	get AvailableVirtualMemory, TotalPageFileSpace, TotalPhysicalMemory, TotalVirtualMemory
+
+	#memphysical
+	get Manufacturer, Model, SerialNumber, MaxCapacity, MemoryDevices
+
+	#netclient
+	get Caption, Name, Manufacturer, Status
+
+	#netlogin
+	get Name, Fullname, ScriptPath, Profile, UserID, NumberOfLogons, PasswordAge, LogonServer, HomeDirectory, PrimaryGroupID
+
+	#netprotocol
+	get Caption, Description, GuaranteesSequencing, SupportsBroadcasting, SupportsEncryption, Status
+
+	#netuse
+	get Caption, DisplayType, LocalName, Name, ProviderName, Status
+
+	#nic
+	get AdapterType, AutoSense, Name, Installed, MACAddress, PNPDeviceID,PowerManagementSupported, Speed, StatusInfo
+
+	#nicconfig
+	get MACAddress, DefaultIPGateway, IPAddress, IPSubnet, DNSHostName, DNSDomain
+
+	#nicconfig
+	get MACAddress, IPAddress, DHCPEnabled, DHCPLeaseExpires, DHCPLeaseObtained, DHCPServer
+
+	#nicconfig
+	get MACAddress, IPAddress, DNSHostName, DNSDomain, DNSDomainSuffixSearchOrder, DNSEnabledForWINSResolution, DNSServerSearchOrder
+
+	#nicconfig
+	get MACAddress, IPAddress, WINSPrimaryServer, WINSSecondaryServer, WINSEnableLMHostsLookup, WINSHostLookupFile
+
+	#ntdomain
+	get Caption, ClientSiteName, DomainControllerAddress, DomainControllerName, Roles, Status
+
+	#ntevent
+	where (LogFile='system' and SourceName='W32Time') get Message, TimeGenerated
+
+	#ntevent
+	where (LogFile='system' and SourceName='W32Time' and Message like '%timesource%') get Message, TimeGenerated
+
+	#ntevent
+	where (LogFile='system' and SourceName='W32Time' and EventCode!='29') get TimeGenerated, EventCode, Message
+
+	#onboarddevice
+	get Description, DeviceType, Enabled, Status
+
+	#os
+	get Version, Caption, CountryCode, CSName, Description, InstallDate, SerialNumber, ServicePackMajorVersion, WindowsDirectory /format:list
+
+	#os
+	get CurrentTimeZone, FreePhysicalMemory, FreeVirtualMemory, LastBootUpTime, NumberofProcesses, NumberofUsers, Organization, RegisteredUser, Status
+
+	#pagefile
+	get Caption, CurrentUsage, Status, TempPageFile
+
+	#pagefileset
+	get Name, InitialSize, MaximumSize
+
+	#partition
+	get Caption, Size, PrimaryPartition, Status, Type
+
+	#printer
+	get DeviceID, DriverName, Hidden, Name, PortName, PowerManagementSupported, PrintJobDataType, VerticalResolution, Horizontalresolution
+
+	#printjob
+	get Description, Document, ElapsedTime, HostPrintQueue, JobID, JobStatus, Name, Notify, Owner, TimeSubmitted, TotalPages
+
+	#process
+	get Caption, CommandLine, Handle, HandleCount, PageFaults, PageFileUsage, PArentProcessId, ProcessId, ThreadCount
+
+	#product
+	get Description, InstallDate, Name, Vendor, Version
+
+	#qfe
+	get description, FixComments, HotFixID, InstalledBy, InstalledOn, ServicePackInEffect
+
+	#quotasetting
+	get Caption, DefaultLimit, Description, DefaultWarningLimit, SettingID, State
+
+	#recoveros
+	get AutoReboot, DebugFilePath, WriteDebugInfo, WriteToSystemLog
+
+	#Registry
+	get CurrentSize, MaximumSize, ProposedSize, Status
+
+	#scsicontroller
+	get Caption, DeviceID, Manufacturer, PNPDeviceID
+
+	#server
+	get ErrorsAccessPermissions, ErrorsGrantedAccess, ErrorsLogon, ErrorsSystem, FilesOpen, FileDirectorySearches
+
+	#service
+	get Name, Caption, State, ServiceType, StartMode, pathname
+
+	#share
+	get name, path, status
+
+	#sounddev
+	get Caption, DeviceID, PNPDeviceID, Manufacturer, status
+
+	#startup
+	get Caption, Location, Command
+
+	#sysaccount
+	get Caption, Domain, Name, SID, SIDType, Status
+
+	#sysdriver
+	get Caption, Name, PathName, ServiceType, State, Status
+
+	#systemenclosure
+	get Caption, Height, Depth, Manufacturer, Model, SMBIOSAssetTag, AudibleAlarm, SecurityStatus, SecurityBreach, PoweredOn, NumberOfPowerCords
+
+	#systemslot
+	get Number, SlotDesignation, Status, SupportsHotPlug, Version, CurrentUsage, ConnectorPinout
+
+	#tapedrive
+	get Name, Capabilities, Compression, Description, MediaType, NeedsCleaning, Status, StatusInfo
+
+	#timezone
+	get Caption, Bias, DaylightBias, DaylightName, StandardName
+
+	#useraccount
+	get Name, AccountType, Description, Domain, Disabled, LocalAccount, Lockout, PasswordChangeable, PasswordExpires, PasswordRequired, SID
+	
+	# DEP: availability and current overall policy 
+	 "wmic OS Get DataExecutionPrevention_Available" and "wmic OS Get DataExecutionPrevention_SupportPolicy"
+	
+	# check if application was uninstalled 
+	wmic /node:"computername" product where "name='applicationname'" get name,version
+}
+
+}
+
+{ ``` REG/REGFIND + REGEDIT ```
+
+{ ``` REGFIND (case sensitive!) ``` 
+#  search by key/value names
+regfind -n <name> 
+
+#  find prefetch
+regfind -n Prefetch
+
+# find GUID for interface w/system's IP
+ipconfig -> regfind 192.168.11.12
+
+# find timezone config 
+regfind -n TimeZone
+}
+{ ``` REG.exe ``` 
+# query Time Zone config for system (after running regfind -n TimeZone)
+reg query HKLM\System\ControlSet001\Control\TimeZoneInformation
+
+#  backup the entire HKEY_LOCAL_MACHINE hive
+reg export hklm C:\hklm.hiv
+
+# backup hardware root key of HKLM\System\ControlSet001\Control\TimeZoneInformation
+reg save hklm\hardware HKLM-hardware-BU.hiv
+
+# query for all subkeys and subsequent values 
+reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons /s
+
+# modify registry value 
+reg.exe add "HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" /v "{450D8FBA-AD25-11D0-98A8-0800361B1103}" /t REG_DWORD /d 0 /f
+
+#  change the value of 'Registered Owner' to "computer11"
+regfind -n RegisteredOwnder
+reg add "HKLM\Software\Microsoft\Windows NT\CurrentVersion" /v RegisteredOwner /t REG_SZ /d Computer11
+
+# remotely add key to another machine's HKLM\Software subkey
+reg add \\xp.ops.local\HKLM\Software\hawkeye
+
+# remotely view/ query
+reg add \\xp.ops.local\HKLM\Software\hawkeye
+
+# find windows firewall settings HKLM 
+reg query HKLM\System\ControlSet001\Control\SafeBoot\Network\SharedAccess
+reg query HKLM\System\ControlSet001\Control\Services\SharedAccess
+reg query HKLM\System\ControlSet002\Control\SafeBoot\Network\SharedAccess
+reg query HKLM\System\ControlSet002\Control\Services\SharedAccess
+
+# search through registry for matching data / key / values 
+regfind -n <telnet> 
+reg query ***compose search to look for values containing <telnet>
+reg query HKxx[/d] [/k] [/v] /f "search pattern" /s [/e] [/c]
+reg query HKLM /d /f "telnet" /s 
+
+# query reg key info for all installed apps/products
+REG QUERY HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall /s
+
+# query for configuration of apps (microsoft)
+reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\
+reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\TelnetServer\1.0 /v LoginScript
+
+
+{ # create, add, modify registery value (reg.exe)
+
+Within the registry of the remote machine, create a new Binary Value and Modify/Delete the Binary Data Values in the RunOnce subkey under the HKLM hive, according to the following instructions.
+
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce
+reg query "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /s
+
+
+# 1. Create a new Binary Value with the following information:
+Value Name = Test3
+Value Data = aaaaaaaaaa
+
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v Test3 /t REG_BINARY /d aaaaaaaaaa
+
+# 2. MODIFY the Binary Data stored in Test1 to have Value Data = bbbbbbbbbb
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v Test1 /t REG_BINARY /d bbbbbbbbbb
+
+
+# 3. DELETE the Binary Value Test2
+reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v Test2 
+
+}
+
+
+}
+{ ``` regedit.exe ```
+
+# Create backup of registry in C:\
+regedit /E C:\registrybackup.reg
+
+
+}
+{ ``` SETX ```
+
+# system  path to C:\systempath
+setx /S xp.ops.local /U xp\administrator /P L33tHax0r PATH C:\Windows\System32 /M
+
+# local admin, path add (wireshark)
+setx /S xp.ops.local /U xp\administrator /P L33tHax0r PATH "C:\Program Files\Wireshark"
+
+# local admin, prompt - date;time;systemdrive;path;
+setx /s xp.ops.local /u xp\administrator /p L33tHax0r PROMPT $D$T$P
+
+echo %DATE%TIME%SYSTEMDRIVE%PATH% // <- not the right format for tests... use above
+
+# set remote user 'download' var to Downloads folder path... all on remote machine
+setx /S xp.ops.local /U xp\administrator /P L33tHax0r download "C:\Documents and Settings\Administrator\My Documents\Downloads"
+
+}
+
+}
+
+
+{ ``` BOOT (bcdedit, bootcfg) ```
+
+
+{ BCDedit
+# view BCD store info
+bcdedit /enum // not as verbose as /v
+bcdedit /v
+
+# create backuo
+bcdedit /export store_bak
+
+# bootscreen timeout 
+bcdedit /timeout 180
+
+# default OS 
+bcdedit /default {d003984d-3f81-11e4-bd45-85f6704e5b92}
+
+# modify a value (set description to Primary Operating System)
+bcdedit /set {d003984d-3f81-11e4-bd45-85f6704e5b92} description "Primary Operating System" 
+
+# modify display order (to set OS GUIDs)
+bcdedit /displayorder {d003984c-3f81-11e4-bd45-85f6704e5b92} {d003984d-3f81-11e4-bd45-85f6704e5b92}
+
+# delete PrimaryOS GUID
+bcdedit /delete {d003984c-3f81-11e4-bd45-85f6704e5b92}
+
+# reload backup
+bcdedit /import store_bak
+
+}
+ 
+# bootcfg - change boot OS (partition) from 2 to 1
+bootcfg /default /id 1
+
+}
+
+# Processes
+{ ``` PROCESSES (tasklist / taskkill) ```
+
+{ # Tasklist // Taskkill
+
+# services
+tasklist /svc
+
+# DLLs 
+tasklist /M
+
+# view remote 
+tasklist /s win10.ops.local /u Administrator /p L33tHax0r
+
+# Filter for 1. memusage great thatn 15000 and 2. session 1
+// syntax: tasklist filter [filter name] [operator] [valid value]
+tasklist /fi "MEMUSAGE gt 15000"
+tasklist /fi "SESSION eq 1"
+
+# Identify the process in which the W32Time service is running.
+tasklist /FI "SERVICES eq W32Time"
+
+
+## Taskkill
+# eliminate process by IMAGE name
+taskkill /IM
+
+# eliminate notepad.exe remotely 1. IMAGE 2. by PID
+taskkill /s win10.ops.local /u Administrator /p L33tHax0r /IM notepad.exe 
+taskkill /s 192.168.11.18 /u win10\administrator /p L33tHax0r /PID
+
+}
+
+}
+
+
+# Services 
+
+{ ``` SYSINTERNALS - Processes / Handles / DLLS (pslist, pskill, handle, listdlls) ```
+
+{ // PSLIST 
+# list mem and thread details
+pslist -dm
+pslist -x // proc, mem info, threads
+
+# taskmanage mode, for 2 minutes, refresh every 2 secs
+pslist -s 120 -r 2
+
+# remote list 
+pslist \\192.168.11.18 -u Administrator -p L33tHax0r
+
+# show PARENT procs // tree
+pslist -t 
+}
+
+// PSKILL
+# kill proc & descendants 
+pskill -t 
+
+{ // HANDLE // view resources a proc is using
+# show proc handle
+handle -p notepad.exe
+# for PID, dump all handle information
+handle -a -p 2696
+
+# List handle information from a process
+handle -s -p [PID of smss] (or name)
+
+# List number of pids that have "WORD" in directories\keys\files\etc
+handle -a word
+}
+
+{ // LISTDLL - only runs locally
+//returns a listing of the DLLs that have been loaded into all processes, or loaded into a specific process, or to list all the processes that have a specific DLL loaded. This utility can also be used to display the DLL version information and digital signatures, as well as scan active processes for unsigned drivers
+# list cmd.exe dlls (via img name)
+listdlls cmd.exe
+
+# via PID
+listdlls 2064
+
+# list all procs using DLL -pid
+listdlls -d WOW64.dll
+ 
+ # find install date AND path (verbose!)
+listdlls -v -d gdi32.dll | more
+
+# find dlls associated with Windows Defender
+listdlls -d defender
+
+# search for malicious DLLs
+C:\>P:\Tools\listdlls | find /I "command"
+
+# find associated port for DLL
+listdlls -d W32Time.dll 
+- note PID, then netstat -anob
+- or just use tasklist /svc
+
+}
+}
+
+{ ``` SYSINTERNALS - Services (psservice, sc, psinfo)```
+# get uptime, kernel version, product type, version, SP, kernel build number, misc. info, IE version, system root, processor type/speed, video driver
+psinfo 
+
+// PSSERVICE
+# help
+psservice -? [command]
+
+# query service on system, description, status !! CAN USE Display Name or ServiceName/getkeyname !!
+psservice query
+
+# remote query services
+psservice \\xp.ops.local -u xp\Administrator -p L33tHax0r query -s all
+
+# remote query a service 
+psservice \\xp.ops.local -u xp\Administrator -p L33tHax0r query "Security Center"
+psservice \\xp.ops.local -u xp\Administrator -p L33tHax0r query wscsvc
+
+#stop service
+psservice stop "Windows Time"
+
+# view config [find start type, binary path, dependencies, service start name, failure actions]
+psservice config "Windows Event Collector"
+
+# disable/ enable services (setconfig)
+psservice setconfig [service] disabled
+psservice setconfig [service] auto # "Enable service"
+
+# view services DEPENDENT on a service
+psservice depend [service]
+
+# view service security permissions 
+psservice security [servicename]
+
+# modify service START_TYPE (limited, can only do this. unlike sc?)
+sc setconfig "Parental Controls" auto
+
+}
+
+{ ``` SERVICES + DRIVERS (net, sc, driverquery) ```
+
+{ // NET 
+#help
+net help start 
+
+# list running services
+net start 
+
+# start a service
+net start "ssdp discovery"
+
+#pause a service
+net pause telnet 
+
+# resume service
+net continue telnet
+}
+
+// DriveryQuery
+# determine if security driver secdrv.sys is signed or not
+driverquery /si | sort
+
+
+{ // SC 
+
+# get keyname/servicename (must have before querying service; doesnt accept display name)
+sc getkeyname "DISPLAYNAME"
+sc \\xp.ops.local getkeyname "Windows Firewall/Internet Connection Sharing (ICS)" # remote 
+
+# query service 
+sc query "SERVICENAME"
+
+
+# remotely query comp services
+sc \\xp.ops.query 
+sc \\xp.ops.query state= all
+
+# start / stop / pause / continue service
+sc start W32Time
+sc stop W32Time // if can't stop a service, may need to modify e.g. disable its START_TYPE
+sc pause TlntSvr
+sc continue TlntSvr
+
+# query configuration // start type
+sc qc [keyname/servicename]
+
+# query add. info like PID
+sc queryex [servicename]
+
+# modify a config (disable autostart)
+sc config netlogon start= disabled
+
+
+# find services dependent on another service
+sc enumdepend [service]
+
+# check event failure actions
+sc qfailure "keyname/servicename"
+
+
+#1.1
+sc getkeyname "Windows Audio"
+sc stop "AudioSrv"
+#1.2
+net start "Remote Desktop Services UserMode Port Redirector" 
+#1.3 
+sc config Spooler start= disabled
+#1.4
+sc config W32Time start= auto
+}
+
+}
+
+# Network & Name Resolution
+
+{ ``` WINDOWS - NETWORKING ENVIRONMENT CHECKS (ipconfig, nslookup, route, arp, netstat, systeminfo, NETSH) ```
+ipconfig /all # 1. basic net awareness
+- note hostname/IP. statically configured? matches my data?
+- netmask (whats our network?)
+- default gateway (next hop gateway?)
+- MAC (Match? OUI search?)
+- DNS Suffix (domain?)
+
+ipconfig /displaydns | more # 2. dns info  (preloaded data from hosts AND recently obtained DNS records)
+ipconfig /flushdns # reset DNS cache, discard entries
+ipconfig /register # initiates DNS config
+
+nslookup # query default DNS server for domain name/IP relational info
+
+hostname # 3. what is is local machine
+
+route print / netstat -rn # 4. routing table: dynamic or static? gateways? def route? direct/indirect connect?
+
+netstat -anob | more # 5. all active/listening, dont resolve names, show PID and process name
+netstat -p [tcp/udp/tcpv6/udpv6] # specify L4 protocol 
+
+arp -a # 6. arp cache : any systems comp. has RECENTLY talked to?
+arp -s [IP] [AA-BB-CC-DD-EE-FF] // # add host associate IP address to MAC
+arp -d  [IP]
+arp -d * # delete arp cache 
+
+/// # 7. display system domain name
+systeminfo | findstr C:/"Domain
+wmic computersystem get domain
+echo %userdomain%  # only displays netbios version of domain name || if not in domain, echo returns system name 
+///
+
+/// # discard/ renew DHCP configuration on int net adapters with DHCP enabled
+ipconfig /release
+ipconfig /renew 
+///
+
+
+route add -p 192.168.103.0 mask 255.255.255.0 192.168.18.45 metric 1 # static route add 
+route delete 192.168.103.0
+
+
+{ ``` NETSH  ```
+# alter a network card's IP, subnet, and gateway address, routes
+netsh interface ipv4 add route 192.168.103.0/24 "Local Area Connection 2" 192.168.19.45 Type
+netsh interface add route 
+netsh interface delete route 
+
+netsh dnsclient add dnsserver "Local Area Connection 2" 8.8.8.8 # add new DNS server to system config (succ = no output, ipconfig /all)
+netsh dnsclient delete dnsserver "Local Area Connection 2" 8.8.8.8 # delete. succ = no output too)
+
+}
+}
+
+{ ``` Tools (arp, ping, pathping, tracert, netstat, nbtstat, route) ```
+
+# ARP
+
+# PING
+
+# PATHPING // combines ping + tracert functionality
+
+# TRACERT
+
+# NETSTAT 
+-n provides numeric information  
+-o lists the owning PID 
+-b displays the name of the executable associated with the port 
+-r shows the routing table 
+-e (ethernet stats) can help identify if there is an irregular amount of traffic 
+-s can be used with -e to provide more detail about the traffic 
+-p shows connections or statistics for a particular protocol you have specified   
+
+netstat -es # display interface statistics (bytes, unicast / non-unicast packets, discards, errors, unknown protocls, IPv4/IPv6 TCP and UDP statistics,   ICMP statistics
+
+netstat -ab # list proc and DLLs for active/listening ports
+
+# NBTSTAT 
+nbtstat -r # display remote netBIOS cache names
+nbtstat -n # display local netBIOS cache / (name table)
+-r # list nambes resolved by broadcast and WINS
+-s/-S # list sessions table
+-R # purge & reload remote cache name table
+-RR # send Name Release packets to WINS, then Refresh
+
+nbtstat -a win10 # send NBNS (name request) to hostname (MUST use net suffix, not FQDN!!!)
+nbtstat -a 192.168.0.11 
+nbtstat -a 192.168.0.11 -p 1137 # specify port e.g. for tunnels/redirection
+
+``` common suffixes 
+
+Number (Hex)	Usage
+00	Workstation, Domain Name
+01	Messenger (Workstation)
+03	Messenger (User)
+06	Remote Access Server
+1F	NetDDE
+20	File Server
+21	Remote Access Server Client
+22	Microsoft Exchange Interchange
+23	Microsoft Exchange Store
+24	Microsoft Exchange Directory
+87	Microsoft Exchange MTA
+6A	Microsoft Exchange IMC
+1B	Domain Master Browser
+1C	Domain Controllers
+1D	Master Browser
+
+```
+
+
+# ROUTE
+
+
+}
+
+{ ``` NET (SHARE / USE )``` 
+net share // list shared resources 
+
+# host a share (directory)
+net share [ShareName]=[C:\Path\To\Share] /remark:"Swiggity"
+
+# map (use) drives 
+net use # view connections to shared resources 
+net use f: \\DEVSRV\c$  # drive F drove to devsrv fileshare C$
+net use f: \\DEVSRV\c$ /u:domain\\test_user passwordhere # map a drive
+net use k: \\WIN7\TempShare /u:Administrator L33tHax0r # EXAMPLE 
+net use k: \\WIN7\TempShare # may not requires creds
+ 
+net use \DEVSRV\c$ /u:domain\test_user passwordhere # 'deviceless' (no share)
+net use \\DEVSRV\c$ /persistent:yes # persistent 
+
+# remote network conns
+net use /delete \\devsrv\c$
+net use f: \\devsrv\c$ /delete  // remove map'd drive
+
+# ENABLE win7 share from command line 
+netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes
+
+}
+
+
+### WINDOWS ENUM & HARDENING
+
+{ ``` User SIDs (reg query, wmic,  psgetsid)```
+
+# whoami - SID (ez way)
+whoami /user 
+# whoami - group SID 
+whoami groups /fo list
+
+# Find machine's SID with reg
+reg query "HKLM\SAM\SAM\Domains\Account" /v V
+
+# grant permission to SAM in to view/modify
+reg add HKLM\SAM\SAM /grant=Administrator:full
+^--- issues getting this to work. FOR NOW just modify using regedit UI
+
+# Find next RID - stored in reverse hex or little endian with an offset of 0x48 and a length of 4
+reg query HKLM\SAM\SAM\Domains\Account\F > Desktop/rid.txt
+e.g. EE030000 = 03EE = next RID is 1006 # easier to find offset w/regedit
+---- or just run
+	wmic useraccount get name,sid
+	
+# Create account named Bob, verify user SID 
+net user Bob Bob /add
+psgetsid Bob
+
+# find last logged in user 
+reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI /v LastLoggedOnUser
+OR
+//1. Run REG QUERY on HKEY_USERS. The higher SID and [SID]_Classes entries are active users (expect system/ svr accounts)
+reg query HKU
+
+//2, query and compare SIDs to - hklm\software\microsoft\windows nt\currentversion\profilelist to identify logged in users
+reg query "hklm\software\microsoft\windows nt\currentversion\profilelist\[USER-SID-KEY]"
+
+# Find SIDs and RIDs to all accounts 
+//1. reg query each account, using same syntax listed above !!! some keys aren't generated until login! Also use WMIC below
+reg query "hklm\software\microsoft\windows nt\currentversion\profilelist\[USER-SID-KEY]"
+
+//2. WMIC 
+wmic useraccount get name,sid 
+
+//3. psgetsid [account]
+}
+
+{ ``` Active Directory  (dsquery, dsget, dsadd, dsmod) ```
+
+# query AD to confirm a computer in domain, starting in domainroot (domainroot is the default option though)
+dsquery computer <opt: domainroot> -name WKStation08
+
+# query all domain users
+dsquery user -name * 
+
+# query AD for all users with name as some form of Chris
+dsquery user -name *chris*
+
+# query for specific users metada (SAMID)
+dsget user "CN=Christina Coffey,CN=Users,DC=corp,DC=skyriver,DC=com" -samid
+
+# PIPE/ CHAIN. DSQUERY AD for all computers and use DSGET to retrieve metadata, filter on SAMID attribute
+dsquery computer | dsget computer -samid
+
+# same as above, but for domain users
+dsquery user | dsget user -samid
+
+# find samid of user "Phillips" || find description || find group membership || upn
+dsquery user -name "*Phillips" | dsget user -samid
+dsquery user -name "*Phillips" | dsget user -desc
+dsquery user -name "*Phillips" | dsget user -memberof
+dsquery user -name "*Phillips" | dsget user -upn
+
+# find domain admins
+dsquery user -name *admin* | dsget user 
+
+# find domain OS and servicepack info
+dsquery * -attr operatingSystem operatingSystemServicePack -filter "(|(operatingSystem=*))"
+
+# change description of Carpenter account to "Field Manager"
+dsquery user -name *carpenter* | dsmod user -desc "Field Manager"
+
+# DSQUERY to view groups
+dsquery group
+
+# add carpenter account to managers group || remove 
+dsquery user -name *carpenter* | dsmod group "CN=managers,CN=users,DC=corp,DC=skyriver,DC=com" -addmbr 
+dsquery user -name *carpenter* | dsmod group "CN=managers,CN=users,DC=corp,DC=skyriver,DC=com" -rmmbr
+
+# query managers group and verify user was added
+dsquery group -name *managers* | dsget group -members
+
+# CREATE AN AD USER 
+dsadd user "CN=xxx xxx,CN=users,DC=corp,DC=skyriver,DC=com" -samid xxx -upn xxx@ops.local -fn "xxx" -ln "xxx" -display "xxx xxx" -pwd xxx -desc "xxxx" -disabled no
+
+dsadd user "CN=lithium goblin,CN=users,DC=corp,DC=skyriver,DC=com" -samid lgoblin -upn lgoblin@ops.local -fn "lithium" -ln "goblin" -display "lithium goblin" -pwd gerogero123! -desc "the lithium golbin of skyriver" -disabled no
+
+dsadd user "CN=bo bo,CN=users,DC=corp,DC=skyriver,DC=com" -samid bbo -upn bbo@ops.local -fn "bo" -ln "bo" -display "bo bp" -pwd ~bobolicious~ -desc "bobobo bo bobobo" -disabled no
+
+# REMOVE a user 
+dsquery user -name *lith* | dsrm -noprompt 
+
+{ # EXAM
+	dsadd user "CN=John Smith,CN=Users,DC=ops,DC=local" -pwd "Password1" 
+	dsadd group "CN=MERRY,CN=Users,DC=ops,DC=local" 
+	dsquery user -name "John Smith" | dsmod group "CN=MERRY,CN=users,DC=ops,DC=local" -addmbr 
+	dsquery group -name *MERRY* | dsget group -members
+
+	dsquery user -name "MIKE SMITH" | dsget user -tel
+	dsquery user -name "MIKE SMITH" | dsmod user -tel "555-433-4342"
+	dsquery group -name "Managers" | dsrm -noprompt 
+	dsquery user -name "MIKE SMITH" | dsget user -pwdneverexpires
+	dsquery user -name "MIKE SMITH" | dsmod user -pwdneverexpires yes
+	#
+
+	dsquery ou -name "Customer Service"
+	dsget ou "OU=Customer Service,DC=ops,DC=local"
+	dsquery * "OU=Customer Service,DC=ops,DC=local" -attr userPrincipalName
+	dsquery * "OU=Customer Service,DC=ops,DC=local" 
+
+	dsquery user -name "Mike Bojangles" | dsget user -tel
+}
+
+}
+
+{ ``` Permissions/ ACLs / Groups, Runas (net localgroup, CACLS, accesschk), takeown```
+
+
+{ # NET (user / localgroup)
+# view user perms // local groups & assigned users
+net user // net use [user]
+net localgroup [group]
+
+# create group Duck
+net localgroup duck /add
+
+# remove user account
+net user curly /delete 
+
+# activate / deactivate an account
+net user joe /active:no / yes 
+
+# add / remove multiple users to/from localgroups 
+net localgroup "power users" Moe Joe /add && net localgroup "Users" Moe Joe /delete 
+
+#  add user comment
+net user Moe /USERCOMMENT:"the stoogemaster"
+
+# limit a user to 8 hours of login time 
+net user larry /times:M-Su,08:00-16:00
+}
+
+
+{ CACLS
+
+# EDIT* ACL, grant user/group full control of a directory
+cacls "C:\The Stooges" /e /g "power users":f
+
+# give a user full control of their own directory; give a user WRITE only access to another directory
+cacls "C:\The Stooges\Moe" /e /g moe:f
+cacls "C:\The Stooges\Moe" /e /g joe:w
+
+# revoke (remove) local User group from access to directory
+cacls "C:\The Stooges\Moe" /e /r users
+
+}
+
+{ ICACLS
+// inheritance note1 - /inheritance:e/d/r determines if the container/ object receives inherited permissions or not 
+// inheritance note2 - Object Inhertance (OI) ((files)) / Container Inheritance (CI) ((subdirs)) flags - set which users/groups receive inherited permissions on a created object 
+
+# Disable inheritance after creating directory
+mkdir C:\testdir
+icacls "C:\testdir" /inheritance:d # disables inheritance, but copies(retains) explicitly set permissions
+
+# remove directory access for group/user. On 2nd, disable inheritance (g: all occurences of granted rights. :d removes all denied rights)
+icacls "C:\The Ducks" /remove "Authenticated Users" 
+icacls "C:\The Ducks\Dewey" /remove:g Users /inheritance:r
+
+# grant group access (full) to directory, inheritance enabled (for files(objects) and subdirectories(containers))
+icacls "C:\The Ducks" /grant "Ducks":(OI)(CI)F
+
+# grant user full access to directory or file, 
+icacls "C:\The Ducks\Dewey" /grant Fred:F
+
+# grant user READ and WRITE access to directory/subdirectories
+icacls "C:\The Ducks\Huey" /grant Fred:(OI)(CI)RW
+
+
+{ # more  create user/groups and ICACLs examples 
+	# add orange/blue to Color group
+	net localgroup Color Orange Blue /add
+
+	# add banana / orange to Fruit group
+	net localgroup Fruit Banana Orange /add
+
+	# assign each user full access to their Old file, no one else has access perms 
+	icacls "C:\Ledge\Old\Orange.txt" /grant Orange:F &&
+	icacls "C:\Ledge\Old\Blue.txt" /grant Blue:F &&
+	icacls "C:\Ledge\Old\Banana.txt" /grant Banana:F
+
+
+	# grant Color group Read only access to Bold directory and files cotained within 
+	icacls "C:\Ledge\Bold" /grant Color:(OI)(R)
+
+	   
+	# grant Fruit group Write only access to the Ledge directory and subfolders 
+	icacls "C:\Ledge" /grant Color:(CI)(W)
+
+	# remove leaf.txt permissions for all (fruit/color) users - must disable inheritance first IOT remove Color (bc \Bold has (OI) set for Color group
+	icacls "C:\Ledge\Bold\Leaf.txt" /inheritance:d
+	icacls "C:\Ledge\Bold\Leaf.txt" /remove "Fruit" &&
+	icacls "C:\Ledge\Bold\Leaf.txt" /remove "Blue" &&
+	icacls "C:\Ledge\Bold\Leaf.txt" /remove "Color"
+
+	# make sure to review (table format)
+	icacls C:\Ledge /t
+}
+
+
+}
+
+# TAKEOWN 
+takeown [/s <Computer> [/u [<Domain>\]<User name> [/p [<Password>]]]] /f <File name> [/a] [/r [/d {Y|N}]]
+takeown /s win7.ops.local /u win7\administrator /p L33tHax0r /r /f C:\file.txt
+	- remotely give <user> recursive ownership. use /a to give Administrators group ownership
+}
+
+{ ``` Windows Firewall  (netsh) ```
+
+{ # NETSH 
+
+	# view firewall policies (for network/domain) state 
+	netsh advfirewall show allprofiles
+	
+	# disable firewall policies for network/domain
+	netsh advfirewall set currentprofile state off
+	netsh advfirewall set allprofiles state off  
+	netsh advfirewall set public state off 
+	netsh advfirewall set private state off.
+		
+	``` deprecated netsh firewall disable ```
+	netsh firewall set opmode mode=disable.
+
+	# Show current profile, disable/ reenable a profile (MORE DELIBERATE)
+	netsh advfirewall show currentprofile # First line is name of profile e.g. "Private Profile Settings"
+	netsh advfirewall set currentprofile state off 
+	netsh advfirewall set currentprofile state on
+	{ # reenable profile for specific profiles
+		netsh advfirewall firewall set rule name="File and Printer Sharing (NB-Session-In)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (NB-Session-Out)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (SMB-In)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (SMB-Out)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (NB-Name-In)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (NB-Name-Out)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (NB-Datagram-In)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (NB-Datagram-Out)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (Spooler Service - RPC)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (Spooler Service - RPC-EPMAP)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (Echo Request - ICMPv4-In)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (Echo Request - ICMPv4-Out)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (Echo Request - ICMPv6-In)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (Echo Request - ICMPv6-Out)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (LLMNR-UDP-In)" new enable=yes profile=domain,public
+		netsh advfirewall firewall set rule name="File and Printer Sharing (LLMNR-UDP-Out)" new enable=yes profile=domain,public
+	}
+
+	
+	# review firewall policies, then display ALL rules for a profile
+	netsh advfirewall show currentprofile
+	netsh advfirewall firewall show rule profile=private name=all
+	netsh advfirewall firewall show rule profile=public name=all
+	netsh advfirewall firewall show rule name=all # all profiles
+	
+	# output rules for analysis
+	netsh advfirewall firewall show rule profile=private name=all > fwrules.txt
+	
+	# create/ restore backup of firewall configuration 
+	netsh advfirewall export C:\FW-Before-Changes.wfw # [import] to restore backup
+
+	# Disable / enable group of firewall rules 
+	netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=no
+	netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=yes
+	# reenable for only public/domain profiles 
+	netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=yes
+	# enable a ICMPv4 echo response rule (confirm name before running)
+	netsh advfirewall firewall set rule name="Ping-ICMPv4 Echo" new enable=yes
+
+	# create/ remove a rule to allow inbound TCP traffic from a specific IP address/ source port to a specific dest. port
+	netsh advfirewall firewall add rule name "1337 h4x" dir=in protocol=tcp localport=31337 remoteport=6666 remoteip=192.168.11.14 profile=private action=allow 
+	netsh advfirewall firewall delete rule name "1337 h4x"
+	
+	# add rule named "svchost service" that allows inbound TCP traffic on port 443
+	netsh advfirewall firewall add rule name="svchost service" dir=in protocol=tcp localport=443 action=allow 
+	# add rule named 'HTTP In' to allow port 80 traffic (MAKE PUBLIC!)
+	netsh advfirewall firewall add rule name="HTTP In" dir=in protocol=tcp localport=80 action=allow profile=public
+
+
+	# exception for specific program --- to not blockincoming firefox (http) networking connections 
+	netsh advfirewall firewall add rule program="c:\program files (x86)\Mozilla Firefox\firefox.exe" name="FOX" enable=yes dir=in action=allow profile=public
+	
+	# log dropped connections and set max filesize to 1024KB
+	netsh advfirewall set allprofiles logging droppedconnections enable; netsh advfirewall set allprofiles logging maxfilesize 1024
+	
+	# EXAM
+
+	# enable ICMPv4 response 
+	netsh advfirewall firewall add rule name=ICMPv4-In protocol=icmpv4 dir=in action=allow
+
+	# enable RDP 
+	netsh advfirewall firewall set rule name="Remote Desktop (TCP-In)" new enable=yes profile=public,private,domain
+
+	# cleaning {
+	
+	# filter out specific entry
+	run multicommand -cl 'cmd /c findstr /c:"exact phrase to match" c:\path\to\firewall.log'
+
+	
+	}
+
+}
+
+
+
+
+}
+
+
+{ ``` AUDITING / Logs (Auditpol, wevtutil, eventquery, PSlogList)```
+
+{ # Auditpol.exe 
+#list audit policy categories 
+auditpol /list /category /v
+
+# view audit policies subcategories - elevations of user priv
+auditpol /get /Category:"Account Management"
+
+# enable success auditing for a subcategory
+auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable
+# No Auditing 
+auditpol /set /subcategory:"User Account Management" /success:disable /failure:disable
+
+# enable ALL logging (success/failure) for a subcategory 
+auditpol /set /subcategory:"Logon" [opt: /success:enable (on by default]
+
+# enable success auditing for special privilege use and system logs (whole categories)
+auditpol /set /Category:"Privilege Use","System" 
+
+# audit categories for user 
+auditpol /get /user:Administrator /category:*
+
+}
+
+{ # Wevtutil 
+
+{ # LOGGING INFORMATION, EventIDs 
+3 Types of logs: System, Application, Security 
+
+# EventIDs: (Win2k / WinXP)
+
+
+
+# additional hunting eventIDs
+
+}
+
+
+//WIN7
+# view last 10 system logs 
+wevtutil qe System /c:10 /rd # /rd = read newest logs
+
+# query for specific log (eventID)
+wevtutil qe Security "/q:*[System [(EventID=4616)]]" /rd:true /f:text
+
+# find timestamp for installation of application
+wevtutil qe Application /q:*[System[(EventID=11707)]] | findstr WinZip
+
+# timesteamp of removal for app
+wevtutil qe Application /q:*[System[(EventID=11724)]]
+
+# find timestamp of modified reg key 
+wevtutil qe Application /q:*[System[(EventID=4657)]]
+
+# view logs in last 30 mins 
+run multicommand -cl 'wevtutil qe Security /rd:true /f:text /c:1 /q:"*[System[TimeCreated[timediff(@SystemTime) <= 1800000]]]"'
+run multicommand -cl 'wevtutil qe System /rd:true /f:text /c:1 /q:"*[System[TimeCreated[timediff(@SystemTime) <= 1800000]]]"'
+run multicommand -cl 'wevtutil qe Application /rd:true /f:text /c:1 /q:"*[System[TimeCreated[timediff(@SystemTime) <= 1800000]]]"'
+	--- these wont count for autograde
+
+}
+
+{ # Eventquery.exe
+}
+
+{ # PSLogList.exe
+
+# display list 10 logs
+psloglist -n 10 [opt: security/application](system by default)
+
+
+# find user SID for icarus, view audit logs for account creation 
+wmic useraccount get Name, SID
+psloglist > desktop.sec.txt (search for 1009 SID)
+	# better way
+psloglist -s -t "\t" Security | findstr /n /i .*SID.*
+	-s // recorsd listed on one line with delimited fields, better for str search
+	-t // sets delimetter to tabs (not comma), for string pulls
+	findstr /n (line number) /i (case insensitive)
+	
+
+# display logs in last 30 minuets 
+run multicommand -cl 'cmd /c psloglist.exe -m 30 logname'
+
+}
+
+}
+
+{ ``` Windows File Protection (WFP)/ Windows Resources Protection (WRP) / ASLR / Bitlocker / DEP (movelatr, PEchecksum, Sigcheck.exe, sfc, BITLOCKER: manage-bde)  ```
+
+{ # alter sfcfiles.dll to have WFP ignore a file/remove from protection (ipconfig.exe)
+# make backup and working copy of sfcfiles.dll 
+copy %systemroot%\System32\sfcfiles.dll C:\"Documents and Settings\Administrator\Desktop\sfcfiles.bak
+copy %systemroot%\System32\sfcfiles.dll %systemroot%\System32\mysfcfiles.dll
+
+# install HexWorkshop
+C:\hw32v423.exe
+
+# within hexworkshop, open mysfcfiles.dll
+	// find entries of ipconfig.exe and change them to ypconfig.exe (ctrl+F, Text String, Unicode)
+
+# update PE checksum using PEChksum.exe 
+C:\PEChksum.exe C:\PEChksum.exe\mysfcfiles.dll
+
+# Examine HKLM\System\CurrentControlSet\Control\SessionManager 
+reg query "HKLM\System\CurrentControlSet\Control\Session Manager"
+
+}
+
+
+# MoveLatr.exe - mimic actions of a 'Trusted Installer' (from exclusion list) // replace DLL 
+movelatr "full path source filename" "full path destination filename"
+C:\movelatr %systemroot%\System32\mysfcfiles.dll  %systemroot%\System32\sfcfiles.dll
+
+# SFC.exe (scan file checker. Verifies integrity of windows critical files/dirs and repairs missing)
+sfc /scannow
+sfc /verifyonly # doesn't repair 
+
+# sigcheck.exe - identify signature state of executable
+sigcheck -i %systemroot%\notepad.exe 
+	// -i : catalog name and signing chain 
+	
+
+# BITLOCKER - manage-bde *bitlocker drive encryption)
+// find potential bitlocker drives and info
+manage-bde -status 
+
+// unlock /mounts drives (using bitlocker recovery key)
+manage-bde -unlock E: -RecoveryPassword XXXXXX-XXXXXX-XXXXXX-XXXXXX-XXXXXX-XXXXXX-XXXXXX-XXXXXX
+
+// lock the partitions 
+manage-bde -lock e:
+manage-bde -lock f:
+
+#binscope.exe - standalone executable or implemented w/microsoft visual studio 
+// run to check application security features (e.g. ASLR, DEP, ATL, etc)
+
+# is DEP enabled?
+software // procexp - enable DEP/ASLR columns to check; what config is set? AlwaysOn/OptIn?
+hardware // 
+	bcdedit /enum - nx  # 	W7
+	bootcfg /query # XP
+	
+# set DEP policy level
+	bcdedit /set {current} nx OptOut # W7
+	BCDEDIT /SET {CURRENT} NX ALWAYSON 
+	
+
+}
+
+{ # MISC NOTES on WINDOWS SERVICES and others
+SYSTEM (KERNEL // CL\Windows\System32\ntoskrnl.exe)
+	- manages syte memory & compresed memory in N kernel; is a single thread running on EACH processor 
+	- host of drivers (network, disk, USB). 
+
+SMSS (Session manager subsystem)
+	- Starts CSRSS and Winlogon 
+	- Creates environ. variables and starts the KERNEL+USER modes of win32 subsystem: (win32k.sys - kernel, winsrv.dll - user, and csrss.exe - user)
+	- virtual memory paging files
+
+CSRSS (Client Server Runtime Subsytem)
+	- Usermode process
+	
+Winlogon (Windows logon manager)
+	- handles the sign in process/splash - authentication
+	- starts Services.exe and LSASS.exe
+	
+LSASS (Local Sec Authentication Subsytem)
+	- enforces the SECURITY POLICY on system
+		- verifies users logging on to comp/server
+		- handles password changes
+		- creates access tokens 
+		- writes to Windows Security log
+
+Explorer.exe
+	- Windows GUI shell (lets you see File System: hard drives, folders, files)
+	- The actual user shell environment. Hosts all user processes, cmd.exe
+	
+vmtoolsd 
+	- syncs virtual host time to local host, copy/pasting between environments, etc.
+	- probably indicates computer is either hosting VMs or is a VM
+
+}
+
+
+Use "wmic process get executablepath" to find the executable path of processes. Investigate autostart locations, and look for suspcious entries.
+	- NOT ACTIVE PROCESSES; static software on a system, typically in autorun / startup locations 

