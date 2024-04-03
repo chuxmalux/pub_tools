@@ -1,0 +1,176 @@
+
+https://redteam.guide                                                                                                                                                                                                                      
+
+{{{ What is Red Teaming ================================================================
+
+    dictionary definition is provided by Joe Vest and James Tubberville:                                                                                                                                                                       
+
+        Red Teaming is the process of using tactics, techniques and procedures (TTPs) to emulate a real-world threat, with the goal of measuring the effectiveness of the people, processes and technologies used to defend an environment.    
+
+        Red teams provide an adversarial perspective by challenging the assumptions made by an organisation and defenders
+
+
+//KEY DIFFERENCES
+        pentest 
+        - single tech staack focus (project lifecycle or compliance requirement (monthly/annual test)
+                - how many exploits
+                - no focus on detection/response 
+                - doesn't assess PEOPLE or PROCESSES
+
+                red team 
+                - clear objective defined by org (gan access to system, email account, service, etc.)
+                - CIA related 
+                - pentester uses personal TTPs. red teamer may study adversary TTPs to emulate 
+                - red team = holistic review of sec posture 
+                - red team = stealth / principle of least privilege: won't go after high PRIV accounts unless necessary
+                - if Bob from accounting = goal, GG
+
+===================================================================}}}
+
+{{{ OPSEC ================================================================                                                                                                                                                                        
+OPSEC: 'easy' by which actions can be observed by enemy intelligence 
+- every action leaves indicators, RT must understand: how well IoC are understood & likelihood they will see/respond
+- OPSEC != one directional. Red teamers can access defender internal systems like: SIEM, ticketing, response/procedure documentation, email, CHAT server, etc. 
+- wise operator assumes: 1. being monitored 2. team they're against is BETTER
+
+===================================================================}}}
+
+{{{'Primum non nocere'================================================================
+
+First, do no harm (Hippocratic Oath)
+- should not risk doing more harm than good
+- may have option to harm: disable sec controls (AV/host FW), add users to priv groups (local/domain admins), create various admin backdoors to system 
+... dont actually randsomware ur client. when in doubt seek advice from team lead / client contact
+
+===================================================================}}}
+
+{{{ ATTACK LIFECYCLES ================================================================
+
+// LOCKHEED CYBOR KILL CHAIN
+
+    Reconnaissance - scout a target and find potential attack vectors.
+    Weaponisation - develop a malicious payload.
+    Delivery - develop a means of delivering the payload.
+    Exploitation - the initial attack of delivering the weaponised payload.
+    Installation - installing persistent malware on the target.
+    Command & Control - establish a means of controlling compromised targets.
+    Actions on Objectives - achieve the operational goal (defacement, data theft, etc).
+
+
+// MANDIANT TARGETED ATTACK CYCLE
+https://www.mandiant.com/resources/insights/targeted-attack-lifecycle
+
+    Initial Reconnaissance - research the target systems and employees to develop a methodology for the intrusion.
+    Initial Compromise - execute malicious code on one or more targets via the attack vector planned during phase 1.
+    Establish Foothold - maintain continued control over a compromised system by installing persistent backdoors.
+    Escalate Privileges - exploit system vulnerabilities or misconfigurations to obtain local admin access to compromised systems.
+    Internal Reconnaissance - explore the target's internal infrastructure and environment.
+    Move Laterally - use credentials obtained from phase 4 to compromise additional systems.
+    Maintain Presence - maintain highly privileged access to domains and systems.
+    Complete Mission - accomplish the operational objective.
+
+
+
+
+
+===================================================================}}}
+
+{{{ Engagement Planning ================================================================
+
+// Scoping
+- not just pentester 'number of hosts/IP ranges'
+- building scenario for the engagement; environment required for RT to reach 'objectives'
+
+// Threat Model
+- emulate low level skidz, hacktivists, APTs
+- build threat profile corresponding to client's needs
+- how team emulates:
+        intents, motivations, capes, habits, TTPs
+- gather from: threat intel sources or mimic 
+        https://attack.mitre.org/matrices/enterprise/
+
+// Breach Model
+how RT gains access to target environment 
+- accordance with threat (OSINT and phishing)
+- or creds given by org ('assume breach' / 'ceded access')
+- have a backup plan if 1st plan fails (e.g. assume breach); red teaming = detection/response, less about prevention/ proving whether breach can happen 
+
+// Notifications / Announcements
+- how upper management decides to inform personnel (nobody/ everybody/ security+support teams)
+- answer depends on existing culture/relationships in org (consider: efficacy of RTE vs loss of trust)
+
+// RoE 
+- define engagement objectives
+- define targets (domains/IP ranges)
+- identify legal/ regulatory requirements & restrictions 
+- contain emergency contact list/ key persons in parties 
+
+- 'get out of jail letter' signed/authorised by client: if team is caught/apprehended by law enforcement 
+
+// Record Keeping & Deconfliction
+- maintain records of activity (termscreens, data model)
+- e.g. Cobal Srike maintains data model/ reporting templates of all activity (via client)
+        - commands run, target IP addresses/hostnames, payloods generated & file hash, etc.
+        - typically done separately 
+        - dates, times tools ran 
+
+// Data Handling 
+- follow organisational/regulatory/legal requirements for handling data
+        - e.g. creds (treat as confidential)
+        - PII/ PHI/ PFI (personal,medical,financial)
+
+// Duration
+- determine after scope/objs agreed. usually 4+weeks pending size/compexity
+
+// Cost 
+Consider
+- team = 2+ members (one lead ALWAYS)
+        - avg = 4 members (3 operators, 1 lead) 
+- most RT use commercial tools e.g. Cobalt Strike (licensing per costs)
+- public cloud for disposable infrastructure 
+- purchasing domain names for phishing campaign/C2 traffic 
+
+- cost of whole planning process, pre-engagement meetings, threat profiling, research, tools customization, infrax setup 
+
+
+
+
+
+
+
+
+
+===================================================================}}}
+
+{{{Post Engagement & Reporting================================================================
+
+Final report = CRITICAL 
+
+Most pentest reports usually:
+    Missing Patch for CVE-XXXX-XXXX
+    CVSS Score: 10
+    Rating: Critical
+    Recommendation: Install patch from Microsoft
+
+since red team = more holistic/systemic + scenario based, report = story focused 
+
+
+// ATTACK NARRITIVE 
+- observations made during engagement, in chron order 
+
+e.g. A vulnerability on this host was identified which allowed an elevation of privilege to that of a local administrator. This enabled the red team to obtain the credentials of other users on this host, which included a Domain Administrator. The red team did not observe any indication that this activity had been detected."
+
+// RECOMMENDATIONS
+- identify through two-way dialogue with blue team AFTER event 
+
+// IoCs
+- Red teams may provide IoCs in an annex to the report (domain names, IP addrs, artifact filenames, md5 checksums) 
+
+
+===================================================================}}}
+
+
+
+
+
+
