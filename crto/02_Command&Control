@@ -9,4 +9,30 @@
 
 in 2020 acquired by HelpSystems LLC.
 
+
+
+\\ start it (in lab, connect via SSH to attacker nix machine), then
+
+cd cobaltstrike/
+attacker@ubuntu ~/cobaltstrike> sudo ./teamserver 10.10.5.50 Passw0rd! c2-profiles/normal/webbug.profile
+
+•	10.10.5.50 // is the IP address of the Attacker Linux VM.
+•	Passw0rd! // the shared password used to connect from the Cobalt Strike client.
+        - shared by everyone
+•	webbug.profile // is an example Malleable C2 profile (covered in more detail later).
+                - optional
+               - profiles vary on choice of C2 comms e.g. HTTP/HTTPS, DNS, SMB, *TCP
+
+\\ via windows attacker, run CobaltStrike app 
+- alias: anything 
+- host: hosting cobalt/teamserver 
+- user: anything (shows to others)
+- passwd: shared teamserver passwd
+
+
+
 ===================================================================}}}
+
+
+
+

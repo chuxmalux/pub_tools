@@ -1,0 +1,95 @@
+{{{ EGRESS LISTENERS  ================================================================
+//defaults: HTTP/S and DNS
+        - how beacon encapsulates C2 traffic 
+        
+
+{{{ HTTP egress listener ================================================================
+// C2 over HTTP POST/GET requests 
+
+\\ CobaltStrike->Listeners->+ (add)
+
+-> name: http1              
+-> Payload: Beacon HTTP
+-> HTTP Hosts: host server (defaults IP, but use domain = more realistic)
+         can use multiple domain names, as long as all point to listening server
+        \\ nickelviper.com     
+         *** create & use own later w/PowerDNS (DNS resolver)
+         \\ thecave.com pointing to 10.10.5.50
+-> HTTP Host(Stager) = nickelviper.com     
+save 
+
+// confirm on nix/teamserver 
+sudo ss -lntp
+
+===================================================================}}}
+
+{{{ DNS egress listener ================================================================
+// send/receive C2 over DNS loop/response types: A, AAAA and TXT 
+        - TXT = default, can hold most amount of data 
+        \\ requirement: must create one or more DNS records for a domain the team server is authoritatie for 
+        \\ e.g. for nickelviper.com 
+        
+Name	Type	Data
+@	A	10.10.5.50
+ns1	A	10.10.5.50
+pics	NS	ns1.nickelviper.com.
+
+// now DNS beacon will perform lookup requests (e.g. <c2data>.pics.nickelviper.com), routed over Internet's DNS infrax 
+- will reach OUR TEAMSERVER bc - have setup appropriate records saying DNS server nsl.nickelviper.com = authoritative for pics subdomain
+
+
+\\ CobaltStrike->Listeners->+ (add)
+--> Name: dns1
+--> DNS host: pics.nickelviper.com
+--> DNS Host (stager): pics.nickelviper.com
+
+save 
+
+// confirm w/an arbitrary lookup 
+dig @ns1.nickelviper.com test.pics.nickelviper.com +short 
+        \\ ^^^ CONFIRM THIS
+
+
+
+===================================================================}}}
+
+
+===================================================================}}}
+
+
+{{{ PEER TO PEER LISTENERS ================================================================
+// Peer-to-peer (P2P) listeners differ from egress listeners because they don't communicate with the team server directly.  Instead, P2P listeners are designed to chain multiple Beacons together in parent/child relationships.  The primary reasons for doing this are:
+        1.	To reduce the number of hosts talking out to your team server, as the higher the traffic volume, the more likely it is to get spotted.
+        2.	To run Beacon on machines that can't even talk out of the network, e.g. in cases of firewall rules and other network segregations.
+
+
+// 2 types: SMB and raw TCP. CHILD/P2P beacons -> PARENT EGRESS beacons!
+        - they do NOT leave tgt network, e.g. teamserver wonlt listen on 445 smb 
+        - a child SMB/TCP beacon will be linked to an EGRESS HTTP/DNS beacon 
+
+
+{{{ SMB ================================================================
+
+-> Pipename (C2) ((named pipe) : msagent_55 // pretty well signatured 
+        -> OPSEC: emulate names know to be used by common apps or Windows 
+
+// list currently listening pipes for inspiration 
+PS C:\> ls \\.\pipe\
+        so 
+        ls \\.\pipe\ 
+
+Pipename(C2): TSVCPIPE-7db13c37-3a5c-48e5-87d2-cdbdd92ec621
+
+===================================================================}}}
+
+{{{ TCP ================================================================
+// will bind and listen on specified port num. can specify only localhost, but default is 0.0.0.0
+
+- choose name, listening port
+- set listen interfaces: local or defaukt 0.0.0.0
+
+===================================================================}}}
+
+
+
+===================================================================}}}
