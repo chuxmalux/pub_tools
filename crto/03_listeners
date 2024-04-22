@@ -2,7 +2,6 @@
 //defaults: HTTP/S and DNS
         - how beacon encapsulates C2 traffic 
         
-
 {{{ HTTP egress listener ================================================================
 // C2 over HTTP POST/GET requests 
 
@@ -91,5 +90,23 @@ Pipename(C2): TSVCPIPE-7db13c37-3a5c-48e5-87d2-cdbdd92ec621
 ===================================================================}}}
 
 
+
+===================================================================}}}
+
+
+{{{ PowerDNS ================================================================
+admin
+admin
+
+// create own domain 
+domain name  & extension - thecave.gub
+
+Name	Type	Status	TTL	Data	Comment	Edit	Delete	Changelog
+@	A	Active	60	10.10.5.50	points to root/ actually translates domain to 10.10.5.50	
+ns0	A	Active	60	10.10.5.50	nameserver. resolves back to the 10.10.5.50	
+traps	NS	Active	60	ns0.thecave.gub	traps subdomain, NS record points to the ns0 nameserver. ns0.thecave.gub is authoritative for this subdomain.
+
+
+- machines in lab must have PowerDNS configured as DNSresolver
 
 ===================================================================}}}
