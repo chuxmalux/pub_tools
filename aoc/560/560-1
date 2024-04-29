@@ -30,6 +30,49 @@
 
 {{{ Section: Nmap -O -sV, EyeWitness, Netcat, and NSE ================================================================
 
+nc -sv > -O
+
+//nc can scan port ranges 
+nc -nvz stuff.com 21-80
+
+// EyeWitness
+- can take nmap xml (webservers from version scans), take screenshots 
+- sort by visual similarity  (phones, printers, web servers)
+
+// shoutouts 
+- wpscan
+- nessus
+
+\\ probes
+For version scanning, Nmap bases its analysis of services on the contents of a file called nmap-service-probes, located in the Nmap directory. In that file, lines that start with "Probe" indicate the messages to send to target services, whereas lines that start with "match" indicate the response text to look for when identifying the given service.
+
+// example match line 
+match smtp m|^220 ([-\w_.]+) Microsoft ESMTP MAIL Service ready at| p/Microsoft Exchange smtpd/ o/Windows/ h/$1/ cpe:/a:microsoft:exchange_server/ cpe:/o:microsoft:windows/a
+ ([-\w_.]+) = hostname 
+ cpe: detected OS
+
+
+\\ LAB
+sudo nmap -n -sT -F -O --open 10.130.10.21-22
+// the -O option isn't as effective as it once was. On modern systems, the OS detection adds minimal to zero value, takes extra time, and can be confusing; not wroth doing 
+
+// nmap scripts 
+head /usr/share/nmap/scripts/script.db
+/usr/share/nmap/scripts
+
+// discover protocols 
+sudo nmap -n -PS445 -p 445 --open --script=smb-protocols 10.130.10.4,44
+// os discovery - smb
+sudo nmap -n -p 445 --open -Pn --script=smb-os-discovery.nse 10.130.10.44
+// ssh auth methods 
+sudo nmap -n --open -F --script=ssh-auth-methods 10.130.10.10
+
+TLDR: best to use -sV and -sC for pentesting, not using -sV = nmap may skip unidentified protocls 
+
+\\ Eyewitness
+
+nmap -n --open -PS80,443,8080 -p 80,8080,443 10.130.10.0/24 -oA /tmp/webservers
+/opt/eyewitness/Python/EyeWitness.py --web -x /tmp/webservers.xml
 
 
 ===================================================================}}}

