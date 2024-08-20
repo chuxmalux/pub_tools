@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <time.h> /* for setitimer */
 
-#include "queues.h"
+#include "aqueues.h"
 
 #ifdef DEBUG
 #define debug_printf(x) printf x
